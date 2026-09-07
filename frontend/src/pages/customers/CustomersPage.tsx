@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, Heart, Shirt, CreditCard, IndianRupee, Calendar, CheckCircle2, Trash2 } from 'lucide-react';
+import { Plus, Search, Users, Heart, Shirt, CreditCard, IndianRupee, Calendar, CheckCircle2, Trash2, Upload } from 'lucide-react';
+import ImportModal from '../../components/common/ImportModal';
 import { customerApi, paymentApi, projectApi } from '../../services/api';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import Modal from '../../components/ui/Modal';
@@ -13,6 +14,7 @@ export default function CustomersPage({ domainFilter }: { domainFilter?: 'WEDDIN
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'ALL' | 'WEDDING' | 'FASHION'>(domainFilter || 'ALL');
   const [showModal, setShowModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Client creation form state
   const [form, setForm] = useState({
@@ -185,12 +187,22 @@ export default function CustomersPage({ domainFilter }: { domainFilter?: 'WEDDIN
               : 'Complete client roster across Wedding & Fashion operations'}
           </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#C59B27] hover:bg-[#b58c1e] text-white rounded-xl text-sm font-semibold shadow-sm shadow-[#C59B27]/20 transition-all self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" /> Add Client
-        </button>
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-xl text-sm font-semibold shadow-sm transition-all cursor-pointer"
+          >
+            <Upload className="w-4 h-4 text-gray-500" /> Import CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#C59B27] hover:bg-[#b58c1e] text-white rounded-xl text-sm font-semibold shadow-sm shadow-[#C59B27]/20 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" /> Add Client
+          </button>
+        </div>
       </div>
 
       {/* Tabs & Search Bar */}
@@ -646,6 +658,15 @@ export default function CustomersPage({ domainFilter }: { domainFilter?: 'WEDDIN
           </form>
         </Modal>
       )}
-    </div>
+    
+      {/* CSV Bulk Import Modal */}
+      <ImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={load}
+        defaultClientType={domainFilter || "WEDDING"}
+        onImport={(rows) => customerApi.bulkImport(rows)}
+      />
+</div>
   );
 }

@@ -17,5 +17,10 @@ export const createCustomerSchema = z.object({
 
 export const updateCustomerSchema = createCustomerSchema.partial();
 
+export const bulkImportCustomerSchema = z.object({
+  customers: z.array(createCustomerSchema).min(1, 'At least one customer is required'),
+});
+
 export type CreateCustomerInput = z.infer<typeof createCustomerSchema>;
 export type UpdateCustomerInput = z.infer<typeof updateCustomerSchema>;
+export type BulkImportCustomerInput = z.infer<typeof bulkImportCustomerSchema>;

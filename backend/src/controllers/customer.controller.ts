@@ -180,3 +180,51 @@ export const deleteCustomer = asyncHandler(async (req: Request, res: Response) =
 
   res.json({ success: true, message: "Customer and all associated records deleted successfully" });
 });
+
+export const bulkImportCustomers = asyncHandler(async (req: Request, res: Response) => {
+  const { customers } = req.body;
+
+  if (!Array.isArray(customers) || customers.length === 0) {
+    throw ApiError.badRequest('No customer records provided for import');
+  }
+
+  // Find latest customer code number to sequence them continuously
+  const lastCustomer = await prisma.customer.findFirst({
+    orderBy: { createdAt: 'desc' },
+    select: { customerCode: true },
+  });
+  let currentNum = lastCustomer
+    ? parseInt(lastCustomer.customerCode.replace('CUST-', ''), 10) || 0
+    : 0;
+
+  const recordsToCreate = customers.map((c: any) => {
+    currentNum++;
+    const customerCode = `CUST-${String(currentNum).padStart(4, '0')}`;
+    return {
+      customerCode,
+      fullName: String(c.fullName || '').trim(),
+      phone: String(c.phone || '').trim(),
+      alternatePhone: c.alternatePhone ? String(c.alternatePhone).trim() : null,
+      email: c.email ? String(c.email).trim() : null,
+      address: c.address ? String(c.address).trim() : null,
+      city: c.city ? String(c.city).trim() : null,
+      state: c.state ? String(c.state).trim() : null,
+      pincode: c.pincode ? String(c.pincode).trim() : null,
+      source: c.source ? String(c.source).trim() : 'Import',
+      clientType: c.clientType === 'FASHION' ? ('FASHION' as const) : ('WEDDING' as const),
+      companyName: c.companyName ? String(c.companyName).trim() : null,
+      notes: c.notes ? String(c.notes).trim() : null,
+    };
+  });
+
+  const created = await prisma.$transaction(
+    recordsToCreate.map((record: any) => prisma.customer.create({ data: record }))
+  );
+
+  res.status(201).json({
+    success: true,
+    message: `Successfully imported ${created.length} clients`,
+    count: created.length,
+    data: created,
+  });
+});

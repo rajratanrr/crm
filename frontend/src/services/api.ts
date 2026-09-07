@@ -27,6 +27,7 @@ export const customerApi = {
   create: (data: any) => api.post('/customers', data),
   update: (id: string, data: any) => api.put(`/customers/${id}`, data),
   delete: (id: string) => api.delete(`/customers/${id}`),
+  bulkImport: (customers: any[]) => api.post("/customers/bulk-import", { customers }),
 };
 
 // Leads
