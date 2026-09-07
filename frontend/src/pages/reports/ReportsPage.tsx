@@ -49,7 +49,7 @@ export default function ReportsPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}K`} />
-                    <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                    <Tooltip formatter={(v: any) => formatCurrency(Number(v) || 0)} />
                     <Bar dataKey="amount" fill="#6366f1" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -77,7 +77,7 @@ export default function ReportsPage() {
               <div><h3 className="text-lg font-semibold mb-4">Lead Status Distribution</h3>
                 <div className="flex items-center justify-center">
                   <ResponsiveContainer width={400} height={350}>
-                    <PieChart><Pie data={data} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={130} label={({status, count}) => `${status}: ${count}`}>
+                    <PieChart><Pie data={data} dataKey="count" nameKey="status" cx="50%" cy="50%" outerRadius={130} label={((entry: any) => (entry?.status || "") + ": " + (entry?.count || 0)) as any}>
                       {data.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie><Tooltip /></PieChart>
                   </ResponsiveContainer></div></div>
@@ -97,7 +97,7 @@ export default function ReportsPage() {
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={data}><CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `₹${(v/1000).toFixed(0)}K`} />
-                    <Tooltip formatter={(v: number) => formatCurrency(v)} /><Bar dataKey="totalRevenue" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                    <Tooltip formatter={(v: any) => formatCurrency(Number(v) || 0)} /><Bar dataKey="totalRevenue" fill="#6366f1" radius={[4, 4, 0, 0]} />
                   </BarChart></ResponsiveContainer></div>
             )}
             {tab === 'team' && data && (

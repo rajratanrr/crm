@@ -67,7 +67,7 @@ export default function DashboardPage() {
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}K`} />
-              <Tooltip formatter={(v: number) => formatCurrency(v)} />
+              <Tooltip formatter={(v: any) => formatCurrency(Number(v) || 0)} />
               <Bar dataKey="amount" fill="#6366f1" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
