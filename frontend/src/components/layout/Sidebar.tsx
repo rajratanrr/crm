@@ -208,7 +208,7 @@ export default function Sidebar() {
             </span>
           </div>
           <div className="text-[10px] text-gray-400 text-center font-medium">
-            IPC Studios CRM &bull; PostgreSQL
+            Photo Fashion Studio CRM &bull; PostgreSQL
           </div>
         </div>
       )}

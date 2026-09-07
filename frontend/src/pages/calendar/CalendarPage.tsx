@@ -150,7 +150,7 @@ export default function CalendarPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-gray-900">
-              IPC Master Calendar
+              Studio Master Calendar
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FAF5EB] text-[#9A7318] border border-[#C59B27]/30">
               Shoots & Bookings

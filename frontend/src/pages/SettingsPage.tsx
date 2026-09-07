@@ -124,11 +124,11 @@ export default function SettingsPage() {
             Settings & User Access
           </h1>
           <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FAF5EB] text-[#9A7318] border border-[#C59B27]/30">
-            IPC Administration
+            Studio Administration
           </span>
         </div>
         <p className="text-sm text-gray-500 mt-0.5">
-          Manage system configurations, your profile, and employee login credentials for IPC Studios CRM
+          Manage system configurations, your profile, and employee login credentials for Photo Fashion Studio CRM
         </p>
       </div>
 
@@ -153,7 +153,7 @@ export default function SettingsPage() {
             </div>
           </div>
           <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 text-xs text-gray-600 space-y-1 sm:text-right">
-            <p className="font-semibold text-gray-900">IPC Studios CRM v2.0</p>
+            <p className="font-semibold text-gray-900">Photo Fashion Studio CRM v2.0</p>
             <p className="text-emerald-600 font-medium flex items-center gap-1 sm:justify-end">
               <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> PostgreSQL Database Connected
             </p>

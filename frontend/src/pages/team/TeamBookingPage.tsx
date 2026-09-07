@@ -131,7 +131,7 @@ export default function TeamBookingPage() {
               Team Booking & Shoot Rosters
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#FAF5EB] text-[#9A7318] border border-[#C59B27]/30">
-              IPC Crew
+              Studio Crew
             </span>
           </div>
           <p className="text-sm text-gray-500 mt-0.5">
