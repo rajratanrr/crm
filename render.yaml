@@ -8,7 +8,7 @@ services:
     plan: free
     region: oregon
     rootDir: backend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     autoDeploy: true
     envVars:
@@ -30,7 +30,7 @@ services:
     name: photo-fashion-studio
     runtime: static
     rootDir: frontend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install --include=dev && npm run build
     staticPublishPath: dist
     autoDeploy: true
     routes:
