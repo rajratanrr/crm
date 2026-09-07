@@ -8,14 +8,12 @@ services:
     plan: free
     region: oregon
     rootDir: backend
-    buildCommand: npm install && npm run db:generate && npm run build
+    buildCommand: npm install && npm run build
     startCommand: npm start
     autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
       - key: DATABASE_URL
         value: postgresql://neondb_owner:npg_LZe2hqErak9J@ep-cool-darkness-ax32s669-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&pgbouncer=true&connect_timeout=30&pool_timeout=30
       - key: DIRECT_URL
