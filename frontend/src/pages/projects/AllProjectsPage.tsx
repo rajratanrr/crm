@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search, Filter, Heart, Shirt, Calendar, IndianRupee, Trash2, Edit2, Camera, Eye } from 'lucide-react';
-import { projectApi, customerApi, formatCurrency, formatDate } from '../../services/api';
+import { Plus, Search, Filter, Heart, Shirt, Calendar, IndianRupee, Trash2, Edit2, Camera, Eye, CreditCard } from 'lucide-react';
+import { projectApi, customerApi, paymentApi, formatCurrency, formatDate } from '../../services/api';
 import StatusBadge from '../../components/ui/StatusBadge';
 import Modal from '../../components/ui/Modal';
 import toast from 'react-hot-toast';
@@ -16,6 +16,61 @@ export default function AllProjectsPage({ defaultType }: { defaultType?: 'WEDDIN
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
+
+  // Payment Modal State
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<any>(null);
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '',
+    paymentMethod: 'UPI',
+    paymentType: 'ADVANCE',
+    paymentDate: new Date().toISOString().split('T')[0],
+    transactionId: '',
+    notes: '',
+  });
+
+  const openPaymentModal = (p: any) => {
+    setSelectedProject(p);
+    setPaymentForm({
+      amount: '',
+      paymentMethod: 'UPI',
+      paymentType: (p.totalPaid || 0) > 0 ? 'INSTALLMENT' : 'ADVANCE',
+      paymentDate: new Date().toISOString().split('T')[0],
+      transactionId: '',
+      notes: '',
+    });
+    setShowPaymentModal(true);
+  };
+
+  const handleRecordPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(paymentForm.amount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error('Please enter a valid payment amount greater than ₹0');
+      return;
+    }
+    setPaymentSubmitting(true);
+    try {
+      await paymentApi.create({
+        customerId: selectedProject.customer?.id || selectedProject.customerId,
+        projectId: selectedProject.id,
+        amount: amt,
+        paymentMethod: paymentForm.paymentMethod,
+        paymentType: paymentForm.paymentType,
+        paymentDate: paymentForm.paymentDate,
+        transactionId: paymentForm.transactionId || undefined,
+        notes: paymentForm.notes || undefined,
+      });
+      toast.success(`Payment of ₹${amt.toLocaleString('en-IN')} recorded successfully!`);
+      setShowPaymentModal(false);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setPaymentSubmitting(false);
+    }
+  };
 
   // Form State
   const [projectType, setProjectType] = useState<'WEDDING' | 'FASHION'>(defaultType || 'WEDDING');
@@ -344,7 +399,15 @@ export default function AllProjectsPage({ defaultType }: { defaultType?: 'WEDDIN
                       {formatCurrency(p.remainingAmount)}
                     </td>
                     <td className="py-3.5 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => openPaymentModal(p)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg transition-all shadow-xs"
+                          title="Record payment received for this project"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          + Payment
+                        </button>
                         <button
                           onClick={() => openEditModal(p)}
                           className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
@@ -650,6 +713,136 @@ export default function AllProjectsPage({ defaultType }: { defaultType?: 'WEDDIN
           </div>
         </form>
       </Modal>
+
+      {/* Record Payment Modal */}
+      {selectedProject && (
+        <Modal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          title={`Record Payment — ${selectedProject.name}`}
+          size="md"
+        >
+          <form onSubmit={handleRecordPayment} className="space-y-4">
+            <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 flex items-center justify-between text-xs">
+              <div>
+                <p className="font-bold text-gray-900">{selectedProject.name}</p>
+                <p className="text-[11px] text-gray-500">
+                  Client: {selectedProject.customer?.fullName || 'Client'} &bull; Budget: {formatCurrency(selectedProject.budget || 0)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-gray-500 uppercase font-semibold">Remaining Due</p>
+                <p className="text-sm font-bold text-amber-600">
+                  {formatCurrency(selectedProject.remainingAmount ?? (selectedProject.budget || 0))}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Payment Amount (₹) *
+              </label>
+              <div className="relative">
+                <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  step="any"
+                  placeholder="Enter amount received"
+                  value={paymentForm.amount}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                  className="w-full pl-9 pr-3 py-2 text-sm font-bold text-gray-900 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#C59B27]"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Payment Method</label>
+                <select
+                  value={paymentForm.paymentMethod}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#C59B27] bg-white font-medium"
+                >
+                  <option value="UPI">UPI / GPay / PhonePe</option>
+                  <option value="BANK_TRANSFER">Bank Transfer (NEFT/RTGS/IMPS)</option>
+                  <option value="CASH">Cash</option>
+                  <option value="CARD">Credit / Debit Card</option>
+                  <option value="CHEQUE">Cheque</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Payment Stage</label>
+                <select
+                  value={paymentForm.paymentType}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, paymentType: e.target.value })}
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#C59B27] bg-white font-medium"
+                >
+                  <option value="ADVANCE">Booking Advance</option>
+                  <option value="INSTALLMENT">Stage / Installment</option>
+                  <option value="FINAL_PAYMENT">Final Settlement</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Payment Date *</label>
+                <input
+                  required
+                  type="date"
+                  value={paymentForm.paymentDate}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })}
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#C59B27]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Transaction / Ref # (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. UPI Ref / Cheque No"
+                  value={paymentForm.transactionId}
+                  onChange={(e) => setPaymentForm({ ...paymentForm, transactionId: e.target.value })}
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#C59B27]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Notes / Remarks</label>
+              <input
+                type="text"
+                placeholder="e.g. Advance paid for wedding shoot"
+                value={paymentForm.notes}
+                onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#C59B27]"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setShowPaymentModal(false)}
+                className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={paymentSubmitting}
+                className="px-5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm transition-all disabled:opacity-50"
+              >
+                {paymentSubmitting ? 'Recording...' : 'Confirm Payment'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }
