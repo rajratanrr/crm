@@ -181,7 +181,7 @@ export default function SettingsPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => copyToClipboard(`IPC Studios CRM Login:\nURL: http://localhost:5173/login\nEmail: ${createdCredentials.email}\nPassword: ${createdCredentials.pass}`)}
+              onClick={() => copyToClipboard(`Photo Fashion Studio (PFS) CRM Login:\nURL: http://localhost:5173/login\nEmail: ${createdCredentials.email}\nPassword: ${createdCredentials.pass}`)}
               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm"
             >
               <Copy className="w-3.5 h-3.5" /> Copy Details

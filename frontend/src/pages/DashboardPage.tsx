@@ -79,7 +79,7 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase bg-[#C59B27]/20 text-[#D4AF37] border border-[#C59B27]/30">
-              IPC Studios
+              PFS
             </span>
             <span className="text-xs text-stone-400">Wedding &bull; Fashion &bull; Creative</span>
           </div>
