@@ -1,9 +1,10 @@
+import { prisma } from "../lib/prisma";
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 
-const prisma = new PrismaClient();
+
 
 // ─── MODELS ──────────────────────────────────────────
 

@@ -1,9 +1,10 @@
+import { prisma } from "../lib/prisma";
 import { Request, Response } from 'express';
 import { PrismaClient, BusinessDomain, PaymentMethod, PaymentType } from '@prisma/client';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 
-const prisma = new PrismaClient();
+
 
 export const getPayments = asyncHandler(async (req: Request, res: Response) => {
   const { domain, projectId, contractId, customerId, search, page = '1', limit = '50' } = req.query as Record<string, string>;

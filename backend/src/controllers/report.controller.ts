@@ -1,8 +1,9 @@
+import { prisma } from "../lib/prisma";
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+
 import { asyncHandler } from '../utils/asyncHandler';
 
-const prisma = new PrismaClient();
+
 
 export const getRevenueReport = asyncHandler(async (req: Request, res: Response) => {
   const payments = await prisma.payment.findMany({ select: { amount: true, paymentDate: true, paymentMethod: true }, orderBy: { paymentDate: 'asc' } });

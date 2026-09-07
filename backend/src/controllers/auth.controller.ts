@@ -1,13 +1,14 @@
+import { prisma } from "../lib/prisma";
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+
 import { config } from '../config';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { AuthRequest } from '../middleware/auth';
 
-const prisma = new PrismaClient();
+
 
 const signToken = (userId: string, role: string): string => {
   return jwt.sign({ userId, role }, config.jwtSecret, {

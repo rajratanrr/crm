@@ -1,9 +1,10 @@
+import { prisma } from "../lib/prisma";
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+
 import { asyncHandler } from '../utils/asyncHandler';
 import { AuthRequest } from '../middleware/auth';
 
-const prisma = new PrismaClient();
+
 
 export const getNotifications = asyncHandler(async (req: AuthRequest, res: Response) => {
   const notifications = await prisma.notification.findMany({

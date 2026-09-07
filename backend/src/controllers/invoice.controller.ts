@@ -1,10 +1,11 @@
+import { prisma } from "../lib/prisma";
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { generateInvoiceNumber } from '../utils/generateCode';
 
-const prisma = new PrismaClient();
+
 
 export const getInvoices = asyncHandler(async (req: Request, res: Response) => {
   const { status, search, page = '1', limit = '20' } = req.query as any;

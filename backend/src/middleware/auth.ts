@@ -1,10 +1,11 @@
+import { prisma } from "../lib/prisma";
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { ApiError } from '../utils/ApiError';
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+
+
 
 export interface AuthRequest extends Request {
   user?: {

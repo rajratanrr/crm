@@ -1,10 +1,11 @@
+import { prisma } from "../lib/prisma";
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { generateCustomerCode } from '../utils/generateCode';
 
-const prisma = new PrismaClient();
+
 
 export const getCustomers = asyncHandler(async (req: Request, res: Response) => {
   const { search, city, source, clientType, page = '1', limit = '50' } = req.query as any;
