@@ -37,8 +37,8 @@ npm run dev
 
 ### 4. Access the App
 - Frontend: http://localhost:5173
-- Backend API: http://localhost:5000/api
-- Health Check: http://localhost:5000/api/health
+- Backend API: http://localhost:5001/api
+- Health Check: http://localhost:5001/api/health
 
 ### 📧 Login Credentials
 | Email | Password | Role |
