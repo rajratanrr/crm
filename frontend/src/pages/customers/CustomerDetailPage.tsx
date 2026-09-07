@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Phone, Mail, MapPin, Plus, IndianRupee } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Plus, IndianRupee, Trash2 } from 'lucide-react';
 import { customerApi, interactionApi, paymentApi, projectApi } from '../../services/api';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import StatusBadge from '../../components/ui/StatusBadge';
@@ -60,6 +60,17 @@ export default function CustomerDetailPage() {
     setShowPaymentModal(true);
   };
 
+  const handleDeleteCustomer = async () => {
+    if (!window.confirm(`Are you sure you want to delete client "${customer.fullName}" and all associated records?`)) return;
+    try {
+      await customerApi.delete(customer.id);
+      toast.success(`Client "${customer.fullName}" deleted`);
+      navigate('/customers');
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to delete client');
+    }
+  };
+
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = parseFloat(paymentForm.amount);
@@ -110,12 +121,21 @@ export default function CustomerDetailPage() {
         >
           <ArrowLeft className="w-4 h-4" /> Back to Customers
         </button>
-        <button
-          onClick={openPaymentModal}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-all"
-        >
-          <Plus className="w-4 h-4" /> Record Payment
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDeleteCustomer}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 border border-red-200 rounded-xl transition-all"
+            title="Delete this client and associated records"
+          >
+            <Trash2 className="w-4 h-4" /> Delete Client
+          </button>
+          <button
+            onClick={openPaymentModal}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4" /> Record Payment
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">

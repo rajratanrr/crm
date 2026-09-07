@@ -130,13 +130,58 @@ export const updateCustomer = asyncHandler(async (req: Request, res: Response) =
 });
 
 export const deleteCustomer = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
   const existing = await prisma.customer.findUnique({
-    where: { id: req.params.id },
-    include: { _count: { select: { contracts: true, events: true } } },
+    where: { id },
   });
-  if (!existing) throw ApiError.notFound('Customer not found');
-  if (existing._count.contracts > 0) throw ApiError.badRequest('Cannot delete customer with existing contracts');
+  if (!existing) throw ApiError.notFound("Customer not found");
 
-  await prisma.customer.delete({ where: { id: req.params.id } });
-  res.json({ success: true, message: 'Customer deleted' });
+  // 1. Delete associated payments
+  await prisma.payment.deleteMany({ where: { customerId: id } });
+
+  // 2. Delete contract items & contracts
+  const contracts = await prisma.contract.findMany({ where: { customerId: id }, select: { id: true } });
+  const contractIds = contracts.map(c => c.id);
+  if (contractIds.length > 0) {
+    await prisma.contractItem.deleteMany({ where: { contractId: { in: contractIds } } });
+    await prisma.contract.deleteMany({ where: { customerId: id } });
+  }
+
+  // 3. Delete invoice items & invoices
+  const invoices = await prisma.invoice.findMany({ where: { customerId: id }, select: { id: true } });
+  const invoiceIds = invoices.map(i => i.id);
+  if (invoiceIds.length > 0) {
+    await prisma.invoiceItem.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
+    await prisma.invoice.deleteMany({ where: { customerId: id } });
+  }
+
+  // 4. Delete event assignments, subEvents, & events
+  const events = await prisma.event.findMany({ where: { customerId: id }, select: { id: true } });
+  const eventIds = events.map(e => e.id);
+  if (eventIds.length > 0) {
+    await prisma.eventAssignment.deleteMany({ where: { eventId: { in: eventIds } } });
+    await prisma.subEvent.deleteMany({ where: { eventId: { in: eventIds } } });
+    await prisma.event.deleteMany({ where: { customerId: id } });
+  }
+
+  // 5. Delete deliverables & tasks linked to customer or customer projects
+  const projects = await prisma.project.findMany({ where: { customerId: id }, select: { id: true } });
+  const projectIds = projects.map(p => p.id);
+  if (projectIds.length > 0) {
+    await prisma.deliverable.deleteMany({ where: { projectId: { in: projectIds } } });
+    await prisma.task.deleteMany({ where: { projectId: { in: projectIds } } });
+    await prisma.project.deleteMany({ where: { customerId: id } });
+  } else {
+    await prisma.task.deleteMany({ where: { customerId: id } });
+  }
+
+  // 6. Delete interactions, studio bookings, leads
+  await prisma.interaction.deleteMany({ where: { customerId: id } });
+  await prisma.studioBooking.deleteMany({ where: { customerId: id } });
+  await prisma.lead.updateMany({ where: { customerId: id }, data: { customerId: null } });
+
+  // 7. Delete customer
+  await prisma.customer.delete({ where: { id } });
+
+  res.json({ success: true, message: "Customer and all associated records deleted successfully" });
 });

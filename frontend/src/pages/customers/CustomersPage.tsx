@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, Heart, Shirt, CreditCard, IndianRupee, Calendar, CheckCircle2 } from 'lucide-react';
+import { Plus, Search, Users, Heart, Shirt, CreditCard, IndianRupee, Calendar, CheckCircle2, Trash2 } from 'lucide-react';
 import { customerApi, paymentApi, projectApi } from '../../services/api';
 import { formatCurrency, formatDate } from '../../lib/utils';
 import Modal from '../../components/ui/Modal';
@@ -121,6 +121,17 @@ export default function CustomersPage({ domainFilter }: { domainFilter?: 'WEDDIN
   };
 
   // Submit payment
+  const handleDeleteCustomer = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete client "${name}" and all associated records?`)) return;
+    try {
+      await customerApi.delete(id);
+      toast.success(`Client "${name}" deleted`);
+      load();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to delete client');
+    }
+  };
+
   const handleRecordPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = Number(paymentForm.amount);
@@ -314,14 +325,23 @@ export default function CustomersPage({ domainFilter }: { domainFilter?: 'WEDDIN
                       {formatCurrency(c.remainingAmount || 0)}
                     </td>
                     <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => openPaymentModal(c)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm transition-all"
-                        title="Record payment received from this client"
-                      >
-                        <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
-                        + Payment
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => openPaymentModal(c)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm transition-all"
+                          title="Record payment received from this client"
+                        >
+                          <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                          + Payment
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCustomer(c.id, c.fullName)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete client"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

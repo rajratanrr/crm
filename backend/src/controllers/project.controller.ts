@@ -228,6 +228,31 @@ export const updateProject = asyncHandler(async (req: Request, res: Response) =>
 
 export const deleteProject = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
+  const existing = await prisma.project.findUnique({ where: { id } });
+  if (!existing) throw new ApiError(404, "Project not found");
+
+  // 1. Delete contracts linked to this project
+  const contracts = await prisma.contract.findMany({ where: { projectId: id }, select: { id: true } });
+  const contractIds = contracts.map(c => c.id);
+  if (contractIds.length > 0) {
+    await prisma.contractItem.deleteMany({ where: { contractId: { in: contractIds } } });
+    await prisma.contract.deleteMany({ where: { projectId: id } });
+  }
+
+  // 2. Delete payments linked to this project
+  await prisma.payment.deleteMany({ where: { projectId: id } });
+
+  // 3. Delete tasks and deliverables linked to this project
+  await prisma.deliverable.deleteMany({ where: { projectId: id } });
+  await prisma.task.deleteMany({ where: { projectId: id } });
+
+  // 4. Delete studio bookings linked to this project
+  await prisma.studioBooking.deleteMany({ where: { projectId: id } });
+
+  // 5. Unlink events
+  await prisma.event.updateMany({ where: { projectId: id }, data: { projectId: null } });
+
+  // 6. Delete project
   await prisma.project.delete({ where: { id } });
-  res.json({ success: true, message: 'Project deleted successfully' });
+  res.json({ success: true, message: "Project deleted successfully" });
 });
