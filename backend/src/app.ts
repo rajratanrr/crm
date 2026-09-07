@@ -30,13 +30,19 @@ import expenseRoutes from './routes/expense.routes';
 const app = express();
 
 // Middleware
-app.use(cors({ origin: config.frontendUrl, credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow any origin in production or development to ensure frontend connectivity
+    callback(null, true);
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'IPC Studios CRM API is running', timestamp: new Date().toISOString() });
+  res.json({ success: true, message: 'Photo Fashion Studio CRM API is running', timestamp: new Date().toISOString() });
 });
 
 // API Routes

@@ -1,0 +1,49 @@
+services:
+  # =========================================================
+  # Photo Fashion Studio - Backend API Service
+  # =========================================================
+  - type: web
+    name: studio-crm-backend
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: npm install && npm run db:generate && npm run build
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_LZe2hqErak9J@ep-cool-darkness-ax32s669-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&pgbouncer=true&connect_timeout=30&pool_timeout=30
+      - key: DIRECT_URL
+        value: postgresql://neondb_owner:npg_LZe2hqErak9J@ep-cool-darkness-ax32s669.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require&connect_timeout=30
+      - key: JWT_SECRET
+        value: studio-crm-super-secret-jwt-key-change-in-production-2024
+      - key: FRONTEND_URL
+        value: "*"
+
+  # =========================================================
+  # Photo Fashion Studio - Frontend Web App (Static Site)
+  # =========================================================
+  - type: web
+    name: photo-fashion-studio
+    runtime: static
+    plan: free
+    region: oregon
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: studio-crm-backend
+          property: host
