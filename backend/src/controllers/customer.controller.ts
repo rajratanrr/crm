@@ -147,20 +147,15 @@ export const deleteCustomer = asyncHandler(async (req: Request, res: Response) =
     await prisma.contract.deleteMany({ where: { customerId: id } });
   }
 
-  // 3. Delete invoice items & invoices
-  const invoices = await prisma.invoice.findMany({ where: { customerId: id }, select: { id: true } });
-  const invoiceIds = invoices.map(i => i.id);
-  if (invoiceIds.length > 0) {
-    await prisma.invoiceItem.deleteMany({ where: { invoiceId: { in: invoiceIds } } });
-    await prisma.invoice.deleteMany({ where: { customerId: id } });
-  }
+  // 3. Delete invoices
+  await prisma.invoice.deleteMany({ where: { customerId: id } });
 
   // 4. Delete event assignments, subEvents, & events
   const events = await prisma.event.findMany({ where: { customerId: id }, select: { id: true } });
   const eventIds = events.map(e => e.id);
   if (eventIds.length > 0) {
     await prisma.eventAssignment.deleteMany({ where: { eventId: { in: eventIds } } });
-    await prisma.subEvent.deleteMany({ where: { eventId: { in: eventIds } } });
+    await prisma.eventSubEvent.deleteMany({ where: { eventId: { in: eventIds } } });
     await prisma.event.deleteMany({ where: { customerId: id } });
   }
 
