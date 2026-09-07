@@ -120,13 +120,13 @@ export default function Sidebar() {
       {/* Brand Header */}
       <div className="h-20 flex items-center px-4 border-b border-gray-100/90 justify-between bg-white select-none">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D4AF37] via-[#C59B27] to-[#9A7318] flex items-center justify-center flex-shrink-0 shadow-md shadow-[#C59B27]/20 text-white font-bold text-lg tracking-wider">
-            IPC
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D4AF37] via-[#C59B27] to-[#9A7318] flex items-center justify-center flex-shrink-0 shadow-md shadow-[#C59B27]/20 text-white font-bold text-sm tracking-wider">
+            PFS
           </div>
           {!collapsed && (
             <div className="flex flex-col min-w-0">
-              <span className="font-bold text-base tracking-tight text-gray-900 leading-tight">
-                IPC Studios
+              <span className="font-bold text-sm tracking-tight text-gray-900 leading-snug">
+                Photo Fashion Studio
               </span>
               <span className="text-[9px] font-semibold tracking-wider text-[#B8860B] uppercase mt-0.5">
                 WEDDING &bull; FASHION &bull; CREATIVE
