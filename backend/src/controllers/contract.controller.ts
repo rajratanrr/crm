@@ -25,6 +25,7 @@ export const getContracts = asyncHandler(async (req: Request, res: Response) => 
       include: {
         customer: { select: { id: true, fullName: true, phone: true } },
         event: { select: { id: true, eventName: true, eventType: true } },
+        project: { select: { id: true, name: true, projectType: true, projectNumber: true } },
         package: { select: { id: true, name: true } },
         payments: { select: { amount: true } },
       },

@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
+import { generateContractNumber } from '../utils/generateCode';
 
 
 
@@ -140,6 +141,27 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
     include: { customer: true },
   });
 
+  const budgetNum = Number(budget) || 0;
+  if (budgetNum > 0) {
+    try {
+      const contractNumber = await generateContractNumber();
+      await prisma.contract.create({
+        data: {
+          contractNumber,
+          customerId,
+          projectId: project.id,
+          contractDate: new Date(startDate),
+          subtotal: budgetNum,
+          finalAmount: budgetNum,
+          status: "SIGNED",
+          termsAndConditions: `Service agreement for ${name} (${project.projectType})`,
+        },
+      });
+    } catch (contractErr) {
+      console.error("Failed to auto-create contract for project:", contractErr);
+    }
+  }
+
   res.status(201).json({ success: true, data: project });
 });
 
@@ -150,7 +172,38 @@ export const updateProject = asyncHandler(async (req: Request, res: Response) =>
   if (data.startDate) data.startDate = new Date(data.startDate);
   if (data.endDate) data.endDate = new Date(data.endDate);
   if (data.weddingDate) data.weddingDate = new Date(data.weddingDate);
-  if (data.budget !== undefined) data.budget = Number(data.budget);
+  if (data.budget !== undefined) {
+    const newBudget = Number(data.budget);
+    data.budget = newBudget;
+    try {
+      const existingContract = await prisma.contract.findFirst({ where: { projectId: id } });
+      if (existingContract) {
+        await prisma.contract.update({
+          where: { id: existingContract.id },
+          data: { subtotal: newBudget, finalAmount: newBudget },
+        });
+      } else if (newBudget > 0) {
+        const prj = await prisma.project.findUnique({ where: { id } });
+        if (prj) {
+          const contractNumber = await generateContractNumber();
+          await prisma.contract.create({
+            data: {
+              contractNumber,
+              customerId: prj.customerId,
+              projectId: prj.id,
+              contractDate: prj.startDate,
+              subtotal: newBudget,
+              finalAmount: newBudget,
+              status: 'SIGNED',
+              termsAndConditions: `Service agreement for ${prj.name} (${prj.projectType})`,
+            },
+          });
+        }
+      }
+    } catch (syncErr) {
+      console.error("Failed to sync contract on project budget update:", syncErr);
+    }
+  }
 
   delete data.id;
   delete data.createdAt;

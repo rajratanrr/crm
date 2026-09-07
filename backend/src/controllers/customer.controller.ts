@@ -34,8 +34,20 @@ export const getCustomers = asyncHandler(async (req: Request, res: Response) => 
         _count: { select: { events: true, contracts: true, projects: true } },
         contracts: {
           select: {
+            id: true,
+            projectId: true,
             finalAmount: true,
-            payments: { select: { amount: true } },
+          },
+        },
+        projects: {
+          select: {
+            id: true,
+            budget: true,
+          },
+        },
+        payments: {
+          select: {
+            amount: true,
           },
         },
       },
@@ -44,17 +56,22 @@ export const getCustomers = asyncHandler(async (req: Request, res: Response) => 
   ]);
 
   const data = customers.map((c) => {
-    const totalContractValue = c.contracts.reduce((sum, con) => sum + Number(con.finalAmount), 0);
-    const totalPaid = c.contracts.reduce(
-      (sum, con) => sum + con.payments.reduce((psum, p) => psum + Number(p.amount), 0),
-      0
-    );
-    const { contracts: _, ...customer } = c;
+    const contractSum = c.contracts.reduce((sum, con) => sum + Number(con.finalAmount), 0);
+    const linkedProjectIds = new Set(c.contracts.map(con => con.projectId).filter(Boolean));
+    const unlinkedProjectsSum = c.projects
+      .filter(p => !linkedProjectIds.has(p.id))
+      .reduce((sum, p) => sum + Number(p.budget), 0);
+    const totalContractValue = contractSum + unlinkedProjectsSum;
+
+    const totalPaid = c.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+    const remainingAmount = Math.max(0, totalContractValue - totalPaid);
+
+    const { contracts: _, projects: __, payments: ___, ...customer } = c;
     return {
       ...customer,
       totalContractValue,
       totalPaid,
-      remainingAmount: totalContractValue - totalPaid,
+      remainingAmount,
     };
   });
 
@@ -66,7 +83,8 @@ export const getCustomer = asyncHandler(async (req: Request, res: Response) => {
     where: { id: req.params.id },
     include: {
       events: { orderBy: { startDate: 'desc' } },
-      contracts: { include: { payments: true, event: true, package: true }, orderBy: { createdAt: 'desc' } },
+      contracts: { include: { payments: true, event: true, package: true, project: true }, orderBy: { createdAt: 'desc' } },
+      projects: { orderBy: { createdAt: 'desc' } },
       payments: { orderBy: { paymentDate: 'desc' } },
       invoices: { orderBy: { createdAt: 'desc' } },
       interactions: { orderBy: { interactionDate: 'desc' }, include: { user: { select: { name: true } } } },
@@ -77,12 +95,18 @@ export const getCustomer = asyncHandler(async (req: Request, res: Response) => {
 
   if (!customer) throw ApiError.notFound('Customer not found');
 
-  const totalContractValue = customer.contracts.reduce((sum, c) => sum + Number(c.finalAmount), 0);
+  const contractSum = customer.contracts.reduce((sum, con) => sum + Number(con.finalAmount), 0);
+  const linkedProjectIds = new Set(customer.contracts.map(con => con.projectId).filter(Boolean));
+  const unlinkedProjectsSum = (customer.projects || [])
+    .filter(p => !linkedProjectIds.has(p.id))
+    .reduce((sum, p) => sum + Number(p.budget), 0);
+  const totalContractValue = contractSum + unlinkedProjectsSum;
   const totalPaid = customer.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const remainingAmount = Math.max(0, totalContractValue - totalPaid);
 
   res.json({
     success: true,
-    data: { ...customer, totalContractValue, totalPaid, remainingAmount: totalContractValue - totalPaid },
+    data: { ...customer, totalContractValue, totalPaid, remainingAmount },
   });
 });
 
