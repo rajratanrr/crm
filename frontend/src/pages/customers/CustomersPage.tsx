@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Users, Heart, Shirt, CreditCard, IndianRupee, Calendar, CheckCircle2, Trash2, Upload } from 'lucide-react';
+import { Plus, Search, Users, Heart, Shirt, CreditCard, IndianRupee, Calendar, CheckCircle2, Trash2, Upload, Download } from 'lucide-react';
 import ImportModal from '../../components/common/ImportModal';
 import { customerApi, paymentApi, projectApi } from '../../services/api';
 import { formatCurrency, formatDate } from '../../lib/utils';
@@ -95,6 +95,60 @@ export default function CustomersPage({ domainFilter }: { domainFilter?: 'WEDDIN
     }
   };
 
+  const handleExportCSV = () => {
+    if (!customers || customers.length === 0) {
+      toast.error("No client records to export");
+      return;
+    }
+
+    const headers = [
+      "Customer Code",
+      "Full Name",
+      "Phone",
+      "Email",
+      "City",
+      "Client Type",
+      "Source",
+      "Total Contract Value (INR)",
+      "Total Paid (INR)",
+      "Remaining Balance (INR)",
+      "Company Name",
+      "Address",
+      "Notes",
+      "Created Date",
+    ];
+
+    const rows = customers.map((c) => [
+      c.customerCode || "",
+      c.fullName || "",
+      c.phone || "",
+      c.email || "",
+      c.city || "",
+      c.clientType || "",
+      c.source || "",
+      c.totalContractValue || 0,
+      c.totalPaid || 0,
+      c.remainingAmount || 0,
+      c.companyName || "",
+      c.address || "",
+      c.notes || "",
+      c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-IN") : "",
+    ]);
+
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((r) => r.map((val) => `\"${String(val).replace(/"/g, '""')}\"`).join(","))].join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `pfs_real_clients_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Exported ${customers.length} real client records to CSV!`);
+  };
+
   // Open Payment Modal for a specific client
   const openPaymentModal = async (c: any) => {
     setSelectedClient(c);
@@ -187,7 +241,15 @@ export default function CustomersPage({ domainFilter }: { domainFilter?: 'WEDDIN
               : 'Complete client roster across Wedding & Fashion operations'}
           </p>
         </div>
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+        <div className="flex items-center gap-2.5 self-start sm:self-auto flex-wrap">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-xl text-sm font-semibold shadow-sm transition-all cursor-pointer"
+            title="Download your real database records to CSV"
+          >
+            <Download className="w-4 h-4 text-gray-500" /> Export CSV ({customers.length})
+          </button>
           <button
             type="button"
             onClick={() => setShowImportModal(true)}

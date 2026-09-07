@@ -23,7 +23,7 @@ export default function ImportModal({
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Download Sample CSV
+  // Download Blank CSV Template (No random fake data)
   const handleDownloadSample = () => {
     const headers = [
       "Full Name",
@@ -36,53 +36,16 @@ export default function ImportModal({
       "Address",
       "Notes",
     ];
-    const sampleRows = [
-      [
-        "Rohan Sharma",
-        "9876543210",
-        "rohan@example.com",
-        "Mumbai",
-        "WEDDING",
-        "Instagram",
-        "",
-        "Bandra West",
-        "Wedding photography enquiry",
-      ],
-      [
-        "Vogue Apparel",
-        "9123456789",
-        "contact@vogueapparel.in",
-        "Delhi",
-        "FASHION",
-        "Direct",
-        "Vogue Studio",
-        "Connaught Place",
-        "Autumn Lookbook Shoot",
-      ],
-      [
-        "Priya & Kabir",
-        "9898989898",
-        "priya.k@gmail.com",
-        "Bengaluru",
-        "WEDDING",
-        "Referral",
-        "",
-        "Indiranagar",
-        "3-day destination wedding",
-      ],
-    ];
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...sampleRows.map((e) => e.map((val) => `"${val}"`).join(","))].join("\n");
-
+    const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n";
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "pfs_clients_sample_template.csv");
+    link.setAttribute("download", "pfs_blank_client_template.csv");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    toast.success("Downloaded blank client template (headers only)");
   };
 
   // Robust CSV Parser
@@ -258,9 +221,9 @@ export default function ImportModal({
         {/* Template helper banner */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-amber-50/70 border border-amber-200/80 rounded-xl text-sm text-amber-900">
           <div>
-            <span className="font-semibold block text-amber-950">Need a pre-formatted template?</span>
+            <span className="font-semibold block text-amber-950">Need a blank template to fill with your real data?</span>
             <p className="text-xs text-amber-800/80 mt-0.5">
-              Download our sample spreadsheet with standard column headers (Name, Phone, Email, City, etc.).
+              Download a clean template with the correct column headers (no fake/sample entries).
             </p>
           </div>
           <button
@@ -269,7 +232,7 @@ export default function ImportModal({
             className="flex items-center gap-2 px-3.5 py-2 bg-white hover:bg-amber-100/60 text-amber-900 font-medium text-xs rounded-lg border border-amber-300 shadow-sm transition-all whitespace-nowrap self-start sm:self-auto cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 text-[#C59B27]" />
-            Download Sample CSV
+            Download Blank Template (.csv)
           </button>
         </div>
 
