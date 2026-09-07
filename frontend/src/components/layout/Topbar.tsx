@@ -47,12 +47,12 @@ export default function Topbar() {
   }, []);
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-20">
-      <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
+    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between pl-14 pr-4 md:px-6 sticky top-0 z-20">
+      <h1 className="text-base md:text-lg font-semibold text-gray-900 truncate max-w-[130px] sm:max-w-none">{title}</h1>
 
       <div className="flex items-center gap-4">
         {/* Search */}
-        <div ref={searchRef} className="relative">
+        <div ref={searchRef} className="relative hidden sm:block">
           <div className="flex items-center bg-gray-50 rounded-lg px-3 py-2 w-72 border border-gray-200 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
             <Search className="w-4 h-4 text-gray-400 mr-2" />
             <input type="text" placeholder="Search customers, events, contracts..."
