@@ -20,6 +20,27 @@ import ReportsPage from './pages/reports/ReportsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
 
+// IPC Studios Dedicated Pages
+import AllProjectsPage from './pages/projects/AllProjectsPage';
+import WeddingProjectsPage from './pages/wedding/WeddingProjectsPage';
+import WeddingClientsPage from './pages/wedding/WeddingClientsPage';
+import WeddingPaymentsPage from './pages/wedding/WeddingPaymentsPage';
+import WeddingDeliverablesPage from './pages/wedding/WeddingDeliverablesPage';
+
+import FashionProjectsPage from './pages/fashion/FashionProjectsPage';
+import FashionClientsPage from './pages/fashion/FashionClientsPage';
+import FashionModelsPage from './pages/fashion/FashionModelsPage';
+import FashionGarmentsPage from './pages/fashion/FashionGarmentsPage';
+import FashionBookingsPage from './pages/fashion/FashionBookingsPage';
+import FashionPaymentsPage from './pages/fashion/FashionPaymentsPage';
+import FashionDeliverablesPage from './pages/fashion/FashionDeliverablesPage';
+
+import GlobalPaymentsPage from './pages/finance/GlobalPaymentsPage';
+import ExpensesPage from './pages/finance/ExpensesPage';
+import AttendancePage from './pages/team/AttendancePage';
+import TeamBookingPage from './pages/team/TeamBookingPage';
+import CalendarPage from './pages/calendar/CalendarPage';
+
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
@@ -46,18 +67,54 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+              {/* Main & CRM */}
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/customers" element={<CustomersPage />} />
               <Route path="/customers/:id" element={<CustomerDetailPage />} />
+              <Route path="/clients" element={<CustomersPage />} />
+              <Route path="/clients/:id" element={<CustomerDetailPage />} />
               <Route path="/leads" element={<LeadsPage />} />
+
+              {/* Projects & Schedule */}
+              <Route path="/projects" element={<AllProjectsPage />} />
+              <Route path="/tasks" element={<TasksPage />} />
+              <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/events" element={<EventsPage />} />
+              <Route path="/events/:id" element={<EventsPage />} />
+
+              {/* Wedding Shoot Domain */}
+              <Route path="/wedding/projects" element={<WeddingProjectsPage />} />
+              <Route path="/wedding/clients" element={<WeddingClientsPage />} />
+              <Route path="/wedding/packages" element={<PackagesPage />} />
+              <Route path="/wedding/contracts" element={<ContractsPage />} />
+              <Route path="/wedding/payments" element={<WeddingPaymentsPage />} />
+              <Route path="/wedding/deliverables" element={<WeddingDeliverablesPage />} />
+
+              {/* Studio Fashion Domain */}
+              <Route path="/fashion/projects" element={<FashionProjectsPage />} />
+              <Route path="/fashion/clients" element={<FashionClientsPage />} />
+              <Route path="/fashion/models" element={<FashionModelsPage />} />
+              <Route path="/fashion/garments" element={<FashionGarmentsPage />} />
+              <Route path="/fashion/bookings" element={<FashionBookingsPage />} />
+              <Route path="/fashion/payments" element={<FashionPaymentsPage />} />
+              <Route path="/fashion/deliverables" element={<FashionDeliverablesPage />} />
+
+              {/* Team & Operations */}
+              <Route path="/team" element={<TeamPage />} />
+              <Route path="/employees" element={<TeamPage />} />
+              <Route path="/attendance" element={<AttendancePage />} />
+              <Route path="/team-booking" element={<TeamBookingPage />} />
+
+              {/* Finance & Invoices */}
+              <Route path="/payments" element={<PaymentsPage />} />
+              <Route path="/finance/payments" element={<GlobalPaymentsPage />} />
+              <Route path="/invoices" element={<InvoicesPage />} />
+              <Route path="/expenses" element={<ExpensesPage />} />
+
+              {/* Preserved Studio Features */}
               <Route path="/packages" element={<PackagesPage />} />
               <Route path="/contracts" element={<ContractsPage />} />
               <Route path="/contracts/:id" element={<ContractsPage />} />
-              <Route path="/payments" element={<PaymentsPage />} />
-              <Route path="/invoices" element={<InvoicesPage />} />
-              <Route path="/team" element={<TeamPage />} />
-              <Route path="/tasks" element={<TasksPage />} />
               <Route path="/deliverables" element={<DeliverablesPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />

@@ -7,7 +7,7 @@ import { generateCustomerCode } from '../utils/generateCode';
 const prisma = new PrismaClient();
 
 export const getCustomers = asyncHandler(async (req: Request, res: Response) => {
-  const { search, city, source, page = '1', limit = '20' } = req.query as any;
+  const { search, city, source, clientType, page = '1', limit = '50' } = req.query as any;
   const skip = (parseInt(page) - 1) * parseInt(limit);
 
   const where: any = {};
@@ -21,6 +21,7 @@ export const getCustomers = asyncHandler(async (req: Request, res: Response) => 
   }
   if (city) where.city = { equals: city, mode: 'insensitive' };
   if (source) where.source = { equals: source, mode: 'insensitive' };
+  if (clientType && (clientType === 'WEDDING' || clientType === 'FASHION')) where.clientType = clientType;
 
   const [customers, total] = await Promise.all([
     prisma.customer.findMany({
@@ -29,7 +30,7 @@ export const getCustomers = asyncHandler(async (req: Request, res: Response) => 
       take: parseInt(limit),
       orderBy: { createdAt: 'desc' },
       include: {
-        _count: { select: { events: true, contracts: true } },
+        _count: { select: { events: true, contracts: true, projects: true } },
         contracts: {
           select: {
             finalAmount: true,

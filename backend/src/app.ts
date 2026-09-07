@@ -7,6 +7,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth.routes';
 import customerRoutes from './routes/customer.routes';
 import leadRoutes from './routes/lead.routes';
+import projectRoutes from './routes/project.routes';
 import eventRoutes from './routes/event.routes';
 import packageRoutes from './routes/package.routes';
 import contractRoutes from './routes/contract.routes';
@@ -20,6 +21,11 @@ import dashboardRoutes from './routes/dashboard.routes';
 import reportRoutes from './routes/report.routes';
 import notificationRoutes from './routes/notification.routes';
 import searchRoutes from './routes/search.routes';
+import modelRoutes from './routes/model.routes';
+import garmentRoutes from './routes/garment.routes';
+import bookingRoutes from './routes/booking.routes';
+import attendanceRoutes from './routes/attendance.routes';
+import expenseRoutes from './routes/expense.routes';
 
 const app = express();
 
@@ -30,13 +36,20 @@ app.use(express.urlencoded({ extended: true }));
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'Studio CRM API is running', timestamp: new Date().toISOString() });
+  res.json({ success: true, message: 'IPC Studios CRM API is running', timestamp: new Date().toISOString() });
 });
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/customers', customerRoutes);
+app.use('/api/clients', customerRoutes); // Alias for CRM Clients
 app.use('/api/leads', leadRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/models', modelRoutes);
+app.use('/api/garments', garmentRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/expenses', expenseRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/packages', packageRoutes);
 app.use('/api/contracts', contractRoutes);

@@ -10,6 +10,8 @@ export const createCustomerSchema = z.object({
   state: z.string().max(100).optional().nullable(),
   pincode: z.string().max(10).optional().nullable(),
   source: z.string().max(100).optional().nullable(),
+  clientType: z.enum(['WEDDING', 'FASHION']).optional().default('WEDDING'),
+  companyName: z.string().max(150).optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 

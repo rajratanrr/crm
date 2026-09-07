@@ -1,17 +1,26 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, BusinessDomain, PaymentMethod, PaymentType } from '@prisma/client';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 
 const prisma = new PrismaClient();
 
 export const getPayments = asyncHandler(async (req: Request, res: Response) => {
-  const { search, page = '1', limit = '20' } = req.query as any;
+  const { domain, projectId, contractId, customerId, search, page = '1', limit = '50' } = req.query as Record<string, string>;
   const skip = (parseInt(page) - 1) * parseInt(limit);
   const where: any = {};
+
+  if (domain && (domain === 'WEDDING' || domain === 'FASHION' || domain === 'GENERAL')) {
+    where.domain = domain as BusinessDomain;
+  }
+  if (projectId) where.projectId = projectId;
+  if (contractId) where.contractId = contractId;
+  if (customerId) where.customerId = customerId;
+
   if (search) {
     where.OR = [
       { customer: { fullName: { contains: search, mode: 'insensitive' } } },
+      { project: { name: { contains: search, mode: 'insensitive' } } },
       { contract: { contractNumber: { contains: search, mode: 'insensitive' } } },
       { transactionId: { contains: search, mode: 'insensitive' } },
     ];
@@ -19,97 +28,161 @@ export const getPayments = asyncHandler(async (req: Request, res: Response) => {
 
   const [payments, total] = await Promise.all([
     prisma.payment.findMany({
-      where, skip, take: parseInt(limit), orderBy: { paymentDate: 'desc' },
+      where,
+      skip,
+      take: parseInt(limit),
+      orderBy: { paymentDate: 'desc' },
       include: {
-        customer: { select: { id: true, fullName: true } },
-        contract: { select: { id: true, contractNumber: true } },
+        customer: { select: { id: true, fullName: true, phone: true } },
+        project: { select: { id: true, name: true, projectNumber: true, projectType: true, budget: true } },
+        contract: { select: { id: true, contractNumber: true, finalAmount: true } },
       },
     }),
     prisma.payment.count({ where }),
   ]);
 
-  res.json({ success: true, data: payments, pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) } });
+  res.json({
+    success: true,
+    data: payments,
+    pagination: {
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      pages: Math.ceil(total / parseInt(limit)),
+    },
+  });
+});
+
+export const getFinanceSummary = asyncHandler(async (req: Request, res: Response) => {
+  const { domain } = req.query as Record<string, string>;
+  const wherePayment: any = {};
+  const whereProject: any = {};
+  const whereContract: any = {};
+
+  if (domain && (domain === 'WEDDING' || domain === 'FASHION')) {
+    wherePayment.domain = domain as BusinessDomain;
+    whereProject.projectType = domain as any;
+  }
+
+  const [allPayments, allProjects, allContracts] = await Promise.all([
+    prisma.payment.findMany({ where: wherePayment, select: { amount: true, domain: true } }),
+    prisma.project.findMany({ where: whereProject, select: { budget: true, projectType: true } }),
+    prisma.contract.findMany({ where: whereContract, select: { finalAmount: true } }),
+  ]);
+
+  const totalReceived = allPayments.reduce((s, p) => s + Number(p.amount), 0);
+  const weddingReceived = allPayments.filter((p) => p.domain === 'WEDDING').reduce((s, p) => s + Number(p.amount), 0);
+  const fashionReceived = allPayments.filter((p) => p.domain === 'FASHION').reduce((s, p) => s + Number(p.amount), 0);
+
+  const totalRevenue = allProjects.length > 0
+    ? allProjects.reduce((s, p) => s + Number(p.budget), 0)
+    : allContracts.reduce((s, c) => s + Number(c.finalAmount), 0);
+
+  const totalPending = Math.max(0, totalRevenue - totalReceived);
+
+  res.json({
+    success: true,
+    data: {
+      totalReceived,
+      totalPending,
+      totalRevenue,
+      weddingReceived,
+      fashionReceived,
+      breakdown: {
+        wedding: { received: weddingReceived },
+        fashion: { received: fashionReceived },
+      },
+    },
+  });
 });
 
 export const getPayment = asyncHandler(async (req: Request, res: Response) => {
   const payment = await prisma.payment.findUnique({
     where: { id: req.params.id },
-    include: { customer: true, contract: true },
+    include: { customer: true, contract: true, project: true },
   });
-  if (!payment) throw ApiError.notFound('Payment not found');
+  if (!payment) throw new ApiError(404, 'Payment not found');
   res.json({ success: true, data: payment });
 });
 
 export const createPayment = asyncHandler(async (req: Request, res: Response) => {
-  const paymentData = req.body;
+  const {
+    customerId,
+    projectId,
+    contractId,
+    domain,
+    amount,
+    paymentMethod = 'UPI',
+    paymentType = 'ADVANCE',
+    paymentDate = new Date(),
+    transactionId,
+    notes,
+  } = req.body;
 
-  // Use database transaction for financial operations
-  const payment = await prisma.$transaction(async (tx) => {
-    const contract = await tx.contract.findUnique({
-      where: { id: paymentData.contractId },
-      include: { payments: { select: { amount: true } } },
-    });
-    if (!contract) throw ApiError.notFound('Contract not found');
+  if (!customerId || !amount) {
+    throw new ApiError(400, 'Customer and amount are required');
+  }
 
-    const totalPaid = contract.payments.reduce((s, p) => s + Number(p.amount), 0);
-    const remaining = Number(contract.finalAmount) - totalPaid;
+  let resolvedDomain: BusinessDomain = (domain as BusinessDomain) || 'WEDDING';
 
-    if (paymentData.paymentType !== 'ADDITIONAL_SERVICE' && paymentData.amount > remaining) {
-      throw ApiError.badRequest(`Payment exceeds remaining balance of ₹${remaining.toLocaleString('en-IN')}`);
+  if (projectId) {
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (project) {
+      resolvedDomain = project.projectType === 'FASHION' ? 'FASHION' : 'WEDDING';
     }
+  }
 
-    const p = await tx.payment.create({
-      data: {
-        ...paymentData,
-        paymentDate: new Date(paymentData.paymentDate),
-      },
-      include: {
-        customer: { select: { id: true, fullName: true } },
-        contract: { select: { id: true, contractNumber: true } },
-      },
-    });
-    return p;
+  const payment = await prisma.payment.create({
+    data: {
+      customerId,
+      projectId: projectId || null,
+      contractId: contractId || null,
+      domain: resolvedDomain,
+      amount: Number(amount),
+      paymentMethod: paymentMethod as PaymentMethod,
+      paymentType: paymentType as PaymentType,
+      paymentDate: new Date(paymentDate),
+      transactionId,
+      notes,
+    },
+    include: {
+      customer: { select: { id: true, fullName: true } },
+      project: { select: { id: true, name: true, projectType: true } },
+      contract: { select: { id: true, contractNumber: true } },
+    },
   });
 
   res.status(201).json({ success: true, data: payment });
 });
 
-export const deletePayment = asyncHandler(async (req: Request, res: Response) => {
-  const existing = await prisma.payment.findUnique({ where: { id: req.params.id } });
-  if (!existing) throw ApiError.notFound('Payment not found');
-  await prisma.payment.delete({ where: { id: req.params.id } });
-  res.json({ success: true, message: 'Payment deleted' });
-});
+export const updatePayment = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const data = { ...req.body };
 
-export const getPaymentStats = asyncHandler(async (req: Request, res: Response) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  if (data.amount !== undefined) data.amount = Number(data.amount);
+  if (data.paymentDate) data.paymentDate = new Date(data.paymentDate);
 
-  const [todayPayments, monthPayments, totalPayments, contracts] = await Promise.all([
-    prisma.payment.aggregate({ where: { paymentDate: { gte: today, lt: tomorrow } }, _sum: { amount: true } }),
-    prisma.payment.aggregate({ where: { paymentDate: { gte: monthStart } }, _sum: { amount: true } }),
-    prisma.payment.aggregate({ _sum: { amount: true } }),
-    prisma.contract.findMany({
-      where: { status: { in: ['ACTIVE', 'SIGNED'] } },
-      include: { payments: { select: { amount: true } } },
-    }),
-  ]);
+  delete data.id;
+  delete data.createdAt;
+  delete data.customer;
+  delete data.project;
+  delete data.contract;
 
-  const pendingPayments = contracts.reduce((sum, c) => {
-    const paid = c.payments.reduce((s, p) => s + Number(p.amount), 0);
-    return sum + (Number(c.finalAmount) - paid);
-  }, 0);
-
-  res.json({
-    success: true,
-    data: {
-      todayCollection: Number(todayPayments._sum.amount || 0),
-      monthCollection: Number(monthPayments._sum.amount || 0),
-      totalRevenue: Number(totalPayments._sum.amount || 0),
-      pendingPayments,
+  const payment = await prisma.payment.update({
+    where: { id },
+    data,
+    include: {
+      customer: { select: { id: true, fullName: true } },
+      project: { select: { id: true, name: true, projectType: true } },
+      contract: { select: { id: true, contractNumber: true } },
     },
   });
+
+  res.json({ success: true, data: payment });
+});
+
+export const deletePayment = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  await prisma.payment.delete({ where: { id } });
+  res.json({ success: true, message: 'Payment deleted successfully' });
 });

@@ -6,8 +6,16 @@ const prisma = new PrismaClient();
 
 export const getStats = asyncHandler(async (req: Request, res: Response) => {
   const [
-    totalCustomers, upcomingEvents, activeContracts,
-    totalRevenueAgg, contracts, pendingDeliverables
+    totalCustomers,
+    upcomingEvents,
+    activeContracts,
+    totalRevenueAgg,
+    contracts,
+    pendingDeliverables,
+    weddingProjectsCount,
+    fashionProjectsCount,
+    weddingPaymentsAgg,
+    fashionPaymentsAgg,
   ] = await Promise.all([
     prisma.customer.count(),
     prisma.event.count({ where: { status: 'UPCOMING', startDate: { gte: new Date() } } }),
@@ -18,6 +26,10 @@ export const getStats = asyncHandler(async (req: Request, res: Response) => {
       include: { payments: { select: { amount: true } } },
     }),
     prisma.deliverable.count({ where: { status: { in: ['PENDING', 'IN_PRODUCTION'] } } }),
+    prisma.project.count({ where: { projectType: 'WEDDING' } }),
+    prisma.project.count({ where: { projectType: 'FASHION' } }),
+    prisma.payment.aggregate({ where: { domain: 'WEDDING' }, _sum: { amount: true } }),
+    prisma.payment.aggregate({ where: { domain: 'FASHION' }, _sum: { amount: true } }),
   ]);
 
   const pendingPayments = contracts.reduce((sum, c) => {
@@ -25,33 +37,83 @@ export const getStats = asyncHandler(async (req: Request, res: Response) => {
     return sum + Math.max(0, Number(c.finalAmount) - paid);
   }, 0);
 
+  const totalRevenue = Number(totalRevenueAgg._sum.amount || 0);
+  const weddingRevenue = Number(weddingPaymentsAgg._sum.amount || 0);
+  const fashionRevenue = Number(fashionPaymentsAgg._sum.amount || 0);
+
   res.json({
     success: true,
     data: {
       totalCustomers,
       upcomingEvents,
       activeContracts,
-      totalRevenue: Number(totalRevenueAgg._sum.amount || 0),
+      totalRevenue,
       pendingPayments,
       pendingDeliverables,
+      weddingProjects: weddingProjectsCount,
+      fashionProjects: fashionProjectsCount,
+      weddingRevenue,
+      fashionRevenue,
+      projectDistribution: {
+        wedding: weddingProjectsCount,
+        fashion: fashionProjectsCount,
+        total: weddingProjectsCount + fashionProjectsCount,
+      },
     },
   });
 });
 
 export const getRevenue = asyncHandler(async (req: Request, res: Response) => {
   const payments = await prisma.payment.findMany({
-    select: { amount: true, paymentDate: true },
+    select: { amount: true, paymentDate: true, domain: true },
     orderBy: { paymentDate: 'asc' },
   });
 
-  const monthlyRevenue: Record<string, number> = {};
+  const monthlyRevenue: Record<string, { wedding: number; fashion: number; amount: number }> = {};
   payments.forEach((p) => {
     const key = `${p.paymentDate.getFullYear()}-${String(p.paymentDate.getMonth() + 1).padStart(2, '0')}`;
-    monthlyRevenue[key] = (monthlyRevenue[key] || 0) + Number(p.amount);
+    if (!monthlyRevenue[key]) {
+      monthlyRevenue[key] = { wedding: 0, fashion: 0, amount: 0 };
+    }
+    const amt = Number(p.amount);
+    monthlyRevenue[key].amount += amt;
+    if (p.domain === 'FASHION') {
+      monthlyRevenue[key].fashion += amt;
+    } else {
+      monthlyRevenue[key].wedding += amt;
+    }
   });
 
-  const data = Object.entries(monthlyRevenue).map(([month, amount]) => ({ month, amount }));
+  const data = Object.entries(monthlyRevenue).map(([month, val]) => ({
+    month,
+    amount: val.amount,
+    wedding: val.wedding,
+    fashion: val.fashion,
+  }));
+
   res.json({ success: true, data });
+});
+
+export const getRecentProjects = asyncHandler(async (req: Request, res: Response) => {
+  const projects = await prisma.project.findMany({
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+    include: {
+      customer: { select: { id: true, fullName: true, phone: true } },
+      payments: { select: { amount: true } },
+    },
+  });
+
+  const formatted = projects.map((p) => {
+    const paid = p.payments.reduce((s, pay) => s + Number(pay.amount), 0);
+    return {
+      ...p,
+      totalPaid: paid,
+      remainingAmount: Math.max(0, Number(p.budget) - paid),
+    };
+  });
+
+  res.json({ success: true, data: formatted });
 });
 
 export const getUpcomingEvents = asyncHandler(async (req: Request, res: Response) => {
@@ -68,7 +130,7 @@ export const getRecentCustomers = asyncHandler(async (req: Request, res: Respons
   const customers = await prisma.customer.findMany({
     orderBy: { createdAt: 'desc' },
     take: 10,
-    include: { _count: { select: { events: true, contracts: true } } },
+    include: { _count: { select: { events: true, contracts: true, projects: true } } },
   });
   res.json({ success: true, data: customers });
 });
@@ -108,6 +170,7 @@ export const getPendingTasks = asyncHandler(async (req: Request, res: Response) 
     include: {
       assignedEmployee: { select: { id: true, name: true } },
       event: { select: { id: true, eventName: true } },
+      project: { select: { id: true, name: true, projectType: true } },
     },
   });
   res.json({ success: true, data: tasks });
