@@ -214,3 +214,10 @@ export const formatDate = (date: string | Date | null | undefined): string => {
 
 export const fashionBookingApi = bookingApi;
 export const interactionApi = { create: (data: any) => api.post('/customers/interaction', data) };
+
+export const userAccountApi = {
+  getAll: () => api.get("/auth/users"),
+  create: (data: any) => api.post("/auth/register", data),
+  toggleStatus: (id: string) => api.patch(`/auth/users/${id}/toggle`), 
+  delete: (id: string) => api.delete(`/auth/users/${id}`),
+};

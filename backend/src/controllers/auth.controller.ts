@@ -47,7 +47,7 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 
   const user = await prisma.user.create({
     data: { name, email, passwordHash, role, phone },
-    select: { id: true, name: true, email: true, role: true, phone: true },
+    select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true },
   });
 
   const token = signToken(user.id, user.role);
@@ -60,6 +60,35 @@ export const getMe = asyncHandler(async (req: AuthRequest, res: Response) => {
     select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true },
   });
   res.json({ success: true, data: user });
+});
+
+export const getUsers = asyncHandler(async (_req: Request, res: Response) => {
+  const users = await prisma.user.findMany({
+    select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, createdAt: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  res.json({ success: true, data: users });
+});
+
+export const toggleUserStatus = asyncHandler(async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+  const user = await prisma.user.findUnique({ where: { id } });
+  if (!user) throw ApiError.notFound('User not found');
+
+  const updated = await prisma.user.update({
+    where: { id },
+    data: { isActive: !user.isActive },
+    select: { id: true, name: true, email: true, role: true, phone: true, isActive: true },
+  });
+  res.json({ success: true, data: updated });
+});
+
+export const deleteUser = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const id = req.params.id as string;
+  if (req.user?.id === id) throw ApiError.badRequest('Cannot delete your own account');
+
+  await prisma.user.delete({ where: { id } });
+  res.json({ success: true, message: 'User deleted' });
 });
 
 export const logout = asyncHandler(async (_req: Request, res: Response) => {
