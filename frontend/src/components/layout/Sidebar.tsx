@@ -61,8 +61,6 @@ const navigationSections = [
       { label: 'Fashion Projects', route: '/fashion/projects', icon: Shirt },
       { label: 'Fashion Clients', route: '/fashion/clients', icon: Users },
       { label: 'Models', route: '/fashion/models', icon: UserCircle },
-      { label: 'Garment Inventory', route: '/fashion/garments', icon: Tag },
-      { label: 'Studio Bookings', route: '/fashion/bookings', icon: CalendarDays },
       { label: 'Payments', route: '/fashion/payments', icon: CreditCard },
       { label: 'Deliverables', route: '/fashion/deliverables', icon: Image },
     ],

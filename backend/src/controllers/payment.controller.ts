@@ -1,10 +1,16 @@
 import { prisma } from "../lib/prisma";
 import { Request, Response } from 'express';
-import { PrismaClient, BusinessDomain, PaymentMethod, PaymentType } from '@prisma/client';
+import { BusinessDomain, PaymentMethod, PaymentType, PaymentStatus } from '@prisma/client';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 
-
+// Helper: determine if a payment counts as "received" money
+// ADVANCE and DONE = received. PENDING = not yet received.
+// If paymentStatus is null (legacy records), treat as received (backward compat).
+function isReceived(paymentStatus: PaymentStatus | null | undefined): boolean {
+  if (!paymentStatus) return true; // legacy records without status = treat as received
+  return paymentStatus === 'ADVANCE' || paymentStatus === 'DONE';
+}
 
 export const getPayments = asyncHandler(async (req: Request, res: Response) => {
   const { domain, projectId, contractId, customerId, search, page = '1', limit = '50' } = req.query as Record<string, string>;
@@ -24,6 +30,7 @@ export const getPayments = asyncHandler(async (req: Request, res: Response) => {
       { project: { name: { contains: search, mode: 'insensitive' } } },
       { contract: { contractNumber: { contains: search, mode: 'insensitive' } } },
       { transactionId: { contains: search, mode: 'insensitive' } },
+      { reference: { contains: search, mode: 'insensitive' } },
     ];
   }
 
@@ -58,34 +65,48 @@ export const getFinanceSummary = asyncHandler(async (req: Request, res: Response
   const { domain } = req.query as Record<string, string>;
   const wherePayment: any = {};
   const whereProject: any = {};
-  const whereContract: any = {};
 
   if (domain && (domain === 'WEDDING' || domain === 'FASHION')) {
     wherePayment.domain = domain as BusinessDomain;
     whereProject.projectType = domain as any;
   }
 
-  const [allPayments, allProjects, allContracts] = await Promise.all([
-    prisma.payment.findMany({ where: wherePayment, select: { amount: true, domain: true } }),
-    prisma.project.findMany({ where: whereProject, select: { budget: true, projectType: true } }),
-    prisma.contract.findMany({ where: whereContract, select: { finalAmount: true } }),
+  const [allPayments, allProjects] = await Promise.all([
+    prisma.payment.findMany({
+      where: wherePayment,
+      select: { amount: true, domain: true, paymentStatus: true },
+    }),
+    prisma.project.findMany({
+      where: whereProject,
+      select: { budget: true, projectType: true },
+    }),
   ]);
 
-  const totalReceived = allPayments.reduce((s, p) => s + Number(p.amount), 0);
-  const weddingReceived = allPayments.filter((p) => p.domain === 'WEDDING').reduce((s, p) => s + Number(p.amount), 0);
-  const fashionReceived = allPayments.filter((p) => p.domain === 'FASHION').reduce((s, p) => s + Number(p.amount), 0);
+  // Only count payments that are RECEIVED (ADVANCE or DONE, or legacy null)
+  const receivedPayments = allPayments.filter(p => isReceived(p.paymentStatus));
+  const pendingPayments = allPayments.filter(p => !isReceived(p.paymentStatus));
 
-  const totalRevenue = allProjects.length > 0
-    ? allProjects.reduce((s, p) => s + Number(p.budget), 0)
-    : allContracts.reduce((s, c) => s + Number(c.finalAmount), 0);
+  const totalReceived = receivedPayments.reduce((s, p) => s + Number(p.amount), 0);
+  const weddingReceived = receivedPayments
+    .filter(p => p.domain === 'WEDDING')
+    .reduce((s, p) => s + Number(p.amount), 0);
+  const fashionReceived = receivedPayments
+    .filter(p => p.domain === 'FASHION')
+    .reduce((s, p) => s + Number(p.amount), 0);
 
-  const totalPending = Math.max(0, totalRevenue - totalReceived);
+  const totalPendingAmt = pendingPayments.reduce((s, p) => s + Number(p.amount), 0);
+
+  const totalRevenue = allProjects.reduce((s, p) => s + Number(p.budget), 0);
+
+  // Outstanding = total project budgets minus what has been received
+  const outstanding = Math.max(0, totalRevenue - totalReceived);
 
   res.json({
     success: true,
     data: {
       totalReceived,
-      totalPending,
+      totalPending: outstanding,
+      totalPendingRecords: totalPendingAmt,
       totalRevenue,
       weddingReceived,
       fashionReceived,
@@ -115,22 +136,39 @@ export const createPayment = asyncHandler(async (req: Request, res: Response) =>
     amount,
     paymentMethod = 'UPI',
     paymentType = 'ADVANCE',
+    paymentStatus,
     paymentDate = new Date(),
     transactionId,
+    reference,
     notes,
   } = req.body;
 
   if (!customerId || !amount) {
     throw new ApiError(400, 'Customer and amount are required');
   }
+  if (Number(amount) <= 0) {
+    throw new ApiError(400, 'Payment amount must be greater than 0');
+  }
+
+  // Validate customer exists
+  const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+  if (!customer) throw new ApiError(400, 'Customer not found');
 
   let resolvedDomain: BusinessDomain = (domain as BusinessDomain) || 'WEDDING';
 
   if (projectId) {
     const project = await prisma.project.findUnique({ where: { id: projectId } });
-    if (project) {
-      resolvedDomain = project.projectType === 'FASHION' ? 'FASHION' : 'WEDDING';
-    }
+    if (!project) throw new ApiError(400, 'Project not found');
+    resolvedDomain = project.projectType === 'FASHION' ? 'FASHION' : 'WEDDING';
+  }
+
+  // Determine paymentStatus: if explicitly provided use it, else derive from paymentType for compat
+  let resolvedStatus: PaymentStatus | undefined;
+  if (paymentStatus && ['ADVANCE', 'PENDING', 'DONE'].includes(paymentStatus)) {
+    resolvedStatus = paymentStatus as PaymentStatus;
+  } else {
+    // Map legacy paymentType to paymentStatus for new payments
+    resolvedStatus = 'ADVANCE';
   }
 
   const payment = await prisma.payment.create({
@@ -142,9 +180,11 @@ export const createPayment = asyncHandler(async (req: Request, res: Response) =>
       amount: Number(amount),
       paymentMethod: paymentMethod as PaymentMethod,
       paymentType: paymentType as PaymentType,
+      paymentStatus: resolvedStatus,
       paymentDate: new Date(paymentDate),
-      transactionId,
-      notes,
+      transactionId: transactionId || null,
+      reference: reference || null,
+      notes: notes || null,
     },
     include: {
       customer: { select: { id: true, fullName: true } },
@@ -158,11 +198,22 @@ export const createPayment = asyncHandler(async (req: Request, res: Response) =>
 
 export const updatePayment = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const data = { ...req.body };
 
-  if (data.amount !== undefined) data.amount = Number(data.amount);
+  const existing = await prisma.payment.findUnique({ where: { id } });
+  if (!existing) throw new ApiError(404, 'Payment not found');
+
+  const data: any = { ...req.body };
+
+  if (data.amount !== undefined) {
+    if (Number(data.amount) <= 0) throw new ApiError(400, 'Amount must be greater than 0');
+    data.amount = Number(data.amount);
+  }
   if (data.paymentDate) data.paymentDate = new Date(data.paymentDate);
+  if (data.paymentStatus && !['ADVANCE', 'PENDING', 'DONE'].includes(data.paymentStatus)) {
+    throw new ApiError(400, 'Invalid paymentStatus. Must be ADVANCE, PENDING, or DONE');
+  }
 
+  // Strip read-only / relation fields
   delete data.id;
   delete data.createdAt;
   delete data.customer;
@@ -182,8 +233,15 @@ export const updatePayment = asyncHandler(async (req: Request, res: Response) =>
   res.json({ success: true, data: payment });
 });
 
+export const patchPayment = asyncHandler(async (req: Request, res: Response, next: any) => {
+  // Same as updatePayment but for PATCH (partial update)
+  return updatePayment(req, res, next);
+});
+
 export const deletePayment = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
+  const existing = await prisma.payment.findUnique({ where: { id } });
+  if (!existing) throw new ApiError(404, 'Payment not found');
   await prisma.payment.delete({ where: { id } });
   res.json({ success: true, message: 'Payment deleted successfully' });
 });

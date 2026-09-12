@@ -28,7 +28,7 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
     domain: domainFilter || 'WEDDING',
     amount: '',
     paymentMethod: 'UPI',
-    paymentType: 'ADVANCE',
+    paymentStatus: 'ADVANCE',
     paymentDate: new Date().toISOString().split('T')[0],
     transactionId: '',
     notes: '',
@@ -67,7 +67,7 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
       domain: domainFilter || (activeTab === 'FASHION' ? 'FASHION' : 'WEDDING'),
       amount: '',
       paymentMethod: 'UPI',
-      paymentType: 'ADVANCE',
+      paymentStatus: 'ADVANCE',
       paymentDate: new Date().toISOString().split('T')[0],
       transactionId: '',
       notes: '',
@@ -99,7 +99,7 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
       domain: payment.domain,
       amount: String(payment.amount),
       paymentMethod: payment.paymentMethod,
-      paymentType: payment.paymentType,
+      paymentStatus: payment.paymentStatus || 'ADVANCE',
       paymentDate: payment.paymentDate ? payment.paymentDate.split('T')[0] : '',
       transactionId: payment.transactionId || '',
       notes: payment.notes || '',
@@ -284,7 +284,7 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
                   <th className="py-3 px-4">Domain</th>
                   <th className="py-3 px-4">Reference Project / Contract</th>
                   <th className="py-3 px-4">Method</th>
-                  <th className="py-3 px-4">Type</th>
+                  <th className="py-3 px-4">Payment Status</th>
                   <th className="py-3 px-4 text-right">Amount</th>
                   <th className="py-3 px-4 text-center">Actions</th>
                 </tr>
@@ -332,8 +332,20 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
                     <td className="py-3.5 px-4 text-xs font-semibold text-gray-600">
                       {p.paymentMethod?.replace(/_/g, ' ')}
                     </td>
-                    <td className="py-3.5 px-4 text-xs text-gray-500">
-                      {p.paymentType?.replace(/_/g, ' ')}
+                    <td className="py-3.5 px-4 text-xs">
+                      {(() => {
+                        const st = p.paymentStatus || 'ADVANCE';
+                        const styles: Record<string, string> = {
+                          ADVANCE: 'bg-blue-50 text-blue-700 border border-blue-200',
+                          PENDING: 'bg-amber-50 text-amber-700 border border-amber-200',
+                          DONE: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+                        };
+                        return (
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider ${styles[st] || styles.ADVANCE}`}>
+                            {st}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="py-3.5 px-4 text-right font-bold text-emerald-600">
                       {formatCurrency(p.amount)}
@@ -460,17 +472,19 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Payment Stage / Type</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Payment Status *</label>
               <select
-                value={form.paymentType}
-                onChange={(e) => setForm({ ...form, paymentType: e.target.value })}
+                value={form.paymentStatus}
+                onChange={(e) => setForm({ ...form, paymentStatus: e.target.value })}
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
               >
-                <option value="ADVANCE">Advance Booking Deposit</option>
-                <option value="INSTALLMENT">Mid Shoot Installment</option>
-                <option value="FINAL_PAYMENT">Final Settlement</option>
-                <option value="ADDITIONAL_SERVICE">Additional Deliverable / Extra</option>
+                <option value="ADVANCE">Advance / Deposit Received</option>
+                <option value="PENDING">Pending (not yet received)</option>
+                <option value="DONE">Done — Final Settlement Cleared</option>
               </select>
+              <p className="text-[10px] text-gray-400 mt-1">
+                Only <strong>Advance</strong> and <strong>Done</strong> count toward received revenue.
+              </p>
             </div>
 
             <div>

@@ -26,6 +26,7 @@ import garmentRoutes from './routes/garment.routes';
 import bookingRoutes from './routes/booking.routes';
 import attendanceRoutes from './routes/attendance.routes';
 import expenseRoutes from './routes/expense.routes';
+import fashionExtraRoutes from './routes/fashion.routes';
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/models', modelRoutes);
 app.use('/api/garments', garmentRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/fashion', fashionExtraRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/events', eventRoutes);

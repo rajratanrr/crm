@@ -102,6 +102,12 @@ enum PaymentType {
   REFUND
 }
 
+enum PaymentStatus {
+  ADVANCE
+  PENDING
+  DONE
+}
+
 enum InvoiceStatus {
   DRAFT
   SENT
@@ -284,6 +290,8 @@ model Project {
   brand          String?       @db.VarChar(150)
   shootType      String?       @db.VarChar(100)
   studioLocation String?       @db.VarChar(200)
+  shootDate      DateTime?     @db.Date
+  driveLink      String?       @db.Text
   creativeTeam   String?       @db.Text
   modelsInfo     String?       @db.Text
   garmentsInfo   String?       @db.Text
@@ -292,13 +300,15 @@ model Project {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  customer       Customer        @relation(fields: [customerId], references: [id])
-  events         Event[]
-  contracts      Contract[]
-  payments       Payment[]
-  tasks          Task[]
-  deliverables   Deliverable[]
-  studioBookings StudioBooking[]
+  customer            Customer                    @relation(fields: [customerId], references: [id])
+  events              Event[]
+  contracts           Contract[]
+  payments            Payment[]
+  tasks               Task[]
+  deliverables        Deliverable[]
+  studioBookings      StudioBooking[]
+  garmentRequirements FashionGarmentRequirement[]
+  modelAssignments    FashionProjectModel[]
 
   @@index([customerId])
   @@index([projectType])
@@ -432,18 +442,21 @@ model ContractItem {
 }
 
 model Payment {
-  id            String         @id @default(uuid())
+  id            String          @id @default(uuid())
   contractId    String?
   projectId     String?
   customerId    String
-  domain        BusinessDomain @default(WEDDING)
-  amount        Decimal        @db.Decimal(12, 2)
+  domain        BusinessDomain  @default(WEDDING)
+  amount        Decimal         @db.Decimal(12, 2)
   paymentMethod PaymentMethod
   paymentType   PaymentType
-  paymentDate   DateTime       @db.Date
-  transactionId String?        @db.VarChar(150)
-  notes         String?        @db.Text
-  createdAt     DateTime       @default(now())
+  paymentStatus PaymentStatus?  // ADVANCE=received, PENDING=not received, DONE=received
+  paymentDate   DateTime        @db.Date
+  transactionId String?         @db.VarChar(150)
+  notes         String?         @db.Text
+  reference     String?         @db.VarChar(255)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime?       @updatedAt
 
   contract Contract? @relation(fields: [contractId], references: [id])
   project  Project?  @relation(fields: [projectId], references: [id])
@@ -592,22 +605,59 @@ model Notification {
 // ─── STUDIO FASHION SPECIFIC MODELS ──────────────────
 
 model Model {
-  id           String   @id @default(uuid())
-  name         String   @db.VarChar(150)
-  agency       String?  @db.VarChar(150)
-  phone        String?  @db.VarChar(20)
-  email        String?  @db.VarChar(180)
-  instagram    String?  @db.VarChar(100)
-  gender       String?  @db.VarChar(50)
-  height       String?  @db.VarChar(50)
-  measurements String?  @db.VarChar(100)
-  dayRate      Decimal? @db.Decimal(10, 2)
-  status       String   @default("AVAILABLE") @db.VarChar(50)
-  notes        String?  @db.Text
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String   @id @default(uuid())
+  name             String   @db.VarChar(150)
+  agency           String?  @db.VarChar(150)
+  phone            String?  @db.VarChar(20)
+  email            String?  @db.VarChar(180)
+  instagram        String?  @db.VarChar(100)
+  gender           String?  @db.VarChar(50)
+  height           String?  @db.VarChar(50)
+  measurements     String?  @db.VarChar(100)
+  dayRate          Decimal? @db.Decimal(10, 2)   // kept for DB compat, hidden from UI
+  status           String   @default("AVAILABLE") @db.VarChar(50) // kept for DB compat
+  shootCategories  String?  @db.Text             // JSON array e.g. ["Saree","Kurti"]
+  preferredShootType String? @db.VarChar(100)
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  projectAssignments FashionProjectModel[]
 
   @@map("fashion_models")
+}
+
+model FashionGarmentRequirement {
+  id        String   @id @default(uuid())
+  projectId String
+  clothType String   @db.VarChar(100)  // e.g. "Saree", "Kurti", "Bottom"
+  dressName String   @db.VarChar(200)  // specific dress/product name
+  quantity  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("fashion_garment_requirements")
+}
+
+model FashionProjectModel {
+  id        String   @id @default(uuid())
+  projectId String
+  modelId   String
+  clientId  String?
+  modelRate Decimal  @default(0) @db.Decimal(12, 2)
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  model   Model    @relation(fields: [modelId], references: [id])
+
+  @@unique([projectId, modelId])
+  @@index([projectId])
+  @@map("fashion_project_models")
 }
 
 model Garment {

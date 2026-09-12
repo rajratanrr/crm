@@ -82,6 +82,7 @@ export const paymentApi = {
   getStats: () => api.get('/payments/stats'),
   create: (data: any) => api.post('/payments', data),
   update: (id: string, data: any) => api.put(`/payments/${id}`, data),
+  patch: (id: string, data: any) => api.patch(`/payments/${id}`, data),
   delete: (id: string) => api.delete(`/payments/${id}`),
 };
 
@@ -128,9 +129,35 @@ export const deliverableApi = {
 // Fashion: Models
 export const modelApi = {
   getAll: (params?: any) => api.get('/models', { params }),
+  getOne: (id: string) => api.get(`/models/${id}`),
   create: (data: any) => api.post('/models', data),
   update: (id: string, data: any) => api.put(`/models/${id}`, data),
   delete: (id: string) => api.delete(`/models/${id}`),
+};
+
+// Fashion: Garment Requirements (project-level)
+export const fashionApi = {
+  // Garment requirements
+  getGarmentRequirements: (projectId: string) =>
+    api.get('/fashion/garment-requirements', { params: { projectId } }),
+  createGarmentRequirement: (data: { projectId: string; clothType: string; dressName: string; quantity: number }) =>
+    api.post('/fashion/garment-requirements', data),
+  updateGarmentRequirement: (id: string, data: Partial<{ clothType: string; dressName: string; quantity: number }>) =>
+    api.put(`/fashion/garment-requirements/${id}`, data),
+  deleteGarmentRequirement: (id: string) =>
+    api.delete(`/fashion/garment-requirements/${id}`),
+  bulkUpsertGarmentRequirements: (projectId: string, requirements: any[]) =>
+    api.post(`/fashion/garment-requirements/project/${projectId}/bulk`, { requirements }),
+
+  // Project model assignments
+  getProjectModels: (projectId: string) =>
+    api.get('/fashion/project-models', { params: { projectId } }),
+  createProjectModel: (data: { projectId: string; modelId: string; modelRate: number; notes?: string }) =>
+    api.post('/fashion/project-models', data),
+  updateProjectModel: (id: string, data: Partial<{ modelRate: number; notes: string }>) =>
+    api.put(`/fashion/project-models/${id}`, data),
+  deleteProjectModel: (id: string) =>
+    api.delete(`/fashion/project-models/${id}`),
 };
 
 // Fashion: Garments

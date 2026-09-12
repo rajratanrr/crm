@@ -5,6 +5,7 @@ import {
   getPayment,
   createPayment,
   updatePayment,
+  patchPayment,
   deletePayment,
 } from '../controllers/payment.controller';
 import { authenticate } from '../middleware/auth';
@@ -17,6 +18,7 @@ router.get('/', getPayments);
 router.get('/:id', getPayment);
 router.post('/', createPayment);
 router.put('/:id', updatePayment);
+router.patch('/:id', patchPayment);
 router.delete('/:id', deletePayment);
 
 export default router;

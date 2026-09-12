@@ -9,15 +9,15 @@ import { ApiError } from '../utils/ApiError';
 // ─── MODELS ──────────────────────────────────────────
 
 export const getModels = asyncHandler(async (req: Request, res: Response) => {
-  const { search, status, gender } = req.query as Record<string, string>;
+  const { search, gender } = req.query as Record<string, string>;
   const where: any = {};
-  if (status) where.status = status;
   if (gender) where.gender = gender;
   if (search) {
     where.OR = [
       { name: { contains: search, mode: 'insensitive' } },
       { agency: { contains: search, mode: 'insensitive' } },
       { instagram: { contains: search, mode: 'insensitive' } },
+      { phone: { contains: search, mode: 'insensitive' } },
     ];
   }
 
@@ -29,22 +29,33 @@ export const getModels = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const createModel = asyncHandler(async (req: Request, res: Response) => {
-  const { name, agency, phone, email, instagram, gender, height, measurements, dayRate, status, notes } = req.body;
+  const {
+    name, agency, phone, email, instagram, gender,
+    height, measurements, shootCategories, preferredShootType, notes,
+  } = req.body;
   if (!name) throw new ApiError(400, 'Model name is required');
+
+  // shootCategories is stored as a JSON string array
+  const categoriesStr = Array.isArray(shootCategories)
+    ? JSON.stringify(shootCategories)
+    : shootCategories
+    ? String(shootCategories)
+    : null;
 
   const model = await prisma.model.create({
     data: {
       name,
-      agency,
-      phone,
-      email,
-      instagram,
-      gender,
-      height,
-      measurements,
-      dayRate: dayRate ? Number(dayRate) : null,
-      status: status || 'AVAILABLE',
-      notes,
+      agency: agency || null,
+      phone: phone || null,
+      email: email || null,
+      instagram: instagram || null,
+      gender: gender || null,
+      height: height || null,
+      measurements: measurements || null,
+      shootCategories: categoriesStr,
+      preferredShootType: preferredShootType || null,
+      notes: notes || null,
+      // dayRate and status kept in DB for backward compat, defaulted to null/AVAILABLE
     },
   });
   res.status(201).json({ success: true, data: model });
@@ -52,11 +63,23 @@ export const createModel = asyncHandler(async (req: Request, res: Response) => {
 
 export const updateModel = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const data = { ...req.body };
-  if (data.dayRate !== undefined) data.dayRate = data.dayRate ? Number(data.dayRate) : null;
+  const data: any = { ...req.body };
+
+  if (data.shootCategories !== undefined) {
+    data.shootCategories = Array.isArray(data.shootCategories)
+      ? JSON.stringify(data.shootCategories)
+      : data.shootCategories
+      ? String(data.shootCategories)
+      : null;
+  }
+
+  // Remove read-only fields
   delete data.id;
   delete data.createdAt;
   delete data.updatedAt;
+  delete data.projectAssignments;
+  // Keep dayRate removal: if not sent, don't update it
+  if (data.dayRate !== undefined) data.dayRate = data.dayRate ? Number(data.dayRate) : null;
 
   const model = await prisma.model.update({ where: { id }, data });
   res.json({ success: true, data: model });
@@ -64,11 +87,13 @@ export const updateModel = asyncHandler(async (req: Request, res: Response) => {
 
 export const deleteModel = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
+  // Remove from project assignments first
+  await prisma.fashionProjectModel.deleteMany({ where: { modelId: id } });
   await prisma.model.delete({ where: { id } });
   res.json({ success: true, message: 'Model deleted successfully' });
 });
 
-// ─── GARMENTS ────────────────────────────────────────
+// ─── GARMENTS (preserved for backward compat) ────────
 
 export const getGarments = asyncHandler(async (req: Request, res: Response) => {
   const { search, category, status, brand } = req.query as Record<string, string>;
@@ -130,7 +155,7 @@ export const deleteGarment = asyncHandler(async (req: Request, res: Response) =>
   res.json({ success: true, message: 'Garment deleted successfully' });
 });
 
-// ─── STUDIO BOOKINGS ─────────────────────────────────
+// ─── STUDIO BOOKINGS (preserved for backward compat) ─
 
 export const getBookings = asyncHandler(async (req: Request, res: Response) => {
   const { date, studioBay, status } = req.query as Record<string, string>;
@@ -202,4 +227,172 @@ export const deleteBooking = asyncHandler(async (req: Request, res: Response) =>
   const { id } = req.params;
   await prisma.studioBooking.delete({ where: { id } });
   res.json({ success: true, message: 'Studio booking deleted successfully' });
+});
+
+// ─── FASHION GARMENT REQUIREMENTS ────────────────────
+
+export const getGarmentRequirements = asyncHandler(async (req: Request, res: Response) => {
+  const { projectId } = req.query as Record<string, string>;
+  if (!projectId) throw new ApiError(400, 'projectId is required');
+
+  const requirements = await prisma.fashionGarmentRequirement.findMany({
+    where: { projectId },
+    orderBy: { createdAt: 'asc' },
+  });
+  res.json({ success: true, data: requirements });
+});
+
+export const createGarmentRequirement = asyncHandler(async (req: Request, res: Response) => {
+  const { projectId, clothType, dressName, quantity } = req.body;
+  if (!projectId || !clothType || !dressName) {
+    throw new ApiError(400, 'projectId, clothType, and dressName are required');
+  }
+  const qty = parseInt(String(quantity), 10);
+  if (isNaN(qty) || qty < 0) {
+    throw new ApiError(400, 'Quantity must be a non-negative integer');
+  }
+
+  const requirement = await prisma.fashionGarmentRequirement.create({
+    data: { projectId, clothType, dressName, quantity: qty },
+  });
+  res.status(201).json({ success: true, data: requirement });
+});
+
+export const updateGarmentRequirement = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const data: any = { ...req.body };
+  if (data.quantity !== undefined) {
+    const qty = parseInt(String(data.quantity), 10);
+    if (isNaN(qty) || qty < 0) throw new ApiError(400, 'Quantity must be a non-negative integer');
+    data.quantity = qty;
+  }
+  delete data.id;
+  delete data.createdAt;
+  delete data.updatedAt;
+  delete data.projectId;
+
+  const requirement = await prisma.fashionGarmentRequirement.update({ where: { id }, data });
+  res.json({ success: true, data: requirement });
+});
+
+export const deleteGarmentRequirement = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  await prisma.fashionGarmentRequirement.delete({ where: { id } });
+  res.json({ success: true, message: 'Garment requirement deleted' });
+});
+
+// Bulk upsert garment requirements for a project (replaces all rows)
+export const bulkUpsertGarmentRequirements = asyncHandler(async (req: Request, res: Response) => {
+  const { projectId } = req.params;
+  const { requirements } = req.body; // array of { clothType, dressName, quantity }
+
+  if (!Array.isArray(requirements)) throw new ApiError(400, 'requirements must be an array');
+
+  // Delete existing and recreate
+  await prisma.$transaction([
+    prisma.fashionGarmentRequirement.deleteMany({ where: { projectId } }),
+    prisma.fashionGarmentRequirement.createMany({
+      data: requirements.map((r: any) => ({
+        projectId,
+        clothType: r.clothType,
+        dressName: r.dressName,
+        quantity: parseInt(String(r.quantity), 10) || 0,
+      })),
+    }),
+  ]);
+
+  const updated = await prisma.fashionGarmentRequirement.findMany({
+    where: { projectId },
+    orderBy: { createdAt: 'asc' },
+  });
+  res.json({ success: true, data: updated });
+});
+
+// ─── FASHION PROJECT MODEL ASSIGNMENTS ───────────────
+
+export const getProjectModels = asyncHandler(async (req: Request, res: Response) => {
+  const { projectId } = req.query as Record<string, string>;
+  if (!projectId) throw new ApiError(400, 'projectId is required');
+
+  const assignments = await prisma.fashionProjectModel.findMany({
+    where: { projectId },
+    include: {
+      model: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          email: true,
+          gender: true,
+          shootCategories: true,
+          preferredShootType: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+  res.json({ success: true, data: assignments });
+});
+
+export const createProjectModel = asyncHandler(async (req: Request, res: Response) => {
+  const { projectId, modelId, clientId, modelRate, notes } = req.body;
+  if (!projectId || !modelId) throw new ApiError(400, 'projectId and modelId are required');
+
+  const rate = modelRate !== undefined ? Number(modelRate) : 0;
+  if (isNaN(rate) || rate < 0) throw new ApiError(400, 'Model rate must be >= 0');
+
+  // Check unique constraint — update if already exists
+  const existing = await prisma.fashionProjectModel.findFirst({
+    where: { projectId, modelId },
+  });
+
+  if (existing) {
+    const updated = await prisma.fashionProjectModel.update({
+      where: { id: existing.id },
+      data: { modelRate: rate, clientId: clientId || null, notes: notes || null },
+      include: { model: { select: { id: true, name: true, phone: true, gender: true, shootCategories: true } } },
+    });
+    return res.json({ success: true, data: updated });
+  }
+
+  const assignment = await prisma.fashionProjectModel.create({
+    data: {
+      projectId,
+      modelId,
+      clientId: clientId || null,
+      modelRate: rate,
+      notes: notes || null,
+    },
+    include: { model: { select: { id: true, name: true, phone: true, gender: true, shootCategories: true } } },
+  });
+  res.status(201).json({ success: true, data: assignment });
+});
+
+export const updateProjectModel = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const data: any = { ...req.body };
+  if (data.modelRate !== undefined) {
+    const rate = Number(data.modelRate);
+    if (isNaN(rate) || rate < 0) throw new ApiError(400, 'Model rate must be >= 0');
+    data.modelRate = rate;
+  }
+  delete data.id;
+  delete data.createdAt;
+  delete data.updatedAt;
+  delete data.projectId;
+  delete data.modelId;
+  delete data.model;
+
+  const assignment = await prisma.fashionProjectModel.update({
+    where: { id },
+    data,
+    include: { model: { select: { id: true, name: true, phone: true, gender: true, shootCategories: true } } },
+  });
+  res.json({ success: true, data: assignment });
+});
+
+export const deleteProjectModel = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  await prisma.fashionProjectModel.delete({ where: { id } });
+  res.json({ success: true, message: 'Model removed from project' });
 });

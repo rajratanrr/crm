@@ -33,22 +33,34 @@ export const getProjects = asyncHandler(async (req: Request, res: Response) => {
     where,
     include: {
       customer: { select: { id: true, fullName: true, phone: true, email: true, clientType: true } },
-      payments: { select: { id: true, amount: true, paymentDate: true, paymentMethod: true } },
+      payments: { select: { id: true, amount: true, paymentDate: true, paymentMethod: true, paymentStatus: true } },
       contracts: { select: { id: true, contractNumber: true, finalAmount: true, status: true } },
       tasks: { select: { id: true, status: true } },
       deliverables: { select: { id: true, status: true, type: true } },
+      garmentRequirements: true,
+      modelAssignments: {
+        include: {
+          model: { select: { id: true, name: true, phone: true, gender: true, shootCategories: true } },
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
   });
 
   const formatted = projects.map((p) => {
-    const totalPaid = p.payments.reduce((acc, pay) => acc + Number(pay.amount), 0);
+    // Only count ADVANCE and DONE payments as received (PENDING = not received)
+    const receivedPayments = p.payments.filter(
+      (pay) => !pay.paymentStatus || pay.paymentStatus === 'ADVANCE' || pay.paymentStatus === 'DONE'
+    );
+    const totalPaid = receivedPayments.reduce((acc, pay) => acc + Number(pay.amount), 0);
     const budgetNum = Number(p.budget);
     const remaining = Math.max(0, budgetNum - totalPaid);
+    const totalModelCost = p.modelAssignments.reduce((s, ma) => s + Number(ma.modelRate), 0);
     return {
       ...p,
       totalPaid,
       remainingAmount: remaining,
+      totalModelCost,
     };
   });
 
@@ -67,14 +79,26 @@ export const getProject = asyncHandler(async (req: Request, res: Response) => {
       tasks: { include: { assignedEmployee: true } },
       deliverables: true,
       studioBookings: true,
+      garmentRequirements: { orderBy: { createdAt: 'asc' } },
+      modelAssignments: {
+        include: {
+          model: { select: { id: true, name: true, phone: true, email: true, gender: true, shootCategories: true, preferredShootType: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
     },
   });
 
   if (!project) throw new ApiError(404, 'Project not found');
 
-  const totalPaid = project.payments.reduce((acc, pay) => acc + Number(pay.amount), 0);
+  // Only ADVANCE/DONE payments count as received
+  const receivedPayments = project.payments.filter(
+    (pay: any) => !pay.paymentStatus || pay.paymentStatus === 'ADVANCE' || pay.paymentStatus === 'DONE'
+  );
+  const totalPaid = receivedPayments.reduce((acc: number, pay: any) => acc + Number(pay.amount), 0);
   const budgetNum = Number(project.budget);
   const remaining = Math.max(0, budgetNum - totalPaid);
+  const totalModelCost = (project.modelAssignments as any[]).reduce((s, ma) => s + Number(ma.modelRate), 0);
 
   res.json({
     success: true,
@@ -82,6 +106,7 @@ export const getProject = asyncHandler(async (req: Request, res: Response) => {
       ...project,
       totalPaid,
       remainingAmount: remaining,
+      totalModelCost,
     },
   });
 });
@@ -102,6 +127,8 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
     brand,
     shootType,
     studioLocation,
+    shootDate,
+    driveLink,
     creativeTeam,
     modelsInfo,
     garmentsInfo,
@@ -133,6 +160,8 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
       brand,
       shootType,
       studioLocation,
+      shootDate: shootDate ? new Date(shootDate) : null,
+      driveLink: driveLink || null,
       creativeTeam,
       modelsInfo,
       garmentsInfo,
@@ -172,6 +201,8 @@ export const updateProject = asyncHandler(async (req: Request, res: Response) =>
   if (data.startDate) data.startDate = new Date(data.startDate);
   if (data.endDate) data.endDate = new Date(data.endDate);
   if (data.weddingDate) data.weddingDate = new Date(data.weddingDate);
+  if (data.shootDate) data.shootDate = new Date(data.shootDate);
+  if (data.driveLink !== undefined) data.driveLink = data.driveLink || null;
   if (data.budget !== undefined) {
     const newBudget = Number(data.budget);
     data.budget = newBudget;
@@ -249,7 +280,11 @@ export const deleteProject = asyncHandler(async (req: Request, res: Response) =>
   // 4. Delete studio bookings linked to this project
   await prisma.studioBooking.deleteMany({ where: { projectId: id } });
 
-  // 5. Unlink events
+  // 5. Delete fashion-specific sub-records (cascade via FK but being explicit)
+  await prisma.fashionGarmentRequirement.deleteMany({ where: { projectId: id } });
+  await prisma.fashionProjectModel.deleteMany({ where: { projectId: id } });
+
+  // 6. Unlink events
   await prisma.event.updateMany({ where: { projectId: id }, data: { projectId: null } });
 
   // 6. Delete project
