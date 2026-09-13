@@ -10,6 +10,8 @@ import {
   updateProjectModel,
   deleteProjectModel,
   getClientFinancialSummary,
+  getClientModels,
+  syncClientModels,
 } from '../controllers/fashion.controller';
 import { authenticate } from '../middleware/auth';
 
@@ -30,6 +32,11 @@ router.post('/project-models', createProjectModel);
 router.put('/project-models/:id', updateProjectModel);
 router.patch('/project-models/:id', updateProjectModel);
 router.delete('/project-models/:id', deleteProjectModel);
+
+// ─── Client Models & Pricing ──────────────────────────
+router.get('/clients/:clientId/models', getClientModels);
+router.post('/clients/:clientId/models', syncClientModels);
+router.put('/clients/:clientId/models', syncClientModels);
 
 // ─── Client financial summary ─────────────────────────
 router.get('/clients/:clientId/financial-summary', getClientFinancialSummary);

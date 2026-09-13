@@ -13,6 +13,11 @@ export const createCustomerSchema = z.object({
   clientType: z.enum(['WEDDING', 'FASHION']).optional().default('WEDDING'),
   companyName: z.string().max(150).optional().nullable(),
   notes: z.string().optional().nullable(),
+  clientModels: z.array(z.object({
+    modelId: z.string(),
+    defaultRate: z.union([z.number(), z.string()]).optional().default(0),
+    notes: z.string().optional().nullable(),
+  })).optional().nullable(),
 });
 
 export const updateCustomerSchema = createCustomerSchema.partial();

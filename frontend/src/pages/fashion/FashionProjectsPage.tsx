@@ -68,6 +68,8 @@ export default function FashionProjectsPage() {
   const [editingProject, setEditingProject] = useState<any>(null);
   const [projectForm, setProjectForm] = useState(emptyProject());
   const [customers, setCustomers] = useState<any[]>([]);
+  const [selectedClientData, setSelectedClientData] = useState<any>(null);
+  const [modalModelAssignments, setModalModelAssignments] = useState<ModelAssignment[]>([]);
   const [formSaving, setFormSaving] = useState(false);
 
   // Garment requirements (inline in detail panel)
@@ -88,8 +90,14 @@ export default function FashionProjectsPage() {
   const loadProjects = async () => {
     setLoading(true);
     try {
-      const { data } = await projectApi.getAll({ type: 'FASHION', search: search || undefined });
-      setProjects(data.data || []);
+      const [projRes, custRes, modsRes] = await Promise.all([
+        projectApi.getAll({ type: 'FASHION', search: search || undefined }),
+        customerApi.getAll({ clientType: 'FASHION' }),
+        modelApi.getAll(),
+      ]);
+      setProjects(projRes.data.data || []);
+      setCustomers(custRes.data.data || []);
+      setAllModels(modsRes.data.data || []);
     } catch {
       toast.error('Failed to load Fashion projects');
     } finally {
@@ -127,10 +135,18 @@ export default function FashionProjectsPage() {
   const openCreateModal = async () => {
     setEditingProject(null);
     setProjectForm(emptyProject());
+    setSelectedClientData(null);
+    setModalModelAssignments([]);
     if (customers.length === 0) {
       try {
-        const { data } = await customerApi.getAll();
-        setCustomers(data.data);
+        const { data } = await customerApi.getAll({ clientType: 'FASHION' });
+        setCustomers(data.data || []);
+      } catch {}
+    }
+    if (allModels.length === 0) {
+      try {
+        const { data } = await modelApi.getAll();
+        setAllModels(data.data || []);
       } catch {}
     }
     setIsProjectModalOpen(true);
@@ -150,13 +166,121 @@ export default function FashionProjectsPage() {
       driveLink: p.driveLink || '',
       notes: p.notes || '',
     });
+
+    const foundCust = customers.find((c) => c.id === p.customerId) || p.customer;
+    setSelectedClientData(foundCust || null);
+
+    try {
+      const { data } = await projectApi.getModels(p.id);
+      setModalModelAssignments(
+        (data.data || []).map((a: any) => ({
+          id: a.id,
+          modelId: a.modelId,
+          modelRate: Number(a.modelRate) || 0,
+          notes: a.notes || '',
+          model: a.model,
+        }))
+      );
+    } catch {
+      setModalModelAssignments([]);
+    }
+
     if (customers.length === 0) {
       try {
-        const { data } = await customerApi.getAll();
-        setCustomers(data.data);
+        const { data } = await customerApi.getAll({ clientType: 'FASHION' });
+        setCustomers(data.data || []);
+      } catch {}
+    }
+    if (allModels.length === 0) {
+      try {
+        const { data } = await modelApi.getAll();
+        setAllModels(data.data || []);
       } catch {}
     }
     setIsProjectModalOpen(true);
+  };
+
+  const handleClientSelect = async (customerId: string) => {
+    setProjectForm((prev) => ({ ...prev, customerId }));
+    if (!customerId) {
+      setSelectedClientData(null);
+      setModalModelAssignments([]);
+      return;
+    }
+
+    let client = customers.find((c) => c.id === customerId);
+    if (!client || !client.fashionClientModels) {
+      try {
+        const { data } = await customerApi.getOne(customerId);
+        client = data.data;
+      } catch {}
+    }
+    setSelectedClientData(client || null);
+
+    // Auto-prefill project name if currently empty
+    if (!projectForm.name && client) {
+      const brandOrName = client.companyName || client.fullName;
+      setProjectForm((prev) => ({ ...prev, name: `${brandOrName} Campaign` }));
+    }
+
+    // Auto-load client default models and agreed rates from backend
+    if (client?.fashionClientModels && client.fashionClientModels.length > 0) {
+      const assigns: ModelAssignment[] = client.fashionClientModels.map((cm: any) => ({
+        modelId: cm.modelId,
+        modelRate: Number(cm.defaultRate) || 0,
+        notes: cm.notes || '',
+        model: cm.model || allModels.find((m) => m.id === cm.modelId),
+      }));
+      setModalModelAssignments(assigns);
+    } else {
+      try {
+        const { data } = await fashionApi.getClientModels(customerId);
+        const assigns: ModelAssignment[] = (data.data || []).map((cm: any) => ({
+          modelId: cm.modelId,
+          modelRate: Number(cm.defaultRate) || 0,
+          notes: cm.notes || '',
+          model: cm.model || allModels.find((m) => m.id === cm.modelId),
+        }));
+        setModalModelAssignments(assigns);
+      } catch {
+        setModalModelAssignments([]);
+      }
+    }
+  };
+
+  const addModalModel = (modelId: string) => {
+    if (!modelId) return;
+    if (modalModelAssignments.some((a) => a.modelId === modelId)) {
+      toast.error('Model already assigned to this project');
+      return;
+    }
+    const found = allModels.find((m) => m.id === modelId);
+    const clientRate = selectedClientData?.fashionClientModels?.find((cm: any) => cm.modelId === modelId);
+    setModalModelAssignments((prev) => [
+      ...prev,
+      {
+        modelId,
+        modelRate: clientRate ? Number(clientRate.defaultRate) || 0 : 0,
+        notes: clientRate?.notes || '',
+        model: found,
+      },
+    ]);
+  };
+
+  const updateModalModelRate = (idx: number, rate: any) => {
+    setModalModelAssignments((prev) =>
+      prev.map((a, i) => (i === idx ? { ...a, modelRate: Number(rate) || 0 } : a))
+    );
+  };
+
+  const updateModalModelNotes = (idx: number, notes: string) => {
+    setModalModelAssignments((prev) =>
+      prev.map((a, i) => (i === idx ? { ...a, notes } : a))
+    );
+  };
+
+  const removeModalModel = (idx: number) => {
+    setModalModelAssignments((prev) => prev.filter((_, i) => i !== idx));
   };
 
   const handleProjectSubmit = async (e: React.FormEvent) => {
@@ -173,6 +297,11 @@ export default function FashionProjectsPage() {
         budget: Number(projectForm.budget) || 0,           // contractAmount
         baseBudget: Number((projectForm as any).baseBudget) || 0,
         endDate: null,
+        modelAssignments: modalModelAssignments.map((a) => ({
+          modelId: a.modelId,
+          modelRate: Number(a.modelRate) || 0,
+          notes: a.notes || '',
+        })),
       };
       if (editingProject) {
         await projectApi.update(editingProject.id, payload);
@@ -303,6 +432,11 @@ export default function FashionProjectsPage() {
       toast.error(err.response?.data?.message || 'Failed to record payment');
     } finally { setPaySaving(false); }
   };
+
+  // ─── Modal Calculations ───────────────────────────────────────────────────────
+  const modalTotalModelCost = modalModelAssignments.reduce((s, a) => s + (Number(a.modelRate) || 0), 0);
+  const modalBaseBudget = Number((projectForm as any).baseBudget) || 0;
+  const modalTotalBudget = modalBaseBudget + modalTotalModelCost;
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -708,14 +842,41 @@ export default function FashionProjectsPage() {
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Fashion Client *</label>
               <select
-                required value={projectForm.customerId}
-                onChange={(e) => setProjectForm({ ...projectForm, customerId: e.target.value })}
+                required
+                value={projectForm.customerId}
+                onChange={(e) => handleClientSelect(e.target.value)}
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
               >
                 <option value="">— Select Client —</option>
-                {customers.map(c => <option key={c.id} value={c.id}>{c.fullName} {c.phone ? `(${c.phone})` : ''}</option>)}
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.fullName} {c.companyName ? `(${c.companyName})` : c.phone ? `(${c.phone})` : ''}
+                  </option>
+                ))}
               </select>
             </div>
+
+            {/* Selected Client Information Banner */}
+            {selectedClientData && (
+              <div className="md:col-span-2 bg-purple-50/60 border border-purple-100 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div>
+                  <span className="font-bold text-purple-900">
+                    {selectedClientData.companyName
+                      ? `${selectedClientData.companyName} (${selectedClientData.fullName})`
+                      : selectedClientData.fullName}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-3 text-gray-500 text-[11px] mt-0.5">
+                    {selectedClientData.phone && <span>📞 {selectedClientData.phone}</span>}
+                    {selectedClientData.email && <span>✉️ {selectedClientData.email}</span>}
+                    {selectedClientData.city && <span>📍 {selectedClientData.city}</span>}
+                  </div>
+                </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white text-purple-700 font-semibold border border-purple-200">
+                  Client Details Loaded
+                </span>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
               <select
@@ -723,13 +884,18 @@ export default function FashionProjectsPage() {
                 onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
               >
-                {PROJECT_STATUS.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+                {PROJECT_STATUS.map((s) => (
+                  <option key={s} value={s}>
+                    {s.replace(/_/g, ' ')}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Shoot Date</label>
               <input
-                type="date" value={projectForm.shootDate}
+                type="date"
+                value={projectForm.shootDate}
                 onChange={(e) => setProjectForm({ ...projectForm, shootDate: e.target.value })}
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
               />
@@ -742,7 +908,11 @@ export default function FashionProjectsPage() {
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
               >
                 <option value="">— Select Location —</option>
-                {STUDIO_LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                {STUDIO_LOCATIONS.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -753,33 +923,180 @@ export default function FashionProjectsPage() {
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
               >
                 <option value="">— Select Shoot Type —</option>
-                {SHOOT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                {SHOOT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Contract Amount (₹)</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Base Budget (₹) <span className="text-gray-400 font-normal">— production cost</span></label>
               <input
-                type="number" min={0} value={projectForm.budget}
-                onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
-                placeholder="e.g. 75000"
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Base Budget (₹) <span className="text-gray-400 font-normal">— internal production cost</span></label>
-              <input
-                type="number" min={0} value={(projectForm as any).baseBudget || ''}
+                type="number"
+                min={0}
+                value={(projectForm as any).baseBudget || ''}
                 onChange={(e) => setProjectForm({ ...projectForm, baseBudget: e.target.value } as any)}
                 placeholder="e.g. 30000"
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
               />
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Contract Amount (₹) <span className="text-gray-400 font-normal">— billed to client</span></label>
+              <input
+                type="number"
+                min={0}
+                value={projectForm.budget}
+                onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
+                placeholder="e.g. 75000"
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
+            </div>
+
+            {/* ─── Assigned Models & Model Rate For This Client / Project ─── */}
+            <div className="md:col-span-2 pt-3 border-t border-gray-100">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                <div>
+                  <label className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
+                    <UserCircle className="w-4 h-4 text-[#C59B27]" />
+                    Assigned Models & Rates for this Project
+                  </label>
+                  <p className="text-[11px] text-gray-400">
+                    {selectedClientData
+                      ? `Auto-loaded from ${selectedClientData.fullName}'s profile. Adjust rates or assign extra models.`
+                      : 'Select a client to auto-load agreed model rates.'}
+                  </p>
+                </div>
+                <div className="flex-shrink-0">
+                  <select
+                    defaultValue=""
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        addModalModel(e.target.value);
+                        e.target.value = '';
+                      }
+                    }}
+                    className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] font-medium text-gray-700"
+                  >
+                    <option value="">+ Assign Model to Project...</option>
+                    {allModels
+                      .filter((m) => !modalModelAssignments.some((a) => a.modelId === m.id))
+                      .map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} {m.gender ? `(${m.gender})` : ''} {m.agency ? `· ${m.agency}` : ''}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              {modalModelAssignments.length === 0 ? (
+                <div className="p-3.5 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-center">
+                  <p className="text-xs text-gray-500 font-medium">No models assigned to this project yet</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    Select a client with configured models or use the dropdown above to add models.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 mt-2">
+                  <div className="grid grid-cols-[2fr_1.5fr_1.5fr_32px] gap-2 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    <span>Model</span>
+                    <span>Model Rate for Project (₹) *</span>
+                    <span>Notes</span>
+                    <span />
+                  </div>
+                  {modalModelAssignments.map((a, idx) => {
+                    const modelObj = a.model || allModels.find((m) => m.id === a.modelId);
+                    return (
+                      <div
+                        key={a.modelId || idx}
+                        className="grid grid-cols-[2fr_1.5fr_1.5fr_32px] gap-2 items-center bg-gray-50 p-2.5 rounded-xl border border-gray-100"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-gray-900 truncate">
+                            {modelObj?.name || 'Assigned Model'}
+                          </p>
+                          <p className="text-[10px] text-gray-400 truncate">
+                            {modelObj?.gender || ''} {modelObj?.agency ? `· ${modelObj.agency}` : ''}
+                          </p>
+                        </div>
+                        <div>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-2 text-xs text-gray-400 font-medium">₹</span>
+                            <input
+                              type="number"
+                              min={0}
+                              required
+                              value={a.modelRate}
+                              onChange={(e) => updateModalModelRate(idx, e.target.value)}
+                              className="w-full pl-6 pr-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold text-gray-800"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            placeholder="Notes..."
+                            value={a.notes || ''}
+                            onChange={(e) => updateModalModelNotes(idx, e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+                          />
+                        </div>
+                        <div className="flex justify-center">
+                          <button
+                            type="button"
+                            onClick={() => removeModalModel(idx)}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                            title="Remove model"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ─── Total Budget Breakdown Box ─── */}
+            <div className="md:col-span-2 bg-[#C59B27]/5 border border-[#C59B27]/20 rounded-xl p-3.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#C59B27]">Total Budget Breakdown</p>
+                  <p className="text-xs text-gray-700 mt-0.5">
+                    Base Budget: <strong>{formatCurrency(modalBaseBudget)}</strong> + Total Model Cost:{' '}
+                    <strong className="text-purple-700">{formatCurrency(modalTotalModelCost)}</strong>
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-gray-400 uppercase font-semibold">Total Production Cost</p>
+                  <p className="text-base font-bold text-gray-900">{formatCurrency(modalTotalBudget)}</p>
+                </div>
+              </div>
+              {modalTotalBudget > 0 && (
+                <div className="mt-2.5 pt-2 border-t border-[#C59B27]/10 flex items-center justify-between text-xs">
+                  <span className="text-gray-500">
+                    Contract Amount set: <strong>{formatCurrency(projectForm.budget || 0)}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setProjectForm({ ...projectForm, budget: String(modalTotalBudget) })}
+                    className="text-[11px] font-semibold text-[#C59B27] hover:underline"
+                  >
+                    Set Contract to match Total Cost ({formatCurrency(modalTotalBudget)}) →
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="md:col-span-2">
               <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1.5">
                 <Link2 className="w-3 h-3 text-purple-600" /> Google Drive Delivery Link
               </label>
               <input
-                type="url" value={projectForm.driveLink}
+                type="url"
+                value={projectForm.driveLink}
                 onChange={(e) => setProjectForm({ ...projectForm, driveLink: e.target.value })}
                 placeholder="https://drive.google.com/drive/folders/..."
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
@@ -788,7 +1105,8 @@ export default function FashionProjectsPage() {
             <div className="md:col-span-2">
               <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
               <textarea
-                rows={2} value={projectForm.notes}
+                rows={2}
+                value={projectForm.notes}
                 onChange={(e) => setProjectForm({ ...projectForm, notes: e.target.value })}
                 placeholder="Creative brief, styling notes, references..."
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"

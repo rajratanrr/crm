@@ -235,6 +235,7 @@ model Customer {
   studioBookings          StudioBooking[]
   fashionGarmentReqs      FashionGarmentRequirement[]
   fashionProjectModels    FashionProjectModel[]
+  fashionClientModels     FashionClientModel[]         // client-model default rates
 
   @@index([customerCode])
   @@index([phone])
@@ -626,6 +627,7 @@ model Model {
   updatedAt        DateTime @updatedAt
 
   projectAssignments FashionProjectModel[]
+  clientRates        FashionClientModel[]    // default rates per client
 
   @@map("fashion_models")
 }
@@ -666,6 +668,25 @@ model FashionProjectModel {
   @@index([projectId])
   @@index([clientId])
   @@map("fashion_project_models")
+}
+
+// Client-level default model rate (survives across projects)
+model FashionClientModel {
+  id          String   @id @default(uuid())
+  clientId    String
+  modelId     String
+  defaultRate Decimal  @default(0) @db.Decimal(12, 2)
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client Customer @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  model  Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, modelId])
+  @@index([clientId])
+  @@index([modelId])
+  @@map("fashion_client_models")
 }
 
 model Garment {

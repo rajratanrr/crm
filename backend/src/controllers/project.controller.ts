@@ -253,7 +253,57 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
     }
   }
 
-  res.status(201).json({ success: true, data: project });
+  // Handle model assignments for FASHION projects
+  if (isFashion && customerId) {
+    try {
+      let assignmentsToCreate: any[] = [];
+      if (Array.isArray(req.body.modelAssignments) && req.body.modelAssignments.length > 0) {
+        assignmentsToCreate = req.body.modelAssignments.map((ma: any) => ({
+          projectId: project.id,
+          modelId: ma.modelId,
+          clientId: customerId,
+          modelRate: Number(ma.modelRate) || 0,
+          notes: ma.notes || null,
+        }));
+      } else {
+        // Auto-inherit models & rates configured on client
+        const clientDefaults = await prisma.fashionClientModel.findMany({
+          where: { clientId: customerId },
+        });
+        if (clientDefaults.length > 0) {
+          assignmentsToCreate = clientDefaults.map((cd) => ({
+            projectId: project.id,
+            modelId: cd.modelId,
+            clientId: customerId,
+            modelRate: Number(cd.defaultRate) || 0,
+            notes: cd.notes || null,
+          }));
+        }
+      }
+
+      if (assignmentsToCreate.length > 0) {
+        await prisma.fashionProjectModel.createMany({
+          data: assignmentsToCreate,
+        });
+      }
+    } catch (modelErr) {
+      console.error("Failed to assign models to project:", modelErr);
+    }
+  }
+
+  const fullProject = await prisma.project.findUnique({
+    where: { id: project.id },
+    include: {
+      customer: true,
+      modelAssignments: {
+        include: {
+          model: { select: { id: true, name: true, phone: true, gender: true } },
+        },
+      },
+    },
+  });
+
+  res.status(201).json({ success: true, data: fullProject || project });
 });
 
 export const updateProject = asyncHandler(async (req: Request, res: Response) => {
@@ -331,13 +381,45 @@ export const updateProject = asyncHandler(async (req: Request, res: Response) =>
   delete data.remainingAmount;
   delete data.contractAmount;
 
+  const incomingModelAssignments = req.body.modelAssignments;
+
   const project = await prisma.project.update({
     where: { id },
     data,
     include: { customer: true },
   });
 
-  res.json({ success: true, data: project });
+  if (Array.isArray(incomingModelAssignments)) {
+    try {
+      const resolvedClientId = project.customerId || null;
+      await prisma.$transaction([
+        prisma.fashionProjectModel.deleteMany({ where: { projectId: id } }),
+        prisma.fashionProjectModel.createMany({
+          data: incomingModelAssignments.map((ma: any) => ({
+            projectId: id,
+            modelId: ma.modelId,
+            clientId: resolvedClientId,
+            modelRate: Number(ma.modelRate) || 0,
+            notes: ma.notes || null,
+          })),
+        }),
+      ]);
+    } catch (assignErr) {
+      console.error("Failed to sync project models:", assignErr);
+    }
+  }
+
+  const full = await prisma.project.findUnique({
+    where: { id },
+    include: {
+      customer: true,
+      modelAssignments: {
+        include: { model: { select: { id: true, name: true, phone: true, gender: true } } },
+      },
+    },
+  });
+
+  res.json({ success: true, data: full || project });
 });
 
 export const deleteProject = asyncHandler(async (req: Request, res: Response) => {

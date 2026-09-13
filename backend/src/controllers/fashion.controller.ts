@@ -341,7 +341,7 @@ export const deleteProjectModel = asyncHandler(async (req: Request, res: Respons
 export const getClientFinancialSummary = asyncHandler(async (req: Request, res: Response) => {
   const clientId = req.params.clientId || req.params.id;
 
-  const [projects, payments, modelAssignments, garments] = await Promise.all([
+  const [projects, payments, modelAssignments, garments, clientModels] = await Promise.all([
     prisma.project.findMany({
       where: { customerId: clientId, projectType: 'FASHION' },
       select: { id: true, name: true, budget: true, baseBudget: true, shootDate: true, status: true, projectNumber: true },
@@ -353,13 +353,20 @@ export const getClientFinancialSummary = asyncHandler(async (req: Request, res: 
     prisma.fashionProjectModel.findMany({
       where: { clientId },
       include: {
-        model: { select: { id: true, name: true } },
+        model: { select: { id: true, name: true, gender: true, phone: true } },
         project: { select: { id: true, name: true, shootDate: true } },
       },
     }),
     prisma.fashionGarmentRequirement.findMany({
       where: { clientId },
       include: { project: { select: { id: true, name: true, shootDate: true } } },
+    }),
+    prisma.fashionClientModel.findMany({
+      where: { clientId },
+      include: {
+        model: { select: { id: true, name: true, phone: true, email: true, gender: true, agency: true, instagram: true } },
+      },
+      orderBy: { createdAt: 'asc' },
     }),
   ]);
 
@@ -381,6 +388,7 @@ export const getClientFinancialSummary = asyncHandler(async (req: Request, res: 
       payments: projectPayments,
       modelAssignments,
       garments,
+      clientModels,
       summary: {
         totalContractValue,
         totalReceived,
@@ -390,6 +398,74 @@ export const getClientFinancialSummary = asyncHandler(async (req: Request, res: 
       },
     },
   });
+});
+
+// ─── CLIENT MODEL ROSTER & DEFAULT RATES ─────────────
+
+export const getClientModels = asyncHandler(async (req: Request, res: Response) => {
+  const clientId = req.params.clientId || req.params.id || (req.query.clientId as string);
+  if (!clientId) throw new ApiError(400, 'clientId is required');
+
+  const models = await prisma.fashionClientModel.findMany({
+    where: { clientId },
+    include: {
+      model: {
+        select: {
+          id: true,
+          name: true,
+          gender: true,
+          phone: true,
+          email: true,
+          agency: true,
+          instagram: true,
+          height: true,
+          measurements: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  res.json({ success: true, data: models });
+});
+
+export const syncClientModels = asyncHandler(async (req: Request, res: Response) => {
+  const clientId = req.params.clientId || req.params.id || req.body.clientId;
+  const { models } = req.body;
+  if (!clientId) throw new ApiError(400, 'clientId is required');
+  if (!Array.isArray(models)) throw new ApiError(400, 'models must be an array');
+
+  await prisma.$transaction([
+    prisma.fashionClientModel.deleteMany({ where: { clientId } }),
+    prisma.fashionClientModel.createMany({
+      data: models.map((m: any) => ({
+        clientId,
+        modelId: m.modelId,
+        defaultRate: Number(m.defaultRate) || 0,
+        notes: m.notes || null,
+      })),
+    }),
+  ]);
+
+  const updated = await prisma.fashionClientModel.findMany({
+    where: { clientId },
+    include: {
+      model: {
+        select: {
+          id: true,
+          name: true,
+          gender: true,
+          phone: true,
+          email: true,
+          agency: true,
+          instagram: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+
+  res.json({ success: true, data: updated });
 });
 
 // ─── LEGACY (kept for backward compat, not surfaced in UI) ──

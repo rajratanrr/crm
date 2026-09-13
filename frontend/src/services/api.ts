@@ -41,6 +41,8 @@ export const customerApi = {
   update: (id: string, data: any) => api.put(`/customers/${id}`, data),
   delete: (id: string) => api.delete(`/customers/${id}`),
   bulkImport: (customers: any[]) => api.post("/customers/bulk-import", { customers }),
+  getClientModels: (id: string) => api.get(`/customers/${id}/models`),
+  syncClientModels: (id: string, models: any[]) => api.post(`/customers/${id}/models`, { models }),
 };
 
 // Leads
@@ -172,6 +174,12 @@ export const fashionApi = {
     api.patch(`/fashion/project-models/${id}`, data),
   deleteProjectModel: (id: string) =>
     api.delete(`/fashion/project-models/${id}`),
+
+  // Client model default assignments & rates
+  getClientModels: (clientId: string) =>
+    api.get(`/fashion/clients/${clientId}/models`),
+  syncClientModels: (clientId: string, models: any[]) =>
+    api.post(`/fashion/clients/${clientId}/models`, { models }),
 
   // Client financial summary
   getClientFinancialSummary: (clientId: string) =>
