@@ -176,6 +176,7 @@ export default function FashionProjectsPage() {
       status: p.status || 'PLANNING',
       budget: p.budget ? String(p.budget) : '',
       baseBudget: p.baseBudget ? String(p.baseBudget) : '',
+      advanceAmount: '',
       shootDate: p.shootDate ? p.shootDate.split('T')[0] : '',
       studioLocation: p.studioLocation || '',
       shootType: p.shootType || '',
