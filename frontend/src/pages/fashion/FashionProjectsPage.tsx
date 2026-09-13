@@ -47,6 +47,7 @@ function emptyProject() {
     status: 'PLANNING',
     budget: '',       // contractAmount (client-facing)
     baseBudget: '',   // internal production budget
+    advanceAmount: '', // advance payment received upfront
     shootDate: '',
     studioLocation: '',
     shootType: '',
@@ -81,10 +82,13 @@ export default function FashionProjectsPage() {
   const [allModels, setAllModels] = useState<any[]>([]);
   const [modelSaving, setModelSaving] = useState(false);
 
-  // Quick payment modal
+  // Quick payment modal & inline advance entry
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [payForm, setPayForm] = useState({ amount: '', paymentMethod: 'UPI', paymentStatus: 'ADVANCE', notes: '' });
   const [paySaving, setPaySaving] = useState(false);
+  const [quickAdvanceAmount, setQuickAdvanceAmount] = useState('');
+  const [quickAdvanceMethod, setQuickAdvanceMethod] = useState('UPI');
+  const [quickAdvanceSaving, setQuickAdvanceSaving] = useState(false);
 
   // ─── Loaders ────────────────────────────────────────────────────────────────
   const loadProjects = async () => {
@@ -108,22 +112,34 @@ export default function FashionProjectsPage() {
   const loadDetail = async (id: string) => {
     setDetailLoading(true);
     try {
-      const [projRes, garReqs, modAssigns, modsRes] = await Promise.all([
-        projectApi.getOne(id),
-        projectApi.getGarments(id),           // /api/projects/:id/garments
-        projectApi.getModels(id),             // /api/projects/:id/models
-        modelApi.getAll(),
-      ]);
+      const projRes = await projectApi.getOne(id);
       setSelectedProject(projRes.data.data);
-      setGarments(garReqs.data.data.map((g: any) => ({
-        id: g.id, clothType: g.clothType, dressName: g.dressName, quantity: g.quantity,
-      })));
-      setModelAssignments(modAssigns.data.data.map((a: any) => ({
-        id: a.id, modelId: a.modelId, modelRate: Number(a.modelRate), notes: a.notes || '', model: a.model,
-      })));
-      setAllModels(modsRes.data.data);
-    } catch {
-      toast.error('Failed to load project details');
+
+      try {
+        const [garReqs, modAssigns, modsRes] = await Promise.all([
+          projectApi.getGarments(id),           // /api/projects/:id/garments
+          projectApi.getModels(id),             // /api/projects/:id/models
+          allModels.length > 0 ? Promise.resolve({ data: { data: allModels } }) : modelApi.getAll(),
+        ]);
+        setGarments(
+          (garReqs.data?.data || []).map((g: any) => ({
+            id: g.id, clothType: g.clothType, dressName: g.dressName, quantity: g.quantity,
+          }))
+        );
+        setModelAssignments(
+          (modAssigns.data?.data || []).map((a: any) => ({
+            id: a.id, modelId: a.modelId, modelRate: Number(a.modelRate), notes: a.notes || '', model: a.model,
+          }))
+        );
+        if (modsRes?.data?.data && allModels.length === 0) {
+          setAllModels(modsRes.data.data);
+        }
+      } catch (subErr) {
+        console.warn('Sub-resource fetch warning:', subErr);
+      }
+    } catch (err: any) {
+      console.error('Failed to load project details:', err);
+      toast.error(err.response?.data?.message || 'Failed to load project details');
     } finally {
       setDetailLoading(false);
     }
@@ -262,6 +278,7 @@ export default function FashionProjectsPage() {
         projectType: 'FASHION',
         budget: Number(projectForm.budget) || 0,           // contractAmount
         baseBudget: Number((projectForm as any).baseBudget) || 0,
+        advanceAmount: Number((projectForm as any).advanceAmount) || 0,
         endDate: null,
         modelAssignments: modalModelAssignments.map((a) => ({
           modelId: a.modelId,
@@ -397,6 +414,38 @@ export default function FashionProjectsPage() {
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to record payment');
     } finally { setPaySaving(false); }
+  };
+
+  const handleQuickAdvanceSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!selectedProject || !quickAdvanceAmount) return;
+    const amt = Number(quickAdvanceAmount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error('Enter a valid advance amount');
+      return;
+    }
+    setQuickAdvanceSaving(true);
+    try {
+      await paymentApi.create({
+        customerId: selectedProject.customerId,
+        projectId: selectedProject.id,
+        domain: 'FASHION',
+        amount: amt,
+        paymentMethod: quickAdvanceMethod,
+        paymentType: 'ADVANCE',
+        paymentStatus: 'ADVANCE',
+        paymentDate: new Date().toISOString().split('T')[0],
+        notes: 'Advance payment recorded',
+      });
+      toast.success(`Advance payment of ${formatCurrency(amt)} recorded`);
+      setQuickAdvanceAmount('');
+      loadDetail(selectedProject.id);
+      loadProjects();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to record advance');
+    } finally {
+      setQuickAdvanceSaving(false);
+    }
   };
 
   // ─── Modal Calculations ───────────────────────────────────────────────────────
@@ -635,6 +684,56 @@ export default function FashionProjectsPage() {
                     </p>
                   </div>
                 )}
+
+                {/* Quick Advance / Payment Entry */}
+                <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 mb-4">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                      <IndianRupee className="w-3.5 h-3.5 text-amber-600" />
+                      Record Advance Received
+                    </span>
+                    <span className="text-[11px] font-semibold text-amber-800">
+                      Pending Balance: <strong>{formatCurrency(selectedProject.remainingAmount || 0)}</strong>
+                    </span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-2.5 top-2 text-xs text-gray-400 font-medium">₹</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={quickAdvanceAmount}
+                        onChange={(e) => setQuickAdvanceAmount(e.target.value)}
+                        placeholder="Enter advance received..."
+                        className="w-full pl-6 pr-3 py-1.5 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold text-gray-800"
+                      />
+                    </div>
+                    <select
+                      value={quickAdvanceMethod}
+                      onChange={(e) => setQuickAdvanceMethod(e.target.value)}
+                      className="px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-medium text-gray-700"
+                    >
+                      <option value="UPI">UPI / GPay</option>
+                      <option value="CASH">Cash</option>
+                      <option value="BANK_TRANSFER">Bank Transfer</option>
+                      <option value="CARD">Card</option>
+                      <option value="CHEQUE">Cheque</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleQuickAdvanceSubmit}
+                      disabled={quickAdvanceSaving || !quickAdvanceAmount}
+                      className="px-4 py-1.5 bg-[#C59B27] hover:bg-[#b58c1e] text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-xs flex-shrink-0"
+                    >
+                      {quickAdvanceSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                      Save Advance
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1.5">
+                    Saving advance automatically deducts from the pending balance and updates all reports.
+                  </p>
+                </div>
+
                 {/* Payment history */}
                 {selectedProject.payments?.length > 0 ? (
                   <div className="space-y-2 mt-2">
@@ -917,6 +1016,25 @@ export default function FashionProjectsPage() {
                 placeholder="e.g. 75000"
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Advance Received (₹) <span className="text-gray-400 font-normal">— upfront payment</span></label>
+              <input
+                type="number"
+                min={0}
+                value={(projectForm as any).advanceAmount || ''}
+                onChange={(e) => setProjectForm({ ...projectForm, advanceAmount: e.target.value } as any)}
+                placeholder="e.g. 25000"
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
+              {Number(projectForm.budget) > 0 && (
+                <p className="text-[10px] text-gray-500 mt-1 flex justify-between">
+                  <span>Pending Balance:</span>
+                  <strong className="text-amber-700 font-bold">
+                    {formatCurrency(Math.max(0, Number(projectForm.budget || 0) - Number((projectForm as any).advanceAmount || 0)))}
+                  </strong>
+                </p>
+              )}
             </div>
 
             {/* ─── Client's Assigned Models & Auto-Fetched Rates ─── */}

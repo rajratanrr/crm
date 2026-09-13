@@ -291,10 +291,33 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
     }
   }
 
+  // Handle advance payment if provided during project creation
+  const advanceNum = Number(req.body.advanceAmount || req.body.advance || 0);
+  if (advanceNum > 0) {
+    try {
+      await prisma.payment.create({
+        data: {
+          projectId: project.id,
+          customerId,
+          domain: isFashion ? 'FASHION' : 'WEDDING',
+          amount: advanceNum,
+          paymentMethod: req.body.paymentMethod || 'UPI',
+          paymentType: 'ADVANCE',
+          paymentStatus: 'ADVANCE',
+          paymentDate: new Date(),
+          notes: req.body.advanceNotes || 'Initial advance received on project booking',
+        },
+      });
+    } catch (payErr) {
+      console.error('Failed to record initial advance payment:', payErr);
+    }
+  }
+
   const fullProject = await prisma.project.findUnique({
     where: { id: project.id },
     include: {
       customer: true,
+      payments: true,
       modelAssignments: {
         include: {
           model: { select: { id: true, name: true, phone: true, gender: true } },

@@ -152,7 +152,8 @@ export const deleteModel = asyncHandler(async (req: Request, res: Response) => {
 // ─── FASHION GARMENT REQUIREMENTS ────────────────────
 
 export const getGarmentRequirements = asyncHandler(async (req: Request, res: Response) => {
-  const { projectId, clientId } = req.query as Record<string, string>;
+  const projectId = (req.params.projectId as string) || (req.query.projectId as string);
+  const clientId = (req.params.clientId as string) || (req.query.clientId as string);
 
   const where: any = {};
   if (projectId) where.projectId = projectId;
