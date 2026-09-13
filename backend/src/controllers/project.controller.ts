@@ -5,7 +5,11 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { generateContractNumber } from '../utils/generateCode';
 
-
+// Helper: only ADVANCE/DONE count as received money
+function isReceived(paymentStatus: string | null | undefined): boolean {
+  if (!paymentStatus) return true; // legacy null = treat as received
+  return paymentStatus === 'ADVANCE' || paymentStatus === 'DONE';
+}
 
 export const getProjects = asyncHandler(async (req: Request, res: Response) => {
   const { type, status, customerId, search } = req.query as Record<string, string>;
@@ -40,7 +44,7 @@ export const getProjects = asyncHandler(async (req: Request, res: Response) => {
       garmentRequirements: true,
       modelAssignments: {
         include: {
-          model: { select: { id: true, name: true, phone: true, gender: true, shootCategories: true } },
+          model: { select: { id: true, name: true, phone: true, gender: true } },
         },
       },
     },
@@ -48,19 +52,23 @@ export const getProjects = asyncHandler(async (req: Request, res: Response) => {
   });
 
   const formatted = projects.map((p) => {
-    // Only count ADVANCE and DONE payments as received (PENDING = not received)
-    const receivedPayments = p.payments.filter(
-      (pay) => !pay.paymentStatus || pay.paymentStatus === 'ADVANCE' || pay.paymentStatus === 'DONE'
-    );
-    const totalPaid = receivedPayments.reduce((acc, pay) => acc + Number(pay.amount), 0);
-    const budgetNum = Number(p.budget);
-    const remaining = Math.max(0, budgetNum - totalPaid);
+    const receivedPayments = p.payments.filter((pay) => isReceived(pay.paymentStatus));
+    const totalReceived = receivedPayments.reduce((acc, pay) => acc + Number(pay.amount), 0);
+    const contractAmount = Number(p.budget); // budget column = contractAmount
+    const baseBudgetNum = Number(p.baseBudget);
     const totalModelCost = p.modelAssignments.reduce((s, ma) => s + Number(ma.modelRate), 0);
+    const totalBudget = baseBudgetNum + totalModelCost;
+    const pendingAmount = Math.max(0, contractAmount - totalReceived);
     return {
       ...p,
-      totalPaid,
-      remainingAmount: remaining,
+      contractAmount,
+      baseBudget: baseBudgetNum,
       totalModelCost,
+      totalBudget,
+      totalReceived,
+      totalPaid: totalReceived, // alias for backward compat
+      remainingAmount: pendingAmount,
+      pendingAmount,
     };
   });
 
@@ -82,7 +90,7 @@ export const getProject = asyncHandler(async (req: Request, res: Response) => {
       garmentRequirements: { orderBy: { createdAt: 'asc' } },
       modelAssignments: {
         include: {
-          model: { select: { id: true, name: true, phone: true, email: true, gender: true, shootCategories: true, preferredShootType: true } },
+          model: { select: { id: true, name: true, phone: true, email: true, gender: true } },
         },
         orderBy: { createdAt: 'asc' },
       },
@@ -91,22 +99,62 @@ export const getProject = asyncHandler(async (req: Request, res: Response) => {
 
   if (!project) throw new ApiError(404, 'Project not found');
 
-  // Only ADVANCE/DONE payments count as received
-  const receivedPayments = project.payments.filter(
-    (pay: any) => !pay.paymentStatus || pay.paymentStatus === 'ADVANCE' || pay.paymentStatus === 'DONE'
-  );
-  const totalPaid = receivedPayments.reduce((acc: number, pay: any) => acc + Number(pay.amount), 0);
-  const budgetNum = Number(project.budget);
-  const remaining = Math.max(0, budgetNum - totalPaid);
+  const receivedPayments = project.payments.filter((pay: any) => isReceived(pay.paymentStatus));
+  const totalReceived = receivedPayments.reduce((acc: number, pay: any) => acc + Number(pay.amount), 0);
+  const contractAmount = Number(project.budget);
+  const baseBudgetNum = Number(project.baseBudget);
   const totalModelCost = (project.modelAssignments as any[]).reduce((s, ma) => s + Number(ma.modelRate), 0);
+  const totalBudget = baseBudgetNum + totalModelCost;
+  const pendingAmount = Math.max(0, contractAmount - totalReceived);
 
   res.json({
     success: true,
     data: {
       ...project,
-      totalPaid,
-      remainingAmount: remaining,
+      contractAmount,
+      baseBudget: baseBudgetNum,
       totalModelCost,
+      totalBudget,
+      totalReceived,
+      totalPaid: totalReceived,
+      remainingAmount: pendingAmount,
+      pendingAmount,
+    },
+  });
+});
+
+export const getProjectFinancialSummary = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const project = await prisma.project.findUnique({
+    where: { id },
+    include: {
+      payments: { select: { amount: true, paymentStatus: true } },
+      modelAssignments: { select: { modelRate: true } },
+    },
+  });
+
+  if (!project) throw new ApiError(404, 'Project not found');
+
+  const totalReceived = project.payments
+    .filter((p) => isReceived(p.paymentStatus))
+    .reduce((s, p) => s + Number(p.amount), 0);
+
+  const contractAmount = Number(project.budget);
+  const baseBudgetNum = Number(project.baseBudget);
+  const totalModelCost = project.modelAssignments.reduce((s, ma) => s + Number(ma.modelRate), 0);
+  const totalBudget = baseBudgetNum + totalModelCost;
+  const pendingAmount = Math.max(0, contractAmount - totalReceived);
+
+  res.json({
+    success: true,
+    data: {
+      projectId: id,
+      baseBudget: baseBudgetNum,
+      totalModelCost,
+      totalBudget,
+      contractAmount,
+      totalReceived,
+      pendingAmount,
     },
   });
 });
@@ -117,7 +165,8 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
     projectType,
     status = 'PLANNING',
     customerId,
-    budget = 0,
+    budget = 0,      // contractAmount (client-facing)
+    baseBudget = 0,  // internal production budget
     startDate,
     endDate,
     weddingDate,
@@ -135,23 +184,35 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
     notes,
   } = req.body;
 
-  if (!name || !customerId || !startDate) {
-    throw new ApiError(400, 'Project name, customer, and start date are required');
+  if (!name || !customerId) {
+    throw new ApiError(400, 'Project name and customer are required');
   }
 
-  const prefix = projectType === 'FASHION' ? 'FSH' : 'WED';
-  const count = await prisma.project.count({ where: { projectType } });
+  // For FASHION projects, startDate is not user-facing — use shootDate or today
+  const isFashion = projectType === 'FASHION';
+  let resolvedStartDate: Date;
+  if (startDate) {
+    resolvedStartDate = new Date(startDate);
+  } else if (isFashion && shootDate) {
+    resolvedStartDate = new Date(shootDate);
+  } else {
+    resolvedStartDate = new Date();
+  }
+
+  const prefix = isFashion ? 'FSH' : 'WED';
+  const count = await prisma.project.count({ where: { projectType: isFashion ? 'FASHION' : 'WEDDING' } });
   const projectNumber = `${prefix}-${String(count + 1).padStart(4, '0')}`;
 
   const project = await prisma.project.create({
     data: {
       projectNumber,
       name,
-      projectType: projectType === 'FASHION' ? 'FASHION' : 'WEDDING',
+      projectType: isFashion ? 'FASHION' : 'WEDDING',
       status,
       customerId,
       budget: Number(budget) || 0,
-      startDate: new Date(startDate),
+      baseBudget: Number(baseBudget) || 0,
+      startDate: resolvedStartDate,
       endDate: endDate ? new Date(endDate) : null,
       weddingDate: weddingDate ? new Date(weddingDate) : null,
       venue,
@@ -170,6 +231,7 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
     include: { customer: true },
   });
 
+  // Auto-create contract if contractAmount (budget) > 0
   const budgetNum = Number(budget) || 0;
   if (budgetNum > 0) {
     try {
@@ -179,7 +241,7 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
           contractNumber,
           customerId,
           projectId: project.id,
-          contractDate: new Date(startDate),
+          contractDate: resolvedStartDate,
           subtotal: budgetNum,
           finalAmount: budgetNum,
           status: "SIGNED",
@@ -196,13 +258,19 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
 
 export const updateProject = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const data = { ...req.body };
+  const data: any = { ...req.body };
 
   if (data.startDate) data.startDate = new Date(data.startDate);
   if (data.endDate) data.endDate = new Date(data.endDate);
   if (data.weddingDate) data.weddingDate = new Date(data.weddingDate);
   if (data.shootDate) data.shootDate = new Date(data.shootDate);
   if (data.driveLink !== undefined) data.driveLink = data.driveLink || null;
+
+  // Handle contractAmount alias → budget column
+  if (data.contractAmount !== undefined) {
+    data.budget = Number(data.contractAmount);
+    delete data.contractAmount;
+  }
   if (data.budget !== undefined) {
     const newBudget = Number(data.budget);
     data.budget = newBudget;
@@ -222,7 +290,7 @@ export const updateProject = asyncHandler(async (req: Request, res: Response) =>
               contractNumber,
               customerId: prj.customerId,
               projectId: prj.id,
-              contractDate: prj.startDate,
+              contractDate: prj.startDate ?? new Date(),
               subtotal: newBudget,
               finalAmount: newBudget,
               status: 'SIGNED',
@@ -236,6 +304,11 @@ export const updateProject = asyncHandler(async (req: Request, res: Response) =>
     }
   }
 
+  if (data.baseBudget !== undefined) {
+    data.baseBudget = Number(data.baseBudget) || 0;
+  }
+
+  // Strip read-only / relation fields
   delete data.id;
   delete data.createdAt;
   delete data.updatedAt;
@@ -247,6 +320,16 @@ export const updateProject = asyncHandler(async (req: Request, res: Response) =>
   delete data.tasks;
   delete data.deliverables;
   delete data.studioBookings;
+  delete data.garmentRequirements;
+  delete data.modelAssignments;
+  // Calculated fields — not stored
+  delete data.totalModelCost;
+  delete data.totalBudget;
+  delete data.totalReceived;
+  delete data.totalPaid;
+  delete data.pendingAmount;
+  delete data.remainingAmount;
+  delete data.contractAmount;
 
   const project = await prisma.project.update({
     where: { id },
@@ -280,14 +363,14 @@ export const deleteProject = asyncHandler(async (req: Request, res: Response) =>
   // 4. Delete studio bookings linked to this project
   await prisma.studioBooking.deleteMany({ where: { projectId: id } });
 
-  // 5. Delete fashion-specific sub-records (cascade via FK but being explicit)
+  // 5. Delete fashion-specific sub-records
   await prisma.fashionGarmentRequirement.deleteMany({ where: { projectId: id } });
   await prisma.fashionProjectModel.deleteMany({ where: { projectId: id } });
 
   // 6. Unlink events
   await prisma.event.updateMany({ where: { projectId: id }, data: { projectId: null } });
 
-  // 6. Delete project
+  // 7. Delete project
   await prisma.project.delete({ where: { id } });
   res.json({ success: true, message: "Project deleted successfully" });
 });

@@ -10,18 +10,17 @@ export const getStats = asyncHandler(async (req: Request, res: Response) => {
     totalCustomers,
     upcomingEvents,
     activeContracts,
-    totalRevenueAgg,
+    allPayments,
     contracts,
     pendingDeliverables,
     weddingProjectsCount,
     fashionProjectsCount,
-    weddingPaymentsAgg,
-    fashionPaymentsAgg,
   ] = await Promise.all([
     prisma.customer.count(),
     prisma.event.count({ where: { status: 'UPCOMING', startDate: { gte: new Date() } } }),
     prisma.contract.count({ where: { status: { in: ['ACTIVE', 'SIGNED'] } } }),
-    prisma.payment.aggregate({ _sum: { amount: true } }),
+    // Fetch all payments with status so we can filter
+    prisma.payment.findMany({ select: { amount: true, domain: true, paymentStatus: true } }),
     prisma.contract.findMany({
       where: { status: { in: ['ACTIVE', 'SIGNED'] } },
       include: { payments: { select: { amount: true } } },
@@ -29,18 +28,20 @@ export const getStats = asyncHandler(async (req: Request, res: Response) => {
     prisma.deliverable.count({ where: { status: { in: ['PENDING', 'IN_PRODUCTION'] } } }),
     prisma.project.count({ where: { projectType: 'WEDDING' } }),
     prisma.project.count({ where: { projectType: 'FASHION' } }),
-    prisma.payment.aggregate({ where: { domain: 'WEDDING' }, _sum: { amount: true } }),
-    prisma.payment.aggregate({ where: { domain: 'FASHION' }, _sum: { amount: true } }),
   ]);
+
+  // Only ADVANCE/DONE payments count as received revenue
+  const isReceived = (ps: string | null | undefined) => !ps || ps === 'ADVANCE' || ps === 'DONE';
+  const receivedPayments = allPayments.filter(p => isReceived(p.paymentStatus));
+
+  const totalRevenue = receivedPayments.reduce((s, p) => s + Number(p.amount), 0);
+  const weddingRevenue = receivedPayments.filter(p => p.domain === 'WEDDING').reduce((s, p) => s + Number(p.amount), 0);
+  const fashionRevenue = receivedPayments.filter(p => p.domain === 'FASHION').reduce((s, p) => s + Number(p.amount), 0);
 
   const pendingPayments = contracts.reduce((sum, c) => {
     const paid = c.payments.reduce((s, p) => s + Number(p.amount), 0);
     return sum + Math.max(0, Number(c.finalAmount) - paid);
   }, 0);
-
-  const totalRevenue = Number(totalRevenueAgg._sum.amount || 0);
-  const weddingRevenue = Number(weddingPaymentsAgg._sum.amount || 0);
-  const fashionRevenue = Number(fashionPaymentsAgg._sum.amount || 0);
 
   res.json({
     success: true,
@@ -101,12 +102,14 @@ export const getRecentProjects = asyncHandler(async (req: Request, res: Response
     take: 10,
     include: {
       customer: { select: { id: true, fullName: true, phone: true } },
-      payments: { select: { amount: true } },
+      payments: { select: { amount: true, paymentStatus: true } },
     },
   });
 
   const formatted = projects.map((p) => {
-    const paid = p.payments.reduce((s, pay) => s + Number(pay.amount), 0);
+    const paid = p.payments
+      .filter((pay) => !pay.paymentStatus || pay.paymentStatus === 'ADVANCE' || pay.paymentStatus === 'DONE')
+      .reduce((s, pay) => s + Number(pay.amount), 0);
     return {
       ...p,
       totalPaid: paid,

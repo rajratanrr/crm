@@ -45,9 +45,9 @@ function emptyProject() {
     name: '',
     customerId: '',
     status: 'PLANNING',
-    budget: '',
+    budget: '',       // contractAmount (client-facing)
+    baseBudget: '',   // internal production budget
     shootDate: '',
-    startDate: new Date().toISOString().split('T')[0],
     studioLocation: '',
     shootType: '',
     driveLink: '',
@@ -102,8 +102,8 @@ export default function FashionProjectsPage() {
     try {
       const [projRes, garReqs, modAssigns, modsRes] = await Promise.all([
         projectApi.getOne(id),
-        fashionApi.getGarmentRequirements(id),
-        fashionApi.getProjectModels(id),
+        projectApi.getGarments(id),           // /api/projects/:id/garments
+        projectApi.getModels(id),             // /api/projects/:id/models
         modelApi.getAll(),
       ]);
       setSelectedProject(projRes.data.data);
@@ -143,8 +143,8 @@ export default function FashionProjectsPage() {
       customerId: p.customerId || '',
       status: p.status || 'PLANNING',
       budget: p.budget ? String(p.budget) : '',
+      baseBudget: p.baseBudget ? String(p.baseBudget) : '',
       shootDate: p.shootDate ? p.shootDate.split('T')[0] : '',
-      startDate: p.startDate ? p.startDate.split('T')[0] : '',
       studioLocation: p.studioLocation || '',
       shootType: p.shootType || '',
       driveLink: p.driveLink || '',
@@ -170,7 +170,8 @@ export default function FashionProjectsPage() {
       const payload = {
         ...projectForm,
         projectType: 'FASHION',
-        budget: Number(projectForm.budget) || 0,
+        budget: Number(projectForm.budget) || 0,           // contractAmount
+        baseBudget: Number((projectForm as any).baseBudget) || 0,
         endDate: null,
       };
       if (editingProject) {
@@ -223,7 +224,7 @@ export default function FashionProjectsPage() {
     if (!selectedProject) return;
     setGarmentSaving(true);
     try {
-      await fashionApi.bulkUpsertGarmentRequirements(selectedProject.id, garments.map(g => ({
+      await projectApi.bulkGarments(selectedProject.id, garments.map(g => ({
         clothType: g.clothType, dressName: g.dressName, quantity: g.quantity,
       })));
       toast.success('Garment requirements saved');
@@ -248,7 +249,7 @@ export default function FashionProjectsPage() {
   const removeModelAssignment = async (idx: number) => {
     const row = modelAssignments[idx];
     if (row.id) {
-      try { await fashionApi.deleteProjectModel(row.id); toast.success('Model removed'); } catch {}
+      try { await projectApi.removeModel(selectedProject!.id, row.id); toast.success('Model removed'); } catch {}
     }
     setModelAssignments(prev => prev.filter((_, i) => i !== idx));
   };
@@ -258,8 +259,8 @@ export default function FashionProjectsPage() {
     setModelSaving(true);
     try {
       for (const assignment of modelAssignments) {
-        await fashionApi.createProjectModel({
-          projectId: selectedProject.id,
+        // Uses upsert — safe to call for both new and existing
+        await projectApi.addModel(selectedProject.id, {
           modelId: assignment.modelId,
           modelRate: Number(assignment.modelRate) || 0,
           notes: assignment.notes,
@@ -476,30 +477,48 @@ export default function FashionProjectsPage() {
                 )}
               </div>
 
-              {/* Payment Summary */}
+              {/* Financial Summary — 6 metrics */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                    <IndianRupee className="w-4 h-4 text-[#C59B27]" /> Payment Summary
+                    <IndianRupee className="w-4 h-4 text-[#C59B27]" /> Financial Summary
                   </h3>
                   <button onClick={openPayModal} className="flex items-center gap-1.5 px-3 py-1.5 bg-[#C59B27] hover:bg-[#b58c1e] text-white text-xs font-semibold rounded-lg transition-all">
                     <Plus className="w-3.5 h-3.5" /> Record Payment
                   </button>
                 </div>
                 <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div className="text-center">
+                  <div className="text-center p-3 rounded-xl" style={{ background: 'var(--color-bg-secondary)' }}>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Base Budget</p>
+                    <p className="text-base font-bold text-gray-700 mt-1">{formatCurrency(selectedProject.baseBudget || 0)}</p>
+                    <p className="text-[10px] text-gray-400">Internal production</p>
+                  </div>
+                  <div className="text-center p-3 rounded-xl" style={{ background: 'var(--color-bg-secondary)' }}>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Model Cost</p>
+                    <p className="text-base font-bold text-purple-600 mt-1">{formatCurrency(selectedProject.totalModelCost || 0)}</p>
+                    <p className="text-[10px] text-gray-400">{modelAssignments.length} model{modelAssignments.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <div className="text-center p-3 rounded-xl bg-indigo-50 border border-indigo-100">
+                    <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Total Budget</p>
+                    <p className="text-base font-bold text-indigo-700 mt-1">{formatCurrency((selectedProject.baseBudget || 0) + (selectedProject.totalModelCost || 0))}</p>
+                    <p className="text-[10px] text-indigo-400">Base + Models</p>
+                  </div>
+                  <div className="text-center p-3 rounded-xl" style={{ background: 'var(--color-bg-secondary)' }}>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Contract Amount</p>
-                    <p className="text-lg font-bold text-gray-900 mt-1">{formatCurrency(selectedProject.budget)}</p>
+                    <p className="text-base font-bold text-gray-900 mt-1">{formatCurrency(selectedProject.budget)}</p>
+                    <p className="text-[10px] text-gray-400">Client-facing</p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Received</p>
-                    <p className="text-lg font-bold text-emerald-600 mt-1">{formatCurrency(selectedProject.totalPaid)}</p>
+                  <div className="text-center p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                    <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Total Received</p>
+                    <p className="text-base font-bold text-emerald-600 mt-1">{formatCurrency(selectedProject.totalPaid || 0)}</p>
+                    <p className="text-[10px] text-emerald-400">ADVANCE + DONE</p>
                   </div>
-                  <div className="text-center">
+                  <div className={`text-center p-3 rounded-xl ${(selectedProject.remainingAmount || 0) > 0 ? 'bg-amber-50 border border-amber-100' : 'bg-emerald-50 border border-emerald-100'}`}>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Pending Balance</p>
-                    <p className={`text-lg font-bold mt-1 ${selectedProject.remainingAmount > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                      {formatCurrency(selectedProject.remainingAmount)}
+                    <p className={`text-base font-bold mt-1 ${(selectedProject.remainingAmount || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                      {formatCurrency(selectedProject.remainingAmount || 0)}
                     </p>
+                    <p className="text-[10px] text-gray-400">Not yet received</p>
                   </div>
                 </div>
                 {/* Progress bar */}
@@ -512,7 +531,7 @@ export default function FashionProjectsPage() {
                       />
                     </div>
                     <p className="text-[10px] text-gray-400 mt-1 text-right">
-                      {Math.min(100, Math.round((Number(selectedProject.totalPaid) / Number(selectedProject.budget)) * 100))}% collected
+                      {Math.min(100, Math.round((Number(selectedProject.totalPaid) / Number(selectedProject.budget)) * 100))}% of contract collected
                     </p>
                   </div>
                 )}
@@ -716,14 +735,6 @@ export default function FashionProjectsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Project Start Date</label>
-              <input
-                type="date" value={projectForm.startDate}
-                onChange={(e) => setProjectForm({ ...projectForm, startDate: e.target.value })}
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-              />
-            </div>
-            <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Studio Bay / Location</label>
               <select
                 value={projectForm.studioLocation}
@@ -751,6 +762,15 @@ export default function FashionProjectsPage() {
                 type="number" min={0} value={projectForm.budget}
                 onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
                 placeholder="e.g. 75000"
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Base Budget (₹) <span className="text-gray-400 font-normal">— internal production cost</span></label>
+              <input
+                type="number" min={0} value={(projectForm as any).baseBudget || ''}
+                onChange={(e) => setProjectForm({ ...projectForm, baseBudget: e.target.value } as any)}
+                placeholder="e.g. 30000"
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
               />
             </div>

@@ -17,7 +17,20 @@ export const projectApi = {
   getOne: (id: string) => api.get(`/projects/${id}`),
   create: (data: any) => api.post('/projects', data),
   update: (id: string, data: any) => api.put(`/projects/${id}`, data),
+  patch: (id: string, data: any) => api.patch(`/projects/${id}`, data),
   delete: (id: string) => api.delete(`/projects/${id}`),
+  getFinancialSummary: (id: string) => api.get(`/projects/${id}/financial-summary`),
+  // Project-scoped model assignments
+  getModels: (projectId: string) => api.get(`/projects/${projectId}/models`),
+  addModel: (projectId: string, data: any) => api.post(`/projects/${projectId}/models`, data),
+  updateModel: (projectId: string, id: string, data: any) => api.patch(`/projects/${projectId}/models/${id}`, data),
+  removeModel: (projectId: string, id: string) => api.delete(`/projects/${projectId}/models/${id}`),
+  // Project-scoped garment requirements
+  getGarments: (projectId: string) => api.get(`/projects/${projectId}/garments`),
+  addGarment: (projectId: string, data: any) => api.post(`/projects/${projectId}/garments`, data),
+  updateGarment: (projectId: string, id: string, data: any) => api.patch(`/projects/${projectId}/garments/${id}`, data),
+  removeGarment: (projectId: string, id: string) => api.delete(`/projects/${projectId}/garments/${id}`),
+  bulkGarments: (projectId: string, requirements: any[]) => api.post(`/projects/${projectId}/garments/bulk`, { requirements }),
 };
 
 // Customers / Clients
@@ -132,32 +145,37 @@ export const modelApi = {
   getOne: (id: string) => api.get(`/models/${id}`),
   create: (data: any) => api.post('/models', data),
   update: (id: string, data: any) => api.put(`/models/${id}`, data),
+  patch: (id: string, data: any) => api.patch(`/models/${id}`, data),
   delete: (id: string) => api.delete(`/models/${id}`),
 };
 
-// Fashion: Garment Requirements (project-level)
+// Fashion: project-level garment requirements + model assignments (legacy query-param style, kept for compat)
 export const fashionApi = {
-  // Garment requirements
+  // Garment requirements (query-param style — legacy)
   getGarmentRequirements: (projectId: string) =>
     api.get('/fashion/garment-requirements', { params: { projectId } }),
   createGarmentRequirement: (data: { projectId: string; clothType: string; dressName: string; quantity: number }) =>
     api.post('/fashion/garment-requirements', data),
   updateGarmentRequirement: (id: string, data: Partial<{ clothType: string; dressName: string; quantity: number }>) =>
-    api.put(`/fashion/garment-requirements/${id}`, data),
+    api.patch(`/fashion/garment-requirements/${id}`, data),
   deleteGarmentRequirement: (id: string) =>
     api.delete(`/fashion/garment-requirements/${id}`),
   bulkUpsertGarmentRequirements: (projectId: string, requirements: any[]) =>
     api.post(`/fashion/garment-requirements/project/${projectId}/bulk`, { requirements }),
 
-  // Project model assignments
+  // Project model assignments (query-param style — legacy)
   getProjectModels: (projectId: string) =>
     api.get('/fashion/project-models', { params: { projectId } }),
   createProjectModel: (data: { projectId: string; modelId: string; modelRate: number; notes?: string }) =>
     api.post('/fashion/project-models', data),
   updateProjectModel: (id: string, data: Partial<{ modelRate: number; notes: string }>) =>
-    api.put(`/fashion/project-models/${id}`, data),
+    api.patch(`/fashion/project-models/${id}`, data),
   deleteProjectModel: (id: string) =>
     api.delete(`/fashion/project-models/${id}`),
+
+  // Client financial summary
+  getClientFinancialSummary: (clientId: string) =>
+    api.get(`/clients/${clientId}/financial-summary`),
 };
 
 // Fashion: Garments

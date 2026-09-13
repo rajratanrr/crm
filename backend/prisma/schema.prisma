@@ -224,15 +224,17 @@ model Customer {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
-  leads          Lead[]
-  projects       Project[]
-  events         Event[]
-  contracts      Contract[]
-  payments       Payment[]
-  invoices       Invoice[]
-  interactions   Interaction[]
-  tasks          Task[]
-  studioBookings StudioBooking[]
+  leads                   Lead[]
+  projects                Project[]
+  events                  Event[]
+  contracts               Contract[]
+  payments                Payment[]
+  invoices                Invoice[]
+  interactions            Interaction[]
+  tasks                   Task[]
+  studioBookings          StudioBooking[]
+  fashionGarmentReqs      FashionGarmentRequirement[]
+  fashionProjectModels    FashionProjectModel[]
 
   @@index([customerCode])
   @@index([phone])
@@ -275,10 +277,11 @@ model Project {
   name          String         @db.VarChar(200)
   projectType   ProjectType    @default(WEDDING)
   status        ProjectStatus  @default(PLANNING)
-  customerId    String
-  budget        Decimal        @default(0) @db.Decimal(12, 2)
-  startDate     DateTime       @db.Date
-  endDate       DateTime?      @db.Date
+  customerId     String
+  budget         Decimal        @default(0) @db.Decimal(12, 2)   // = contractAmount (client-facing)
+  baseBudget     Decimal        @default(0) @db.Decimal(12, 2)   // internal production budget
+  startDate      DateTime?      @db.Date
+  endDate        DateTime?      @db.Date
   
   // Wedding specific fields
   weddingDate   DateTime?      @db.Date
@@ -630,15 +633,18 @@ model Model {
 model FashionGarmentRequirement {
   id        String   @id @default(uuid())
   projectId String
-  clothType String   @db.VarChar(100)  // e.g. "Saree", "Kurti", "Bottom"
-  dressName String   @db.VarChar(200)  // specific dress/product name
+  clientId  String?                     // denormalized for fast client-scoped queries
+  clothType String   @db.VarChar(100)
+  dressName String   @db.VarChar(200)
   quantity  Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client  Customer? @relation(fields: [clientId], references: [id])
 
   @@index([projectId])
+  @@index([clientId])
   @@map("fashion_garment_requirements")
 }
 
@@ -652,11 +658,13 @@ model FashionProjectModel {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  model   Model    @relation(fields: [modelId], references: [id])
+  project Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  model   Model     @relation(fields: [modelId], references: [id])
+  client  Customer? @relation(fields: [clientId], references: [id])
 
   @@unique([projectId, modelId])
   @@index([projectId])
+  @@index([clientId])
   @@map("fashion_project_models")
 }
 
