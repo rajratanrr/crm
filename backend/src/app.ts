@@ -28,18 +28,69 @@ import attendanceRoutes from './routes/attendance.routes';
 import expenseRoutes from './routes/expense.routes';
 import fashionExtraRoutes from './routes/fashion.routes';
 
+import helmet from 'helmet';
+import hpp from 'hpp';
+import { sanitizeInputs } from './middleware/sanitizer';
+import { globalLimiter, searchLimiter } from './middleware/rateLimiter';
+
 const app = express();
 
-// Middleware
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow any origin in production or development to ensure frontend connectivity
-    callback(null, true);
-  },
-  credentials: true,
-}));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+// Disable technology disclosure header
+app.disable('x-powered-by');
+
+// Enhanced HTTP security headers
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+  })
+);
+
+// Strict Whitelist CORS Configuration
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5001',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5001',
+  config.frontendUrl,
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      try {
+        const host = new URL(origin).hostname;
+        if (host.endsWith('.onrender.com') || host === 'localhost' || host === '127.0.0.1') {
+          return callback(null, true);
+        }
+      } catch {
+        // Invalid origin format
+      }
+      callback(new Error('Blocked by CORS policy: Origin not allowed.'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  })
+);
+
+// Body parser limits to prevent Heap Overflow DoS
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
+// HTTP Parameter Pollution Protection
+app.use(hpp());
+
+// XSS & Prototype Pollution Sanitizer
+app.use(sanitizeInputs);
+
+// Rate Limiting
+app.use('/api', globalLimiter);
+app.use('/api/search', searchLimiter);
 
 // Health check
 app.get('/api/health', (req, res) => {

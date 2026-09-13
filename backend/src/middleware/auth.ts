@@ -24,7 +24,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, config.jwtSecret) as any;
+    // Explicitly enforce HS256 algorithm to prevent algorithm confusion attacks
+    const decoded = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] }) as any;
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -41,9 +42,29 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     if (error instanceof ApiError) {
       next(error);
     } else {
-      next(ApiError.unauthorized('Invalid token'));
+      next(ApiError.unauthorized('Invalid or expired token'));
     }
   }
+};
+
+export const optionalAuthenticate = async (req: AuthRequest, _res: Response, next: NextFunction) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] }) as any;
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: { id: true, email: true, role: true, name: true, isActive: true },
+      });
+      if (user && user.isActive) {
+        req.user = { id: user.id, email: user.email, role: user.role, name: user.name };
+      }
+    }
+  } catch {
+    // Ignore in optional authenticate
+  }
+  next();
 };
 
 export const authorize = (...roles: string[]) => {
