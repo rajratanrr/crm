@@ -248,40 +248,6 @@ export default function FashionProjectsPage() {
     }
   };
 
-  const addModalModel = (modelId: string) => {
-    if (!modelId) return;
-    if (modalModelAssignments.some((a) => a.modelId === modelId)) {
-      toast.error('Model already assigned to this project');
-      return;
-    }
-    const found = allModels.find((m) => m.id === modelId);
-    const clientRate = selectedClientData?.fashionClientModels?.find((cm: any) => cm.modelId === modelId);
-    setModalModelAssignments((prev) => [
-      ...prev,
-      {
-        modelId,
-        modelRate: clientRate ? Number(clientRate.defaultRate) || 0 : 0,
-        notes: clientRate?.notes || '',
-        model: found,
-      },
-    ]);
-  };
-
-  const updateModalModelRate = (idx: number, rate: any) => {
-    setModalModelAssignments((prev) =>
-      prev.map((a, i) => (i === idx ? { ...a, modelRate: Number(rate) || 0 } : a))
-    );
-  };
-
-  const updateModalModelNotes = (idx: number, notes: string) => {
-    setModalModelAssignments((prev) =>
-      prev.map((a, i) => (i === idx ? { ...a, notes } : a))
-    );
-  };
-
-  const removeModalModel = (idx: number) => {
-    setModalModelAssignments((prev) => prev.filter((_, i) => i !== idx));
-  };
 
   const handleProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -953,104 +919,72 @@ export default function FashionProjectsPage() {
               />
             </div>
 
-            {/* ─── Assigned Models & Model Rate For This Client / Project ─── */}
+            {/* ─── Client's Assigned Models & Auto-Fetched Rates ─── */}
             <div className="md:col-span-2 pt-3 border-t border-gray-100">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <div>
                   <label className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
                     <UserCircle className="w-4 h-4 text-[#C59B27]" />
-                    Assigned Models & Rates for this Project
+                    Client Assigned Models &amp; Agreed Rates (Auto-Loaded)
                   </label>
-                  <p className="text-[11px] text-gray-400">
+                  <p className="text-[11px] text-gray-500">
                     {selectedClientData
-                      ? `Auto-loaded from ${selectedClientData.fullName}'s profile. Adjust rates or assign extra models.`
-                      : 'Select a client to auto-load agreed model rates.'}
+                      ? `Automatically fetched from ${selectedClientData.companyName || selectedClientData.fullName}'s saved model rates.`
+                      : 'Select a Fashion Client above to automatically load their assigned models and rates.'}
                   </p>
                 </div>
-                <div className="flex-shrink-0">
-                  <select
-                    defaultValue=""
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        addModalModel(e.target.value);
-                        e.target.value = '';
-                      }
-                    }}
-                    className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] font-medium text-gray-700"
-                  >
-                    <option value="">+ Assign Model to Project...</option>
-                    {allModels
-                      .filter((m) => !modalModelAssignments.some((a) => a.modelId === m.id))
-                      .map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name} {m.gender ? `(${m.gender})` : ''} {m.agency ? `· ${m.agency}` : ''}
-                        </option>
-                      ))}
-                  </select>
-                </div>
+                {modalModelAssignments.length > 0 && (
+                  <span className="text-xs font-semibold px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-200 rounded-lg">
+                    {modalModelAssignments.length} Model{modalModelAssignments.length > 1 ? 's' : ''} Linked · Total: {formatCurrency(modalTotalModelCost)}
+                  </span>
+                )}
               </div>
 
-              {modalModelAssignments.length === 0 ? (
-                <div className="p-3.5 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-center">
-                  <p className="text-xs text-gray-500 font-medium">No models assigned to this project yet</p>
+              {!projectForm.customerId ? (
+                <div className="p-4 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-center">
+                  <p className="text-xs text-gray-500 font-medium">No client selected yet</p>
                   <p className="text-[10px] text-gray-400 mt-0.5">
-                    Select a client with configured models or use the dropdown above to add models.
+                    Select a client from the dropdown above to automatically fetch their assigned models and agreed rates.
+                  </p>
+                </div>
+              ) : modalModelAssignments.length === 0 ? (
+                <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-xl text-center">
+                  <p className="text-xs text-amber-800 font-semibold">No models assigned to this client yet</p>
+                  <p className="text-[11px] text-amber-600 mt-0.5">
+                    You can assign models and set their agreed rates in the <strong>Fashion Clients</strong> page.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2 mt-2">
-                  <div className="grid grid-cols-[2fr_1.5fr_1.5fr_32px] gap-2 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                    <span>Model</span>
-                    <span>Model Rate for Project (₹) *</span>
+                  <div className="grid grid-cols-[2fr_1.5fr_1.5fr] gap-2 px-3 py-1.5 bg-gray-100/80 rounded-lg text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                    <span>Assigned Model</span>
+                    <span>Agreed Client Rate (Auto-Applied)</span>
                     <span>Notes</span>
-                    <span />
                   </div>
                   {modalModelAssignments.map((a, idx) => {
                     const modelObj = a.model || allModels.find((m) => m.id === a.modelId);
                     return (
                       <div
                         key={a.modelId || idx}
-                        className="grid grid-cols-[2fr_1.5fr_1.5fr_32px] gap-2 items-center bg-gray-50 p-2.5 rounded-xl border border-gray-100"
+                        className="grid grid-cols-[2fr_1.5fr_1.5fr] gap-2 items-center bg-gray-50 px-3 py-2.5 rounded-xl border border-gray-100"
                       >
                         <div className="min-w-0">
                           <p className="text-xs font-semibold text-gray-900 truncate">
                             {modelObj?.name || 'Assigned Model'}
                           </p>
                           <p className="text-[10px] text-gray-400 truncate">
-                            {modelObj?.gender || ''} {modelObj?.agency ? `· ${modelObj.agency}` : ''}
+                            {modelObj?.gender || 'Fashion Model'} {modelObj?.agency ? `· ${modelObj.agency}` : ''}
                           </p>
                         </div>
                         <div>
-                          <div className="relative">
-                            <span className="absolute left-2.5 top-2 text-xs text-gray-400 font-medium">₹</span>
-                            <input
-                              type="number"
-                              min={0}
-                              required
-                              value={a.modelRate}
-                              onChange={(e) => updateModalModelRate(idx, e.target.value)}
-                              className="w-full pl-6 pr-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold text-gray-800"
-                            />
-                          </div>
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-green-50 text-green-700 border border-green-200">
+                            {formatCurrency(a.modelRate)}
+                          </span>
                         </div>
                         <div>
-                          <input
-                            type="text"
-                            placeholder="Notes..."
-                            value={a.notes || ''}
-                            onChange={(e) => updateModalModelNotes(idx, e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-                          />
-                        </div>
-                        <div className="flex justify-center">
-                          <button
-                            type="button"
-                            onClick={() => removeModalModel(idx)}
-                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            title="Remove model"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <p className="text-xs text-gray-500 truncate">
+                            {a.notes || '—'}
+                          </p>
                         </div>
                       </div>
                     );

@@ -10,7 +10,8 @@ export const validate = (schema: ZodSchema) => {
         field: e.path.join('.'),
         message: e.message,
       }));
-      return next(ApiError.unprocessable('Validation failed', errors));
+      const detailedMessage = errors.map((err) => `${err.field}: ${err.message}`).join('; ');
+      return next(ApiError.unprocessable(detailedMessage || 'Validation failed', errors));
     }
     req.body = result.data;
     next();

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const createCustomerSchema = z.object({
   fullName: z.string().min(1, 'Name is required').max(150),
-  phone: z.string().min(1, 'Phone is required').max(20),
+  phone: z.string().regex(/^\d{10}$/, 'Phone number must be exactly 10 digits'),
   alternatePhone: z.string().max(20).optional().nullable(),
   email: z.string().email('Invalid email').max(180).optional().nullable().or(z.literal('')),
   address: z.string().optional().nullable(),

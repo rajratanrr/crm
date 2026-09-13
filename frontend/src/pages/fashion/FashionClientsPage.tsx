@@ -166,14 +166,20 @@ export default function FashionClientsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.fullName) {
+    if (!form.fullName.trim()) {
       toast.error('Client name is required');
+      return;
+    }
+    const cleanPhone = (form.phone || '').replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      toast.error('Phone number is mandatory and must be exactly 10 digits');
       return;
     }
     setSaving(true);
     try {
       const payload = {
         ...form,
+        phone: cleanPhone,
         clientModels: clientModels
           .filter((cm) => cm.modelId)
           .map((cm) => ({
@@ -348,13 +354,27 @@ export default function FashionClientsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Phone Number <span className="text-red-500">*</span>
+              </label>
               <input
+                type="tel"
+                required
+                maxLength={10}
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="+91 9876543210"
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setForm({ ...form, phone: digits });
+                }}
+                placeholder="e.g. 9876543210 (10 digits)"
               />
+              <p className="text-[10px] text-gray-400 mt-1 flex justify-between">
+                <span>Must be exactly 10 digits</span>
+                <span className={form.phone.length === 10 ? 'text-green-600 font-semibold' : 'text-gray-400'}>
+                  {form.phone.length}/10
+                </span>
+              </p>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
