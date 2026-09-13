@@ -356,7 +356,23 @@ export const getClientFinancialSummary = asyncHandler(async (req: Request, res: 
   const [projects, payments, modelAssignments, garments, clientModels] = await Promise.all([
     prisma.project.findMany({
       where: { customerId: clientId, projectType: 'FASHION' },
-      select: { id: true, name: true, budget: true, baseBudget: true, shootDate: true, status: true, projectNumber: true },
+      select: {
+        id: true,
+        name: true,
+        budget: true,
+        baseBudget: true,
+        studioAmount: true,
+        brand: true,
+        shootType: true,
+        productType: true,
+        quantity: true,
+        clothInDate: true,
+        clothOutDate: true,
+        driveLink: true,
+        shootDate: true,
+        status: true,
+        projectNumber: true,
+      },
     }),
     prisma.payment.findMany({
       where: { customerId: clientId, domain: 'FASHION' },

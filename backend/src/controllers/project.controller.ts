@@ -175,6 +175,11 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
     functions,
     brand,
     shootType,
+    productType,
+    quantity,
+    studioAmount,
+    clothInDate,
+    clothOutDate,
     studioLocation,
     shootDate,
     driveLink,
@@ -203,6 +208,9 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
   const count = await prisma.project.count({ where: { projectType: isFashion ? 'FASHION' : 'WEDDING' } });
   const projectNumber = `${prefix}-${String(count + 1).padStart(4, '0')}`;
 
+  const resolvedStudioAmount = studioAmount !== undefined && studioAmount !== '' ? Number(studioAmount) || 0 : (baseBudget ? Number(baseBudget) || 0 : 0);
+  const resolvedBaseBudget = Number(baseBudget) || resolvedStudioAmount || 0;
+
   const project = await prisma.project.create({
     data: {
       projectNumber,
@@ -211,7 +219,7 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
       status,
       customerId,
       budget: Number(budget) || 0,
-      baseBudget: Number(baseBudget) || 0,
+      baseBudget: resolvedBaseBudget,
       startDate: resolvedStartDate,
       endDate: endDate ? new Date(endDate) : null,
       weddingDate: weddingDate ? new Date(weddingDate) : null,
@@ -220,6 +228,11 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
       functions,
       brand,
       shootType,
+      productType: productType || null,
+      quantity: quantity !== undefined && quantity !== '' ? parseInt(String(quantity), 10) || 0 : (req.body.garmentCount ? parseInt(String(req.body.garmentCount), 10) || 0 : 0),
+      studioAmount: resolvedStudioAmount,
+      clothInDate: clothInDate ? new Date(clothInDate) : null,
+      clothOutDate: clothOutDate ? new Date(clothOutDate) : null,
       studioLocation,
       shootDate: shootDate ? new Date(shootDate) : null,
       driveLink: driveLink || null,
@@ -337,6 +350,13 @@ export const updateProject = asyncHandler(async (req: Request, res: Response) =>
   if (data.endDate) data.endDate = new Date(data.endDate);
   if (data.weddingDate) data.weddingDate = new Date(data.weddingDate);
   if (data.shootDate) data.shootDate = new Date(data.shootDate);
+  if (data.clothInDate !== undefined) data.clothInDate = data.clothInDate ? new Date(data.clothInDate) : null;
+  if (data.clothOutDate !== undefined) data.clothOutDate = data.clothOutDate ? new Date(data.clothOutDate) : null;
+  if (data.quantity !== undefined) data.quantity = data.quantity !== '' && data.quantity !== null ? parseInt(String(data.quantity), 10) || 0 : 0;
+  if (data.studioAmount !== undefined) data.studioAmount = data.studioAmount !== '' && data.studioAmount !== null ? Number(data.studioAmount) || 0 : 0;
+  if (data.productType !== undefined) data.productType = data.productType || null;
+  if (data.shootType !== undefined) data.shootType = data.shootType || null;
+  if (data.brand !== undefined) data.brand = data.brand || null;
   if (data.driveLink !== undefined) data.driveLink = data.driveLink || null;
 
   // Handle contractAmount alias → budget column

@@ -124,14 +124,44 @@ export const getCustomer = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+function cleanCustomerData(rest: any) {
+  const data = { ...rest };
+  if (data.garmentCount !== undefined) {
+    data.garmentCount = data.garmentCount !== '' && data.garmentCount !== null ? parseInt(String(data.garmentCount), 10) || 0 : null;
+  }
+  if (data.projectAmount !== undefined) {
+    data.projectAmount = data.projectAmount !== '' && data.projectAmount !== null ? Number(data.projectAmount) || 0 : null;
+  }
+  if (data.studioAmount !== undefined) {
+    data.studioAmount = data.studioAmount !== '' && data.studioAmount !== null ? Number(data.studioAmount) || 0 : null;
+  }
+  if (data.shootDate !== undefined) {
+    data.shootDate = data.shootDate ? new Date(data.shootDate) : null;
+  }
+  if (data.clothInDate !== undefined) {
+    data.clothInDate = data.clothInDate ? new Date(data.clothInDate) : null;
+  }
+  if (data.clothOutDate !== undefined) {
+    data.clothOutDate = data.clothOutDate ? new Date(data.clothOutDate) : null;
+  }
+  if (data.driveLink !== undefined) {
+    data.driveLink = data.driveLink || null;
+  }
+  if (data.shootType !== undefined) {
+    data.shootType = data.shootType || null;
+  }
+  if (data.productType !== undefined) {
+    data.productType = data.productType || null;
+  }
+  return data;
+}
+
 export const createCustomer = asyncHandler(async (req: Request, res: Response) => {
   const { clientModels, ...rest } = req.body;
-  if (rest.garmentCount !== undefined) {
-    rest.garmentCount = rest.garmentCount !== '' && rest.garmentCount !== null ? parseInt(String(rest.garmentCount), 10) || 0 : null;
-  }
+  const cleaned = cleanCustomerData(rest);
   const customerCode = await generateCustomerCode();
   const customer = await prisma.customer.create({
-    data: { ...rest, customerCode },
+    data: { ...cleaned, customerCode },
   });
 
   if (Array.isArray(clientModels) && clientModels.length > 0) {
@@ -163,12 +193,10 @@ export const updateCustomer = asyncHandler(async (req: Request, res: Response) =
   if (!existing) throw ApiError.notFound('Customer not found');
 
   const { clientModels, ...rest } = req.body;
-  if (rest.garmentCount !== undefined) {
-    rest.garmentCount = rest.garmentCount !== '' && rest.garmentCount !== null ? parseInt(String(rest.garmentCount), 10) || 0 : null;
-  }
+  const cleaned = cleanCustomerData(rest);
   const customer = await prisma.customer.update({
     where: { id: req.params.id },
-    data: rest,
+    data: cleaned,
   });
 
   if (Array.isArray(clientModels)) {

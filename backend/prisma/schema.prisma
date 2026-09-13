@@ -221,6 +221,14 @@ model Customer {
   clientType     BusinessDomain @default(WEDDING)
   companyName    String?        @db.VarChar(150)
   garmentCount   Int?           @default(0)
+  shootType      String?        @db.VarChar(150)
+  productType    String?        @db.VarChar(250)
+  projectAmount  Decimal?       @default(0) @db.Decimal(12, 2)
+  studioAmount   Decimal?       @default(0) @db.Decimal(12, 2)
+  shootDate      DateTime?      @db.Date
+  clothInDate    DateTime?      @db.Date
+  clothOutDate   DateTime?      @db.Date
+  driveLink      String?        @db.Text
   notes          String?        @db.Text
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -294,6 +302,11 @@ model Project {
   // Fashion specific fields
   brand          String?       @db.VarChar(150)
   shootType      String?       @db.VarChar(100)
+  productType    String?       @db.VarChar(250)
+  quantity       Int?          @default(0)
+  studioAmount   Decimal?      @default(0) @db.Decimal(12, 2)
+  clothInDate    DateTime?     @db.Date
+  clothOutDate   DateTime?     @db.Date
   studioLocation String?       @db.VarChar(200)
   shootDate      DateTime?     @db.Date
   driveLink      String?       @db.Text
