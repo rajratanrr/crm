@@ -100,7 +100,7 @@ export default function FashionClientsPage() {
     setEditingClient(c);
     setForm({
       fullName: c.fullName || '',
-      phone: c.phone || '',
+      phone: (c.phone || '').replace(/\D/g, '').slice(0, 10),
       email: c.email || '',
       companyName: c.companyName || '',
       city: c.city || '',

@@ -65,24 +65,38 @@ export default function FashionModelsPage() {
     e?.stopPropagation();
     setEditingModel(m);
     setForm({
-      name: m.name || '', agency: m.agency || '', phone: m.phone || '',
-      email: m.email || '', instagram: m.instagram || '',
-      gender: m.gender || 'Female', height: m.height || '',
-      measurements: m.measurements || '', notes: m.notes || '',
+      name: m.name || '',
+      agency: m.agency || '',
+      phone: (m.phone || '').replace(/\D/g, '').slice(0, 10),
+      email: m.email || '',
+      instagram: m.instagram || '',
+      gender: m.gender || 'Female',
+      height: m.height || '',
+      measurements: m.measurements || '',
+      notes: m.notes || '',
     });
     setIsModalOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name) { toast.error('Model name is required'); return; }
+    if (!form.name.trim()) {
+      toast.error('Model name is required');
+      return;
+    }
+    const cleanPhone = (form.phone || '').replace(/\D/g, '');
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      toast.error('Phone number is mandatory and must be exactly 10 digits');
+      return;
+    }
     try {
+      const payload = { ...form, phone: cleanPhone };
       if (editingModel) {
-        await modelApi.update(editingModel.id, form);
+        await modelApi.update(editingModel.id, payload);
         toast.success('Model profile updated');
         if (selectedModel?.id === editingModel.id) loadDetail(editingModel);
       } else {
-        await modelApi.create(form);
+        await modelApi.create(payload);
         toast.success('Model added to roster');
       }
       setIsModalOpen(false);
@@ -338,10 +352,27 @@ export default function FashionModelsPage() {
                 placeholder="e.g. Elite Models" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
-              <input className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-                value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="+91 9876543210" />
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Phone Number <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="tel"
+                required
+                maxLength={10}
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+                value={form.phone}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setForm({ ...form, phone: digits });
+                }}
+                placeholder="e.g. 9876543210 (10 digits)"
+              />
+              <p className="text-[10px] text-gray-400 mt-1 flex justify-between">
+                <span>Must be exactly 10 digits</span>
+                <span className={form.phone.length === 10 ? 'text-green-600 font-semibold' : 'text-gray-400'}>
+                  {form.phone.length}/10
+                </span>
+              </p>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>

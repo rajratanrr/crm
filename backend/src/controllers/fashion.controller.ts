@@ -81,11 +81,16 @@ export const createModel = asyncHandler(async (req: Request, res: Response) => {
   const { name, agency, phone, email, instagram, gender, height, measurements, notes } = req.body;
   if (!name) throw new ApiError(400, 'Model name is required');
 
+  const cleanPhone = phone ? String(phone).replace(/\D/g, '') : '';
+  if (!cleanPhone || cleanPhone.length !== 10) {
+    throw new ApiError(400, 'Phone number is mandatory and must be exactly 10 digits');
+  }
+
   const model = await prisma.model.create({
     data: {
       name,
       agency: agency || null,
-      phone: phone || null,
+      phone: cleanPhone,
       email: email || null,
       instagram: instagram || null,
       gender: gender || null,
@@ -110,7 +115,13 @@ export const updateModel = asyncHandler(async (req: Request, res: Response) => {
   const data: any = {};
   if (name !== undefined) data.name = name;
   if (agency !== undefined) data.agency = agency || null;
-  if (phone !== undefined) data.phone = phone || null;
+  if (phone !== undefined) {
+    const cleanPhone = phone ? String(phone).replace(/\D/g, '') : '';
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      throw new ApiError(400, 'Phone number is mandatory and must be exactly 10 digits');
+    }
+    data.phone = cleanPhone;
+  }
   if (email !== undefined) data.email = email || null;
   if (instagram !== undefined) data.instagram = instagram || null;
   if (gender !== undefined) data.gender = gender || null;
