@@ -915,7 +915,7 @@ export default function FashionProjectsPage() {
                 <option value="">— Select Client —</option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.fullName} {c.companyName ? `(${c.companyName})` : c.phone ? `(${c.phone})` : ''}
+                    {c.fullName} {c.companyName ? `(${c.companyName})` : ''} {c.garmentCount ? `· 👗 ${c.garmentCount} dresses` : ''}
                   </option>
                 ))}
               </select>
@@ -934,6 +934,11 @@ export default function FashionProjectsPage() {
                     {selectedClientData.phone && <span>📞 {selectedClientData.phone}</span>}
                     {selectedClientData.email && <span>✉️ {selectedClientData.email}</span>}
                     {selectedClientData.city && <span>📍 {selectedClientData.city}</span>}
+                    {Boolean(selectedClientData.garmentCount && selectedClientData.garmentCount > 0) && (
+                      <span className="font-semibold text-purple-800 bg-white/80 px-2 py-0.5 rounded border border-purple-200">
+                        👗 {selectedClientData.garmentCount} photoshoot dresses/garments
+                      </span>
+                    )}
                   </div>
                 </div>
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-white text-purple-700 font-semibold border border-purple-200">

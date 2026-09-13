@@ -33,7 +33,7 @@ interface ClientModelRow {
 }
 
 function defaultForm() {
-  return { fullName: '', phone: '', email: '', companyName: '', city: '', notes: '', clientType: 'FASHION' };
+  return { fullName: '', phone: '', email: '', companyName: '', city: '', notes: '', garmentCount: '', clientType: 'FASHION' };
 }
 
 export default function FashionClientsPage() {
@@ -105,6 +105,7 @@ export default function FashionClientsPage() {
       companyName: c.companyName || '',
       city: c.city || '',
       notes: c.notes || '',
+      garmentCount: c.garmentCount != null && c.garmentCount !== undefined ? String(c.garmentCount) : '',
       clientType: 'FASHION',
     });
 
@@ -180,6 +181,7 @@ export default function FashionClientsPage() {
       const payload = {
         ...form,
         phone: cleanPhone,
+        garmentCount: form.garmentCount !== '' ? parseInt(String(form.garmentCount), 10) || 0 : 0,
         clientModels: clientModels
           .filter((cm) => cm.modelId)
           .map((cm) => ({
@@ -270,10 +272,16 @@ export default function FashionClientsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-sm text-gray-900 truncate">{c.fullName}</div>
                         <div className="text-xs text-gray-500 truncate">{c.companyName || c.phone || 'No contact info'}</div>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                           {modelsCount > 0 && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-medium">
-                              {modelsCount} model{modelsCount !== 1 ? 's' : ''} assigned
+                              {modelsCount} model{modelsCount !== 1 ? 's' : ''}
+                            </span>
+                          )}
+                          {Boolean(c.garmentCount && c.garmentCount > 0) && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 font-medium flex items-center gap-0.5">
+                              <Shirt className="w-2.5 h-2.5" />
+                              {c.garmentCount} dresses
                             </span>
                           )}
                           {c.city && <span className="text-[10px] text-gray-400">{c.city}</span>}
@@ -385,6 +393,22 @@ export default function FashionClientsPage() {
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="client@brand.com"
               />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                No. of Garments / Total Dresses <span className="text-gray-400 font-normal">— how many different dresses/looks for photoshoot</span>
+              </label>
+              <div className="relative">
+                <Shirt className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                <input
+                  type="number"
+                  min={0}
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+                  value={form.garmentCount}
+                  onChange={(e) => setForm({ ...form, garmentCount: e.target.value })}
+                  placeholder="e.g. 15 (different dresses for photoshoot)"
+                />
+              </div>
             </div>
             <div className="md:col-span-2">
               <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
@@ -594,6 +618,12 @@ function ClientDetail({
                     <MapPin className="w-3.5 h-3.5 text-gray-400" /> {client.city}
                   </span>
                 )}
+                {Boolean(client.garmentCount && client.garmentCount > 0) && (
+                  <span className="flex items-center gap-1 font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">
+                    <Shirt className="w-3.5 h-3.5 text-purple-600" />
+                    {client.garmentCount} photoshoot dresses/garments
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -634,6 +664,9 @@ function ClientDetail({
               { label: 'Total Received (ADVANCE + DONE)', value: formatCurrency(summary.totalReceived ?? 0), color: 'text-emerald-600' },
               { label: 'Total Pending', value: formatCurrency(summary.totalPending ?? 0), color: 'text-amber-600' },
               { label: 'Total Garments Sent', value: `${summary.totalGarments ?? 0} pieces`, color: 'text-purple-600' },
+              ...(client.garmentCount && client.garmentCount > 0
+                ? [{ label: 'Agreed Photoshoot Target', value: `${client.garmentCount} dresses`, color: 'text-[#C59B27]' }]
+                : []),
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-gray-50 rounded-xl p-4">
                 <p className={`text-xl font-bold ${color}`}>{value}</p>

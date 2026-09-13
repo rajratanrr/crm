@@ -220,6 +220,7 @@ model Customer {
   source         String?        @db.VarChar(100)
   clientType     BusinessDomain @default(WEDDING)
   companyName    String?        @db.VarChar(150)
+  garmentCount   Int?           @default(0)
   notes          String?        @db.Text
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt

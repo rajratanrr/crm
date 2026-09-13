@@ -126,6 +126,9 @@ export const getCustomer = asyncHandler(async (req: Request, res: Response) => {
 
 export const createCustomer = asyncHandler(async (req: Request, res: Response) => {
   const { clientModels, ...rest } = req.body;
+  if (rest.garmentCount !== undefined) {
+    rest.garmentCount = rest.garmentCount !== '' && rest.garmentCount !== null ? parseInt(String(rest.garmentCount), 10) || 0 : null;
+  }
   const customerCode = await generateCustomerCode();
   const customer = await prisma.customer.create({
     data: { ...rest, customerCode },
@@ -160,6 +163,9 @@ export const updateCustomer = asyncHandler(async (req: Request, res: Response) =
   if (!existing) throw ApiError.notFound('Customer not found');
 
   const { clientModels, ...rest } = req.body;
+  if (rest.garmentCount !== undefined) {
+    rest.garmentCount = rest.garmentCount !== '' && rest.garmentCount !== null ? parseInt(String(rest.garmentCount), 10) || 0 : null;
+  }
   const customer = await prisma.customer.update({
     where: { id: req.params.id },
     data: rest,

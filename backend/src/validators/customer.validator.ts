@@ -12,6 +12,7 @@ export const createCustomerSchema = z.object({
   source: z.string().max(100).optional().nullable(),
   clientType: z.enum(['WEDDING', 'FASHION']).optional().default('WEDDING'),
   companyName: z.string().max(150).optional().nullable(),
+  garmentCount: z.union([z.number(), z.string()]).optional().nullable(),
   notes: z.string().optional().nullable(),
   clientModels: z.array(z.object({
     modelId: z.string(),
