@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  Plus, Search, UserCircle, Trash2, Edit2, X, Mail, Phone, Instagram,
+  Plus, Search, UserCircle, Trash2, Edit2, X, Mail, Phone, AtSign,
   Ruler, Building2, History, IndianRupee, Calendar, ChevronRight,
 } from 'lucide-react';
 import { modelApi } from '../../services/api';
@@ -361,7 +361,7 @@ function ModelDetail({ model, onEdit, onDelete }: { model: any; onEdit: (e: Reac
           )}
           {model.instagram && (
             <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              <Instagram size={14} /> {model.instagram}
+              <AtSign size={14} /> {model.instagram}
             </div>
           )}
           {model.height && (
