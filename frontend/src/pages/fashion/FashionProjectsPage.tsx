@@ -3,14 +3,15 @@ import {
   Plus, Search, Shirt, ChevronRight, X, Trash2, Edit2,
   IndianRupee, Calendar, Link2, MapPin, Film, PackagePlus,
   UserCircle, CheckCircle2, AlertCircle, Loader2, Tag, Clock,
-  Building2,
+  Building2, ExternalLink, Image as ImageIcon,
 } from 'lucide-react';
 import {
   projectApi, customerApi, paymentApi, modelApi,
-  fashionApi, formatCurrency, formatDate,
+  fashionApi, deliverableApi, formatCurrency, formatDate,
 } from '../../services/api';
 import Modal from '../../components/ui/Modal';
 import toast from 'react-hot-toast';
+
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 const PROJECT_STATUS = ['PLANNING', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'CANCELLED'];
@@ -118,6 +119,18 @@ export default function FashionProjectsPage() {
   const [quickAdvanceAmount, setQuickAdvanceAmount] = useState('');
   const [quickAdvanceMethod, setQuickAdvanceMethod] = useState('UPI');
   const [quickAdvanceSaving, setQuickAdvanceSaving] = useState(false);
+
+  // Deliverables modal
+  const [isDeliverableModalOpen, setIsDeliverableModalOpen] = useState(false);
+  const [deliverableForm, setDeliverableForm] = useState({
+    type: 'LOOKBOOK',
+    quantity: 1,
+    dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+    deliveryLink: '',
+    notes: '',
+  });
+  const [delivSaving, setDelivSaving] = useState(false);
+
 
   // ─── Loaders ────────────────────────────────────────────────────────────────
   const loadProjects = async () => {
@@ -567,8 +580,67 @@ export default function FashionProjectsPage() {
     }
   };
 
+  // ─── Deliverables Handlers ───────────────────────────────────────────────────
+  const openDeliverableModal = () => {
+    setDeliverableForm({
+      type: 'LOOKBOOK',
+      quantity: 1,
+      dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      deliveryLink: selectedProject?.driveLink || '',
+      notes: '',
+    });
+    setIsDeliverableModalOpen(true);
+  };
+
+  const handleCreateDeliverable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedProject) return;
+    setDelivSaving(true);
+    try {
+      await deliverableApi.create({
+        projectId: selectedProject.id,
+        domain: 'FASHION',
+        type: deliverableForm.type,
+        quantity: Number(deliverableForm.quantity) || 1,
+        dueDate: deliverableForm.dueDate || null,
+        deliveryLink: deliverableForm.deliveryLink || null,
+        notes: deliverableForm.notes || null,
+        status: 'PENDING',
+      });
+      toast.success('Deliverable added');
+      setIsDeliverableModalOpen(false);
+      loadDetail(selectedProject.id);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to add deliverable');
+    } finally {
+      setDelivSaving(false);
+    }
+  };
+
+  const handleDeliverableStatusChange = async (delivId: string, status: string) => {
+    try {
+      await deliverableApi.updateStatus(delivId, status);
+      toast.success('Status updated');
+      if (selectedProject) loadDetail(selectedProject.id);
+    } catch {
+      toast.error('Failed to update status');
+    }
+  };
+
+  const handleDeleteDeliverable = async (delivId: string) => {
+    if (!window.confirm('Delete this deliverable?')) return;
+    try {
+      await deliverableApi.delete(delivId);
+      toast.success('Deliverable deleted');
+      if (selectedProject) loadDetail(selectedProject.id);
+    } catch {
+      toast.error('Failed to delete deliverable');
+    }
+  };
+
   // ─── Modal Calculations ───────────────────────────────────────────────────────
   const modalTotalModelCost = modalModelAssignments.reduce((s, a) => s + (Number(a.modelRate) || 0), 0);
+
   const modalBaseBudget = Number((projectForm as any).baseBudget) || 0;
   const modalTotalBudget = modalBaseBudget + modalTotalModelCost;
 
@@ -1106,7 +1178,119 @@ export default function FashionProjectsPage() {
                 )}
               </div>
 
+              {/* Deliverables & Client Files */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-[#C59B27]" /> Deliverables &amp; Client Files
+                    {selectedProject.deliverables?.length > 0 && (
+                      <span className="text-xs text-gray-400 font-normal">
+                        ({selectedProject.deliverables.length})
+                      </span>
+                    )}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={openDeliverableModal}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#B8860B] bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition-all"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Deliverable
+                    </button>
+                    <a
+                      href="/fashion/deliverables"
+                      className="text-xs text-gray-500 hover:text-gray-900 font-medium flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-gray-50 transition-all"
+                    >
+                      All Deliverables <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+
+                {!selectedProject.deliverables || selectedProject.deliverables.length === 0 ? (
+                  <div className="text-center py-5 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                    <p className="text-xs text-gray-500 font-medium">No deliverables added for this shoot yet.</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Add Lookbook, E-commerce catalog, or Campaign deliverables to track milestones.
+                    </p>
+                    <button
+                      onClick={openDeliverableModal}
+                      className="mt-3 inline-flex items-center gap-1 px-3 py-1.5 bg-[#C59B27] hover:bg-[#b58c1e] text-white rounded-lg text-xs font-semibold shadow-xs transition-all"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add First Deliverable
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {selectedProject.deliverables.map((del: any) => (
+                      <div
+                        key={del.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 text-xs"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-gray-900">
+                              {del.type?.replace(/_/g, ' ')}
+                            </span>
+                            <span className="text-[10px] text-gray-500 bg-white border border-gray-200 px-1.5 py-0.5 rounded">
+                              Qty: {del.quantity}
+                            </span>
+                          </div>
+                          {del.notes && <p className="text-[11px] text-gray-500">{del.notes}</p>}
+                          {del.dueDate && (
+                            <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-gray-400" /> Due: {formatDate(del.dueDate)}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          {del.deliveryLink ? (
+                            <a
+                              href={del.deliveryLink}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-blue-600 hover:underline font-semibold text-xs"
+                            >
+                              <Link2 className="w-3.5 h-3.5" /> Drive Link ↗
+                            </a>
+                          ) : (
+                            <span className="text-gray-400 text-[11px]">No link</span>
+                          )}
+
+                          <select
+                            value={del.status}
+                            onChange={(e) => handleDeliverableStatusChange(del.id, e.target.value)}
+                            className={`text-[11px] font-bold border rounded-lg px-2 py-1 outline-none ${
+                              del.status === 'DELIVERED'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : del.status === 'READY'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : del.status === 'IN_PRODUCTION'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-white text-gray-700 border-gray-200'
+                            }`}
+                          >
+                            <option value="PENDING">PENDING</option>
+                            <option value="IN_PRODUCTION">IN PRODUCTION</option>
+                            <option value="READY">READY</option>
+                            <option value="DELIVERED">DELIVERED</option>
+                          </select>
+
+                          <button
+                            onClick={() => handleDeleteDeliverable(del.id)}
+                            className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
+                            title="Delete deliverable"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Notes */}
+
               {selectedProject.notes && (
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                   <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2">
@@ -1737,6 +1921,96 @@ export default function FashionProjectsPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Add Deliverable Modal */}
+      <Modal
+        isOpen={isDeliverableModalOpen}
+        onClose={() => setIsDeliverableModalOpen(false)}
+        title={`Add Deliverable — ${selectedProject?.name || 'Project'}`}
+      >
+        <form onSubmit={handleCreateDeliverable} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Deliverable Type *</label>
+              <select
+                value={deliverableForm.type}
+                onChange={(e) => setDeliverableForm({ ...deliverableForm, type: e.target.value })}
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
+              >
+                <option value="LOOKBOOK">Lookbook High-Res</option>
+                <option value="ECOM_CATALOG">E-commerce Web Catalog</option>
+                <option value="CAMPAIGN_EDIT">Commercial Campaign Edit</option>
+                <option value="EDITED_PHOTOS">Retouched Master Stills</option>
+                <option value="REEL">Social Media Reels / Teaser</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Quantity</label>
+              <input
+                type="number"
+                min={1}
+                value={deliverableForm.quantity}
+                onChange={(e) => setDeliverableForm({ ...deliverableForm, quantity: +e.target.value })}
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Target Due Date *</label>
+              <input
+                type="date"
+                required
+                value={deliverableForm.dueDate}
+                onChange={(e) => setDeliverableForm({ ...deliverableForm, dueDate: e.target.value })}
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+                <Link2 className="w-3.5 h-3.5 text-blue-600" /> Google Drive / Assets Link
+              </label>
+              <input
+                type="url"
+                value={deliverableForm.deliveryLink}
+                onChange={(e) => setDeliverableForm({ ...deliverableForm, deliveryLink: e.target.value })}
+                placeholder="https://drive.google.com/drive/folders/..."
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Specifications / Notes</label>
+              <input
+                type="text"
+                value={deliverableForm.notes}
+                onChange={(e) => setDeliverableForm({ ...deliverableForm, notes: e.target.value })}
+                placeholder="e.g. 4K ProRes, 300 DPI, white background catalog"
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <button
+              type="button"
+              onClick={() => setIsDeliverableModalOpen(false)}
+              className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-xl"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={delivSaving}
+              className="px-5 py-2 text-xs font-semibold bg-[#C59B27] hover:bg-[#b58c1e] text-white rounded-xl shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-60"
+            >
+              {delivSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Save Deliverable
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }
+
