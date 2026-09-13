@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
   Search, Users, Plus, Phone, Mail, Building2, MapPin,
-  Briefcase, Shirt, UserCircle, IndianRupee,
-  Edit2, ChevronRight, Calendar, TrendingUp, Loader2, Trash2,
-  Film, Tag, Link2, Clock, Check, ExternalLink, Sparkles,
+  Briefcase, UserCircle, IndianRupee,
+  Edit2, ChevronRight, TrendingUp, Loader2, Trash2,
+  Shirt, Calendar, Clock, Link2,
 } from 'lucide-react';
 import { customerApi, fashionApi, modelApi } from '../../services/api';
 import { formatCurrency, formatDate } from '../../lib/utils';
@@ -373,35 +373,6 @@ export default function FashionClientsPage() {
                               {modelsCount} model{modelsCount !== 1 ? 's' : ''}
                             </span>
                           )}
-                          {Boolean(c.garmentCount && c.garmentCount > 0) && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 font-medium flex items-center gap-0.5">
-                              <Shirt className="w-2.5 h-2.5" />
-                              {c.garmentCount} dresses
-                            </span>
-                          )}
-                          {c.shootType && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium flex items-center gap-0.5">
-                              <Film className="w-2.5 h-2.5" />
-                              {c.shootType}
-                            </span>
-                          )}
-                          {c.productType && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-pink-50 text-pink-700 font-medium flex items-center gap-0.5">
-                              <Tag className="w-2.5 h-2.5" />
-                              {c.productType}
-                            </span>
-                          )}
-                          {Boolean(c.projectAmount && Number(c.projectAmount) > 0) && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold">
-                              {formatCurrency(c.projectAmount)}
-                            </span>
-                          )}
-                          {c.clothInDate && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-medium flex items-center gap-0.5">
-                              <Clock className="w-2.5 h-2.5" />
-                              In: {formatDate(c.clothInDate)}
-                            </span>
-                          )}
                           {c.city && <span className="text-[10px] text-gray-400">{c.city}</span>}
                         </div>
                       </div>
@@ -510,246 +481,6 @@ export default function FashionClientsPage() {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="client@brand.com"
-              />
-            </div>
-            {/* ─── Photoshoot Specification: Shoot Type & Product Type (Dropdown + Checkboxes to tick) ─── */}
-            <div className="md:col-span-2 pt-3 border-t border-gray-100 space-y-3">
-              <div className="bg-purple-50/50 border border-purple-100 rounded-xl p-3.5 space-y-3">
-                {/* 1. Shoot Type */}
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <label className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
-                      <Film className="w-3.5 h-3.5 text-purple-600" />
-                      Shoot Type <span className="text-[11px] text-gray-400 font-normal">(choose from dropdown or tick checkboxes below)</span>
-                    </label>
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          toggleShootType(e.target.value);
-                          e.target.value = '';
-                        }
-                      }}
-                      className="px-2 py-1 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] font-medium text-gray-700"
-                    >
-                      <option value="">+ Add / Select Shoot Type...</option>
-                      {SHOOT_TYPES.map((st) => (
-                        <option key={st.value} value={st.label}>
-                          {st.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* Checkbox pills to tick */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {SHOOT_TYPES.map((st) => {
-                      const selectedTypes = form.shootType
-                        ? form.shootType.split(',').map((s) => s.trim().toLowerCase())
-                        : [];
-                      const isChecked =
-                        selectedTypes.includes(st.label.toLowerCase()) ||
-                        selectedTypes.includes(st.value.toLowerCase());
-                      return (
-                        <button
-                          type="button"
-                          key={st.value}
-                          onClick={() => toggleShootType(st.label)}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-                            isChecked
-                              ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                              : 'bg-white text-gray-700 border-gray-200 hover:border-purple-300'
-                          }`}
-                        >
-                          <span
-                            className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold ${
-                              isChecked ? 'bg-white text-purple-700' : 'border border-gray-300'
-                            }`}
-                          >
-                            {isChecked ? '✓' : ''}
-                          </span>
-                          {st.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {form.shootType && (
-                    <p className="text-[11px] text-purple-700 font-semibold mt-1">
-                      Selected: {form.shootType}
-                    </p>
-                  )}
-                </div>
-
-                {/* 2. Product Type */}
-                <div className="pt-2.5 border-t border-purple-100">
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <label className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
-                      <Tag className="w-3.5 h-3.5 text-purple-600" />
-                      Product Type / Outfits <span className="text-[11px] text-gray-400 font-normal">(tick multiple checkboxes or select dropdown)</span>
-                    </label>
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          toggleProductType(e.target.value);
-                          e.target.value = '';
-                        }
-                      }}
-                      className="px-2 py-1 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] font-medium text-gray-700"
-                    >
-                      <option value="">+ Add / Select Product Type...</option>
-                      {PRODUCT_TYPES.map((pt) => (
-                        <option key={pt} value={pt}>
-                          {pt}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* Checkbox pills to tick */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {PRODUCT_TYPES.map((pt) => {
-                      const selectedProds = form.productType
-                        ? form.productType.split(',').map((s) => s.trim().toLowerCase())
-                        : [];
-                      const isChecked = selectedProds.includes(pt.toLowerCase());
-                      return (
-                        <button
-                          type="button"
-                          key={pt}
-                          onClick={() => toggleProductType(pt)}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-                            isChecked
-                              ? 'bg-[#C59B27] text-white border-[#C59B27] shadow-xs'
-                              : 'bg-white text-gray-700 border-gray-200 hover:border-[#C59B27]/40'
-                          }`}
-                        >
-                          <span
-                            className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold ${
-                              isChecked ? 'bg-white text-[#C59B27]' : 'border border-gray-300'
-                            }`}
-                          >
-                            {isChecked ? '✓' : ''}
-                          </span>
-                          {pt}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {form.productType && (
-                    <p className="text-[11px] text-[#C59B27] font-semibold mt-1">
-                      Included Outfits: {form.productType}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* ─── Shoot Metrics: Qty, Amount, Studio Amount ─── */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Qty / Total Dresses <span className="text-gray-400 font-normal">— photoshoot looks</span>
-              </label>
-              <div className="relative">
-                <Shirt className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <input
-                  type="number"
-                  min={0}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-                  value={form.garmentCount}
-                  onChange={(e) => setForm({ ...form, garmentCount: e.target.value })}
-                  placeholder="e.g. 15 (total dresses)"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Agreed Shoot Amount (₹) <span className="text-gray-400 font-normal">— client contract</span>
-              </label>
-              <div className="relative">
-                <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <input
-                  type="number"
-                  min={0}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold"
-                  value={form.projectAmount}
-                  onChange={(e) => setForm({ ...form, projectAmount: e.target.value })}
-                  placeholder="e.g. 65000"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Studio Amount (₹) <span className="text-gray-400 font-normal">— production / bay cost</span>
-              </label>
-              <div className="relative">
-                <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <input
-                  type="number"
-                  min={0}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold"
-                  value={form.studioAmount}
-                  onChange={(e) => setForm({ ...form, studioAmount: e.target.value })}
-                  placeholder="e.g. 25000"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Photoshoot Date</label>
-              <div className="relative">
-                <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <input
-                  type="date"
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-                  value={form.shootDate}
-                  onChange={(e) => setForm({ ...form, shootDate: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {/* ─── Cloth In & Out Dates ─── */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Cloth In Date <span className="text-gray-400 font-normal">— samples arrival at studio</span>
-              </label>
-              <div className="relative">
-                <Clock className="w-4 h-4 text-indigo-500 absolute left-3 top-2.5" />
-                <input
-                  type="date"
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-indigo-200 bg-indigo-50/20 rounded-lg outline-none focus:border-indigo-400"
-                  value={form.clothInDate}
-                  onChange={(e) => setForm({ ...form, clothInDate: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Cloth Out Date <span className="text-gray-400 font-normal">— returned/dispatched</span>
-              </label>
-              <div className="relative">
-                <Clock className="w-4 h-4 text-emerald-500 absolute left-3 top-2.5" />
-                <input
-                  type="date"
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-emerald-200 bg-emerald-50/20 rounded-lg outline-none focus:border-emerald-400"
-                  value={form.clothOutDate}
-                  onChange={(e) => setForm({ ...form, clothOutDate: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {/* ─── Google Drive Delivery Link ─── */}
-            <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1.5">
-                <Link2 className="w-3.5 h-3.5 text-blue-600" /> Google Drive Link <span className="text-gray-400 font-normal">— shoot raw / edited files</span>
-              </label>
-              <input
-                type="url"
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-                value={form.driveLink}
-                onChange={(e) => setForm({ ...form, driveLink: e.target.value })}
-                placeholder="https://drive.google.com/drive/folders/..."
               />
             </div>
 
@@ -997,28 +728,6 @@ function ClientDetail({
                     <MapPin className="w-3.5 h-3.5 text-gray-400" /> {client.city}
                   </span>
                 )}
-                {Boolean(client.garmentCount && client.garmentCount > 0) && (
-                  <span className="flex items-center gap-1 font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">
-                    <Shirt className="w-3.5 h-3.5 text-purple-600" />
-                    {client.garmentCount} photoshoot dresses/garments
-                  </span>
-                )}
-                {client.shootType && (
-                  <span className="flex items-center gap-1 font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
-                    <Film className="w-3.5 h-3.5 text-blue-600" /> {client.shootType}
-                  </span>
-                )}
-                {client.productType && (
-                  <span className="flex items-center gap-1 font-semibold text-pink-700 bg-pink-50 px-2 py-0.5 rounded-md">
-                    <Tag className="w-3.5 h-3.5 text-pink-600" /> {client.productType}
-                  </span>
-                )}
-                {(client.clothInDate || client.clothOutDate) && (
-                  <span className="flex items-center gap-1 font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md">
-                    <Clock className="w-3.5 h-3.5 text-indigo-600" />
-                    Cloth In: {client.clothInDate ? formatDate(client.clothInDate) : '—'} · Out: {client.clothOutDate ? formatDate(client.clothOutDate) : '—'}
-                  </span>
-                )}
                 {client.driveLink && (
                   <a
                     href={client.driveLink}
@@ -1036,7 +745,7 @@ function ClientDetail({
             onClick={onEdit}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all flex-shrink-0"
           >
-            <Edit2 className="w-3.5 h-3.5" /> Edit Client & Shoot Specs
+            <Edit2 className="w-3.5 h-3.5" /> Edit Client
           </button>
         </div>
       </div>
@@ -1086,53 +795,6 @@ function ClientDetail({
             ))}
           </div>
 
-          {/* Photoshoot Specification & Logistics Card */}
-          <div className="bg-purple-50/40 rounded-2xl border border-purple-100 p-4 space-y-3">
-            <h4 className="text-xs font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-              Photoshoot Specifications &amp; Logistics
-            </h4>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-              <div className="bg-white p-2.5 rounded-xl border border-purple-100">
-                <span className="text-[10px] text-gray-400 font-bold uppercase block">Shoot Type</span>
-                <span className="font-semibold text-gray-900 mt-0.5 block">{client.shootType || 'Standard'}</span>
-              </div>
-              <div className="bg-white p-2.5 rounded-xl border border-purple-100">
-                <span className="text-[10px] text-gray-400 font-bold uppercase block">Product / Outfits</span>
-                <span className="font-semibold text-gray-900 mt-0.5 block truncate" title={client.productType || 'All'}>{client.productType || 'All Products'}</span>
-              </div>
-              <div className="bg-white p-2.5 rounded-xl border border-purple-100">
-                <span className="text-[10px] text-gray-400 font-bold uppercase block">Cloth In Date</span>
-                <span className="font-semibold text-indigo-700 mt-0.5 block">{client.clothInDate ? formatDate(client.clothInDate) : 'Not Scheduled'}</span>
-              </div>
-              <div className="bg-white p-2.5 rounded-xl border border-purple-100">
-                <span className="text-[10px] text-gray-400 font-bold uppercase block">Cloth Out Date</span>
-                <span className="font-semibold text-emerald-700 mt-0.5 block">{client.clothOutDate ? formatDate(client.clothOutDate) : 'Not Scheduled'}</span>
-              </div>
-            </div>
-            {client.shootDate && (
-              <div className="bg-white p-2.5 rounded-xl border border-purple-100 text-xs flex items-center justify-between">
-                <span className="text-gray-500 font-medium">Scheduled Photoshoot Date:</span>
-                <strong className="text-purple-900 font-bold">{formatDate(client.shootDate)}</strong>
-              </div>
-            )}
-            {client.driveLink && (
-              <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-purple-100 text-xs">
-                <span className="flex items-center gap-1.5 text-gray-600 truncate mr-2">
-                  <Link2 className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
-                  <strong>Delivery Drive:</strong> <span className="truncate">{client.driveLink}</span>
-                </span>
-                <a
-                  href={client.driveLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2.5 py-1 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all flex-shrink-0"
-                >
-                  Open Drive ↗
-                </a>
-              </div>
-            )}
-          </div>
 
           {client.notes && (
             <div className="mt-3 pt-3 border-t border-gray-100">
