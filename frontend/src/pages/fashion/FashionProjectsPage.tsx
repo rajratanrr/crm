@@ -69,6 +69,7 @@ function emptyProject() {
     budget: '',       // contractAmount (client-facing)
     baseBudget: '',   // internal production budget
     studioAmount: '', // studio production amount
+    labourCost: '',   // labour / crew cost
     advanceAmount: '', // advance payment received upfront
     quantity: '',     // total dresses / looks
     productType: '',  // product type(s)
@@ -207,6 +208,7 @@ export default function FashionProjectsPage() {
       budget: p.budget ? String(p.budget) : '',
       baseBudget: p.baseBudget ? String(p.baseBudget) : '',
       studioAmount: p.studioAmount ? String(p.studioAmount) : (p.baseBudget ? String(p.baseBudget) : ''),
+      labourCost: p.labourCost ? String(p.labourCost) : '',
       advanceAmount: '',
       quantity: p.quantity != null ? String(p.quantity) : '',
       productType: p.productType || '',
@@ -399,6 +401,8 @@ export default function FashionProjectsPage() {
           notes: a.notes || '',
         })),
       };
+      // Add labourCost to payload
+      (payload as any).labourCost = Number((projectForm as any).labourCost) || 0;
       if (editingProject) {
         await projectApi.update(editingProject.id, payload);
         toast.success('Project updated');
@@ -1200,308 +1204,17 @@ export default function FashionProjectsPage() {
               </div>
             )}
 
-            {/* ─── Type of Shoot (Dropdown + Checkbox Pills) ─── */}
-            <div className="md:col-span-2 bg-blue-50/40 border border-blue-100 rounded-xl p-3">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                    <Film className="w-4 h-4 text-blue-600" />
-                    Type of Shoot (Tick checkboxes or select)
-                  </label>
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        toggleProjectShootType(e.target.value);
-                      }
-                    }}
-                    className="px-2.5 py-1 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] font-medium text-gray-700"
-                  >
-                    <option value="">+ Add Shoot Type from Dropdown...</option>
-                    {SHOOT_TYPES.map((st) => (
-                      <option key={st.value} value={st.label}>
-                        {st.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {/* Checkbox pills to tick */}
-                <div className="flex flex-wrap gap-1.5">
-                  {SHOOT_TYPES.map((st) => {
-                    const selectedTypes = projectForm.shootType
-                      ? projectForm.shootType.split(',').map((s) => s.trim().toLowerCase())
-                      : [];
-                    const isChecked =
-                      selectedTypes.includes(st.label.toLowerCase()) ||
-                      selectedTypes.includes(st.value.toLowerCase());
-                    return (
-                      <button
-                        type="button"
-                        key={st.value}
-                        onClick={() => toggleProjectShootType(st.label)}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-                          isChecked
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                            : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
-                        }`}
-                      >
-                        <span
-                          className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold ${
-                            isChecked ? 'bg-white text-blue-600' : 'border border-gray-300'
-                          }`}
-                        >
-                          {isChecked ? '✓' : ''}
-                        </span>
-                        {st.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                {projectForm.shootType && (
-                  <p className="text-[11px] text-blue-700 font-semibold mt-0.5">
-                    Selected Shoot Types: {projectForm.shootType}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* ─── Product Type / Outfits (Dropdown + Checkbox Pills) ─── */}
-            <div className="md:col-span-2 bg-pink-50/40 border border-pink-100 rounded-xl p-3">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                    <Tag className="w-4 h-4 text-pink-600" />
-                    Product Type / Outfits (Tick checkboxes or select)
-                  </label>
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        toggleProjectProductType(e.target.value);
-                      }
-                    }}
-                    className="px-2.5 py-1 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] font-medium text-gray-700"
-                  >
-                    <option value="">+ Add Product Type from Dropdown...</option>
-                    {PRODUCT_TYPES.map((pt) => (
-                      <option key={pt} value={pt}>
-                        {pt}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {/* Checkbox pills to tick */}
-                <div className="flex flex-wrap gap-1.5">
-                  {PRODUCT_TYPES.map((pt) => {
-                    const selectedProds = projectForm.productType
-                      ? projectForm.productType.split(',').map((s) => s.trim().toLowerCase())
-                      : [];
-                    const isChecked = selectedProds.includes(pt.toLowerCase());
-                    return (
-                      <button
-                        type="button"
-                        key={pt}
-                        onClick={() => toggleProjectProductType(pt)}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-                          isChecked
-                            ? 'bg-[#C59B27] text-white border-[#C59B27] shadow-xs'
-                            : 'bg-white text-gray-700 border-gray-200 hover:border-[#C59B27]/40'
-                        }`}
-                      >
-                        <span
-                          className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold ${
-                            isChecked ? 'bg-white text-[#C59B27]' : 'border border-gray-300'
-                          }`}
-                        >
-                          {isChecked ? '✓' : ''}
-                        </span>
-                        {pt}
-                      </button>
-                    );
-                  })}
-                </div>
-                {projectForm.productType && (
-                  <p className="text-[11px] text-[#C59B27] font-semibold mt-0.5">
-                    Selected Outfits: {projectForm.productType}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            {/* Qty and Status */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Qty / Looks Count <span className="text-gray-400 font-normal">— dresses</span>
-              </label>
-              <div className="relative">
-                <Shirt className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <input
-                  type="number"
-                  min={0}
-                  value={projectForm.quantity}
-                  onChange={(e) => setProjectForm({ ...projectForm, quantity: e.target.value })}
-                  placeholder="e.g. 20"
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-              <select
-                value={projectForm.status}
-                onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
-              >
-                {PROJECT_STATUS.map((s) => (
-                  <option key={s} value={s}>
-                    {s.replace(/_/g, ' ')}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Shoot Date and Location */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Shoot Date</label>
-              <div className="relative">
-                <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <input
-                  type="date"
-                  value={projectForm.shootDate}
-                  onChange={(e) => setProjectForm({ ...projectForm, shootDate: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Studio Bay / Location</label>
-              <div className="relative">
-                <MapPin className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <select
-                  value={projectForm.studioLocation}
-                  onChange={(e) => setProjectForm({ ...projectForm, studioLocation: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
-                >
-                  <option value="">— Select Location —</option>
-                  {STUDIO_LOCATIONS.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* ─── Cloth In & Out Dates ─── */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Cloth In Date <span className="text-gray-400 font-normal">— samples arrival</span>
-              </label>
-              <div className="relative">
-                <Clock className="w-4 h-4 text-indigo-500 absolute left-3 top-2.5" />
-                <input
-                  type="date"
-                  value={projectForm.clothInDate}
-                  onChange={(e) => setProjectForm({ ...projectForm, clothInDate: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-indigo-200 bg-indigo-50/20 rounded-lg outline-none focus:border-indigo-400"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Cloth Out Date <span className="text-gray-400 font-normal">— returned/dispatched</span>
-              </label>
-              <div className="relative">
-                <Clock className="w-4 h-4 text-emerald-500 absolute left-3 top-2.5" />
-                <input
-                  type="date"
-                  value={projectForm.clothOutDate}
-                  onChange={(e) => setProjectForm({ ...projectForm, clothOutDate: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-emerald-200 bg-emerald-50/20 rounded-lg outline-none focus:border-emerald-400"
-                />
-              </div>
-            </div>
-
-            {/* Studio Amount, Shoot Amount, Advance */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Studio Amount (₹) <span className="text-gray-400 font-normal">— production / bay cost</span>
-              </label>
-              <div className="relative">
-                <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <input
-                  type="number"
-                  min={0}
-                  value={projectForm.studioAmount}
-                  onChange={(e) =>
-                    setProjectForm({
-                      ...projectForm,
-                      studioAmount: e.target.value,
-                      baseBudget: e.target.value,
-                    })
-                  }
-                  placeholder="e.g. 30000"
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Shoot / Contract Amount (₹) <span className="text-gray-400 font-normal">— billed to client</span>
-              </label>
-              <div className="relative">
-                <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <input
-                  type="number"
-                  min={0}
-                  value={projectForm.budget}
-                  onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
-                  placeholder="e.g. 75000"
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold"
-                />
-              </div>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Advance Received (₹) <span className="text-gray-400 font-normal">— upfront payment</span>
-              </label>
-              <div className="relative">
-                <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <input
-                  type="number"
-                  min={0}
-                  value={(projectForm as any).advanceAmount || ''}
-                  onChange={(e) => setProjectForm({ ...projectForm, advanceAmount: e.target.value } as any)}
-                  placeholder="e.g. 25000"
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-                />
-              </div>
-              {Number(projectForm.budget) > 0 && (
-                <p className="text-[10px] text-gray-500 mt-1 flex justify-between">
-                  <span>Pending Balance:</span>
-                  <strong className="text-amber-700 font-bold">
-                    {formatCurrency(Math.max(0, Number(projectForm.budget || 0) - Number((projectForm as any).advanceAmount || 0)))}
-                  </strong>
-                </p>
-              )}
-            </div>
-
-            {/* ─── Client's Assigned Models & Quick-Tick ─── */}
-            <div className="md:col-span-2 pt-3 border-t border-gray-100">
+            {/* ─── Model Selection (moved to top, right after Client) ─── */}
+            <div className="md:col-span-2 border border-gray-200 rounded-xl p-3 bg-gray-50/50">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <div>
                   <label className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
                     <UserCircle className="w-4 h-4 text-[#C59B27]" />
-                    Model Selection &amp; Agreed Client Rates (Dropdown + Checkboxes)
+                    Model Selection &amp; Agreed Client Rates
                   </label>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-[11px] text-gray-500 mt-0.5">
                     {selectedClientData
-                      ? `Auto-loaded from ${selectedClientData.companyName || selectedClientData.fullName}'s saved roster. You can tick or untick any model.`
+                      ? `Auto-loaded from ${selectedClientData.companyName || selectedClientData.fullName}'s saved roster.`
                       : 'Tick checkboxes or choose from dropdown to attach models to this shoot.'}
                   </p>
                 </div>
@@ -1533,7 +1246,7 @@ export default function FashionProjectsPage() {
 
               {/* Quick-Tick Model Checkboxes */}
               {allModels.length > 0 && (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-2.5 mb-2.5">
+                <div className="bg-white border border-gray-200 rounded-xl p-2.5 mb-2.5">
                   <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
                     Quick-Tick Models for this Shoot:
                   </p>
@@ -1568,17 +1281,14 @@ export default function FashionProjectsPage() {
               )}
 
               {modalModelAssignments.length === 0 ? (
-                <div className="p-4 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-center">
-                  <p className="text-xs text-gray-500 font-medium">No models selected for this shoot yet</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">
-                    Tick any model checkbox above or pick a client to auto-load their assigned models.
-                  </p>
+                <div className="p-3 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-center">
+                  <p className="text-xs text-gray-500">No models selected yet — tick above or select client to auto-load</p>
                 </div>
               ) : (
-                <div className="space-y-2 mt-2">
+                <div className="space-y-2">
                   <div className="grid grid-cols-[2fr_1.5fr_1.5fr_32px] gap-2 px-3 py-1.5 bg-gray-100/80 rounded-lg text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                    <span>Assigned Model</span>
-                    <span>Agreed Client Rate (₹)</span>
+                    <span>Model</span>
+                    <span>Rate (₹)</span>
                     <span>Notes</span>
                     <span />
                   </div>
@@ -1587,22 +1297,17 @@ export default function FashionProjectsPage() {
                     return (
                       <div
                         key={a.modelId || idx}
-                        className="grid grid-cols-[2fr_1.5fr_1.5fr_32px] gap-2 items-center bg-gray-50 px-3 py-2 rounded-xl border border-gray-100"
+                        className="grid grid-cols-[2fr_1.5fr_1.5fr_32px] gap-2 items-center bg-white px-3 py-2 rounded-xl border border-gray-100"
                       >
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-gray-900 truncate">
-                            {modelObj?.name || 'Assigned Model'}
-                          </p>
-                          <p className="text-[10px] text-gray-400 truncate">
-                            {modelObj?.gender || 'Fashion Model'} {modelObj?.agency ? `· ${modelObj.agency}` : ''}
-                          </p>
+                          <p className="text-xs font-semibold text-gray-900 truncate">{modelObj?.name || 'Model'}</p>
+                          <p className="text-[10px] text-gray-400 truncate">{modelObj?.gender || ''} {modelObj?.agency ? `· ${modelObj.agency}` : ''}</p>
                         </div>
                         <div>
                           <div className="relative">
-                            <span className="absolute left-2.5 top-2 text-xs text-gray-400 font-medium">₹</span>
+                            <span className="absolute left-2.5 top-2 text-xs text-gray-400">₹</span>
                             <input
-                              type="number"
-                              min={0}
+                              type="number" min={0}
                               value={a.modelRate}
                               onChange={(e) => updateModalModelRate(idx, e.target.value)}
                               placeholder="e.g. 15000"
@@ -1612,20 +1317,15 @@ export default function FashionProjectsPage() {
                         </div>
                         <div>
                           <input
-                            type="text"
-                            value={a.notes}
+                            type="text" value={a.notes}
                             onChange={(e) => updateModalModelNotes(idx, e.target.value)}
-                            placeholder="Optional notes"
+                            placeholder="Notes"
                             className="w-full px-2 py-1 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
                           />
                         </div>
                         <div className="flex justify-center">
-                          <button
-                            type="button"
-                            onClick={() => removeModalModel(idx)}
-                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            title="Remove model"
-                          >
+                          <button type="button" onClick={() => removeModalModel(idx)}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all">
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -1636,35 +1336,316 @@ export default function FashionProjectsPage() {
               )}
             </div>
 
+            {/* ─── Type of Shoot (Dropdown + Checkbox Pills) ─── */}
+            <div className="md:col-span-2 bg-blue-50/40 border border-blue-100 rounded-xl p-3">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                    <Film className="w-4 h-4 text-blue-600" />
+                    Type of Shoot (Tick checkboxes or select)
+                  </label>
+                  <select
+                    value=""
+                    onChange={(e) => { if (e.target.value) { toggleProjectShootType(e.target.value); } }}
+                    className="px-2.5 py-1 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] font-medium text-gray-700"
+                  >
+                    <option value="">+ Add Shoot Type from Dropdown...</option>
+                    {SHOOT_TYPES.map((st) => (
+                      <option key={st.value} value={st.label}>{st.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {SHOOT_TYPES.map((st) => {
+                    const selectedTypes = projectForm.shootType
+                      ? projectForm.shootType.split(',').map((s) => s.trim().toLowerCase())
+                      : [];
+                    const isChecked =
+                      selectedTypes.includes(st.label.toLowerCase()) ||
+                      selectedTypes.includes(st.value.toLowerCase());
+                    return (
+                      <button
+                        type="button" key={st.value}
+                        onClick={() => toggleProjectShootType(st.label)}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                          isChecked ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold ${
+                          isChecked ? 'bg-white text-blue-600' : 'border border-gray-300'
+                        }`}>{isChecked ? '✓' : ''}</span>
+                        {st.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {projectForm.shootType && (
+                  <p className="text-[11px] text-blue-700 font-semibold">
+                    Selected: {projectForm.shootType}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* ─── Product Type / Outfits (Dropdown + Checkbox Pills) ─── */}
+            <div className="md:col-span-2 bg-pink-50/40 border border-pink-100 rounded-xl p-3">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
+                    <Tag className="w-4 h-4 text-pink-600" />
+                    Product Type / Outfits (Tick checkboxes or select)
+                  </label>
+                  <select
+                    value=""
+                    onChange={(e) => { if (e.target.value) { toggleProjectProductType(e.target.value); } }}
+                    className="px-2.5 py-1 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] font-medium text-gray-700"
+                  >
+                    <option value="">+ Add Product Type...</option>
+                    {PRODUCT_TYPES.map((pt) => (
+                      <option key={pt} value={pt}>{pt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {PRODUCT_TYPES.map((pt) => {
+                    const selectedProds = projectForm.productType
+                      ? projectForm.productType.split(',').map((s) => s.trim().toLowerCase())
+                      : [];
+                    const isChecked = selectedProds.includes(pt.toLowerCase());
+                    return (
+                      <button
+                        type="button" key={pt}
+                        onClick={() => toggleProjectProductType(pt)}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                          isChecked ? 'bg-[#C59B27] text-white border-[#C59B27]' : 'bg-white text-gray-700 border-gray-200 hover:border-[#C59B27]/40'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold ${
+                          isChecked ? 'bg-white text-[#C59B27]' : 'border border-gray-300'
+                        }`}>{isChecked ? '✓' : ''}</span>
+                        {pt}
+                      </button>
+                    );
+                  })}
+                </div>
+                {projectForm.productType && (
+                  <p className="text-[11px] text-[#C59B27] font-semibold">
+                    Selected: {projectForm.productType}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Qty / Looks Count */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Qty / Looks Count <span className="text-gray-400 font-normal">— dresses</span>
+              </label>
+              <div className="relative">
+                <Shirt className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                <input
+                  type="number" min={0}
+                  value={projectForm.quantity}
+                  onChange={(e) => setProjectForm({ ...projectForm, quantity: e.target.value })}
+                  placeholder="e.g. 20"
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+                />
+              </div>
+            </div>
+
+            {/* Status */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={projectForm.status}
+                onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
+              >
+                {PROJECT_STATUS.map((s) => (
+                  <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Shoot Date + Studio Bay/Location — same row */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Shoot Date</label>
+              <div className="relative">
+                <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                <input
+                  type="date"
+                  value={projectForm.shootDate}
+                  onChange={(e) => setProjectForm({ ...projectForm, shootDate: e.target.value })}
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Studio Bay / Location</label>
+              <div className="relative">
+                <MapPin className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                <select
+                  value={projectForm.studioLocation}
+                  onChange={(e) => setProjectForm({ ...projectForm, studioLocation: e.target.value })}
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
+                >
+                  <option value="">— Select Location —</option>
+                  {STUDIO_LOCATIONS.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Cloth In & Out Dates — same row */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Cloth In Date <span className="text-gray-400 font-normal">— samples arrival</span>
+              </label>
+              <div className="relative">
+                <Clock className="w-4 h-4 text-indigo-500 absolute left-3 top-2.5" />
+                <input
+                  type="date"
+                  value={projectForm.clothInDate}
+                  onChange={(e) => setProjectForm({ ...projectForm, clothInDate: e.target.value })}
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-indigo-200 bg-indigo-50/20 rounded-lg outline-none focus:border-indigo-400"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Cloth Out Date <span className="text-gray-400 font-normal">— returned/dispatched</span>
+              </label>
+              <div className="relative">
+                <Clock className="w-4 h-4 text-emerald-500 absolute left-3 top-2.5" />
+                <input
+                  type="date"
+                  value={projectForm.clothOutDate}
+                  onChange={(e) => setProjectForm({ ...projectForm, clothOutDate: e.target.value })}
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-emerald-200 bg-emerald-50/20 rounded-lg outline-none focus:border-emerald-400"
+                />
+              </div>
+            </div>
+
+            {/* Studio Amount + Labour Cost — same row (internal costs) */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Studio Amount (₹) <span className="text-gray-400 font-normal">— bay / production cost</span>
+              </label>
+              <div className="relative">
+                <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                <input
+                  type="number" min={0}
+                  value={projectForm.studioAmount}
+                  onChange={(e) =>
+                    setProjectForm({
+                      ...projectForm,
+                      studioAmount: e.target.value,
+                      baseBudget: e.target.value,
+                    })
+                  }
+                  placeholder="e.g. 30000"
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold"
+                />
+              </div>
+            </div>
+
+            {/* Labour Cost */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Labour Cost (₹) <span className="text-gray-400 font-normal">— crew / team cost</span>
+              </label>
+              <div className="relative">
+                <IndianRupee className="w-4 h-4 text-orange-400 absolute left-3 top-2.5" />
+                <input
+                  type="number" min={0}
+                  value={(projectForm as any).labourCost || ''}
+                  onChange={(e) => setProjectForm({ ...projectForm, labourCost: e.target.value } as any)}
+                  placeholder="e.g. 8000"
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-orange-200 bg-orange-50/20 rounded-lg outline-none focus:border-orange-400 font-semibold"
+                />
+              </div>
+            </div>
+
+            {/* Advance Received */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Advance Received (₹) <span className="text-gray-400 font-normal">— upfront payment</span>
+              </label>
+              <div className="relative">
+                <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                <input
+                  type="number" min={0}
+                  value={(projectForm as any).advanceAmount || ''}
+                  onChange={(e) => setProjectForm({ ...projectForm, advanceAmount: e.target.value } as any)}
+                  placeholder="e.g. 25000"
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+                />
+              </div>
+              {Number(projectForm.budget) > 0 && (
+                <p className="text-[10px] text-gray-500 mt-1 flex justify-between">
+                  <span>Pending Balance:</span>
+                  <strong className="text-amber-700 font-bold">
+                    {formatCurrency(Math.max(0, Number(projectForm.budget || 0) - Number((projectForm as any).advanceAmount || 0)))}
+                  </strong>
+                </p>
+              )}
+            </div>
+
             {/* ─── Total Budget Breakdown Box ─── */}
             <div className="md:col-span-2 bg-[#C59B27]/5 border border-[#C59B27]/20 rounded-xl p-3.5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#C59B27]">Total Budget Breakdown</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#C59B27]">Total Cost Breakdown</p>
                   <p className="text-xs text-gray-700 mt-0.5">
-                    Studio / Bay Budget: <strong>{formatCurrency(modalBaseBudget)}</strong> + Total Model Cost:{' '}
-                    <strong className="text-purple-700">{formatCurrency(modalTotalModelCost)}</strong>
+                    Studio: <strong>{formatCurrency(modalBaseBudget)}</strong>
+                    {' '}+ Labour: <strong className="text-orange-600">{formatCurrency(Number((projectForm as any).labourCost) || 0)}</strong>
+                    {' '}+ Models: <strong className="text-purple-700">{formatCurrency(modalTotalModelCost)}</strong>
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-gray-400 uppercase font-semibold">Total Production Cost</p>
-                  <p className="text-base font-bold text-gray-900">{formatCurrency(modalTotalBudget)}</p>
+                  <p className="text-base font-bold text-gray-900">{formatCurrency(modalTotalBudget + (Number((projectForm as any).labourCost) || 0))}</p>
                 </div>
               </div>
-              {modalTotalBudget > 0 && (
+              {(modalTotalBudget + (Number((projectForm as any).labourCost) || 0)) > 0 && (
                 <div className="mt-2.5 pt-2 border-t border-[#C59B27]/10 flex items-center justify-between text-xs">
                   <span className="text-gray-500">
-                    Contract Amount set: <strong>{formatCurrency(projectForm.budget || 0)}</strong>
+                    Contract set: <strong>{formatCurrency(projectForm.budget || 0)}</strong>
                   </span>
                   <button
                     type="button"
-                    onClick={() => setProjectForm({ ...projectForm, budget: String(modalTotalBudget) })}
+                    onClick={() => setProjectForm({ ...projectForm, budget: String(modalTotalBudget + (Number((projectForm as any).labourCost) || 0)) })}
                     className="text-[11px] font-semibold text-[#C59B27] hover:underline"
                   >
-                    Set Contract to match Total Cost ({formatCurrency(modalTotalBudget)}) →
+                    Set Contract = Total Cost ({formatCurrency(modalTotalBudget + (Number((projectForm as any).labourCost) || 0))}) →
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* ─── Shoot / Contract Amount — BILLED TO CLIENT (at bottom) ─── */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-gray-900 mb-1 flex items-center gap-1.5">
+                <IndianRupee className="w-4 h-4 text-emerald-600" />
+                Shoot / Contract Amount (₹)
+                <span className="text-[11px] font-normal text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  Billed to Client
+                </span>
+              </label>
+              <div className="relative">
+                <IndianRupee className="w-4 h-4 text-emerald-500 absolute left-3 top-2.5" />
+                <input
+                  type="number" min={0}
+                  value={projectForm.budget}
+                  onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
+                  placeholder="e.g. 75000"
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-emerald-300 bg-emerald-50/30 rounded-lg outline-none focus:border-emerald-500 font-bold text-gray-900"
+                />
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">This is the amount charged to the client for the full photoshoot project.</p>
             </div>
 
             <div className="md:col-span-2">
