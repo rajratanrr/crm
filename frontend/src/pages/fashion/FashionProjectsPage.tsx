@@ -32,6 +32,8 @@ const SHOOT_TYPES = [
   { value: 'CAMPAIGN', label: 'Campaign / Editorial' },
   { value: 'REEL', label: 'Reels / Short Video' },
   { value: 'FLAT_LAY', label: 'Flat Lay / Mannequin' },
+  { value: 'PREMIUM', label: 'Premium Shoot' },
+  { value: 'AI_SHOOT', label: 'AI Shoot' },
 ];
 const PRODUCT_TYPES = [
   'Saree',
