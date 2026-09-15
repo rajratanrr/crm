@@ -3,7 +3,7 @@ import { Request, Response } from 'express';
 
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
-import { generateContractNumber } from '../utils/generateCode';
+import { generateContractNumber, generateProjectNumber } from '../utils/generateCode';
 
 // Helper: only ADVANCE/DONE count as received money
 function isReceived(paymentStatus: string | null | undefined): boolean {
@@ -204,9 +204,7 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
     resolvedStartDate = new Date();
   }
 
-  const prefix = isFashion ? 'FSH' : 'WED';
-  const count = await prisma.project.count({ where: { projectType: isFashion ? 'FASHION' : 'WEDDING' } });
-  const projectNumber = `${prefix}-${String(count + 1).padStart(4, '0')}`;
+  const projectNumber = await generateProjectNumber(isFashion);
 
   const resolvedStudioAmount = studioAmount !== undefined && studioAmount !== '' ? Number(studioAmount) || 0 : (baseBudget ? Number(baseBudget) || 0 : 0);
   const resolvedBaseBudget = Number(baseBudget) || resolvedStudioAmount || 0;
