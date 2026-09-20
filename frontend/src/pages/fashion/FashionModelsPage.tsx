@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Plus, Search, UserCircle, Trash2, Edit2, X, Mail, Phone, AtSign,
   Ruler, Building2, History, IndianRupee, Calendar, ChevronRight, Loader2,
+  CreditCard, Wallet, CheckCircle2, AlertCircle,
 } from 'lucide-react';
 import { modelApi } from '../../services/api';
 import { formatCurrency, formatDate } from '../../lib/utils';
@@ -9,11 +10,22 @@ import Modal from '../../components/ui/Modal';
 import toast from 'react-hot-toast';
 
 const GENDER_OPTIONS = ['Female', 'Male', 'Non-Binary', 'Other'];
+const PAYMENT_METHODS = ['UPI', 'CASH', 'BANK_TRANSFER', 'CHEQUE', 'CARD', 'OTHER'];
 
 function defaultForm() {
   return {
     name: '', agency: '', phone: '', email: '',
     instagram: '', gender: 'Female', height: '', measurements: '', notes: '',
+  };
+}
+
+function defaultPaymentForm() {
+  return {
+    amount: '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    paymentMethod: 'UPI',
+    reference: '',
+    notes: '',
   };
 }
 
@@ -27,6 +39,14 @@ export default function FashionModelsPage() {
   const [selectedModel, setSelectedModel] = useState<any>(null);
   const [modelDetail, setModelDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+
+  // Payment modal
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [payForm, setPayForm] = useState(defaultPaymentForm());
+  const [paySaving, setPaySaving] = useState(false);
+
+  // Detail tab
+  const [detailTab, setDetailTab] = useState<'shoots' | 'payments'>('shoots');
 
   const load = async () => {
     setLoading(true);
@@ -119,6 +139,50 @@ export default function FashionModelsPage() {
     }
   };
 
+  // ─── Payment handlers ────────────────────────────────────────
+  const openPayModal = () => {
+    setPayForm(defaultPaymentForm());
+    setIsPayModalOpen(true);
+  };
+
+  const handlePaySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payForm.amount || Number(payForm.amount) <= 0) {
+      toast.error('Enter a valid payment amount');
+      return;
+    }
+    setPaySaving(true);
+    try {
+      await modelApi.recordPayment(modelDetail.id, {
+        amount: Number(payForm.amount),
+        paymentDate: payForm.paymentDate,
+        paymentMethod: payForm.paymentMethod,
+        reference: payForm.reference || null,
+        notes: payForm.notes || null,
+      });
+      toast.success('Payment recorded');
+      setIsPayModalOpen(false);
+      loadDetail(modelDetail);
+      load(); // refresh list to update pending balance tags
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setPaySaving(false);
+    }
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    if (!window.confirm('Delete this payment record? This cannot be undone.')) return;
+    try {
+      await modelApi.deletePayment(modelDetail.id, paymentId);
+      toast.success('Payment record deleted');
+      loadDetail(modelDetail);
+      load();
+    } catch {
+      toast.error('Failed to delete payment');
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-48px)] overflow-hidden">
       {/* Left Panel */}
@@ -168,6 +232,8 @@ export default function FashionModelsPage() {
             <div className="divide-y divide-gray-50">
               {models.map((m) => {
                 const isSelected = selectedModel?.id === m.id;
+                const pending = m.pendingBalance || 0;
+                const earned = m.totalEarned || 0;
                 return (
                   <div
                     key={m.id}
@@ -181,6 +247,23 @@ export default function FashionModelsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-sm text-gray-900 truncate">{m.name}</div>
                         <div className="text-xs text-gray-500 truncate">{m.agency || m.gender || 'Independent'}</div>
+                        {/* Financial summary tag */}
+                        {earned > 0 && (
+                          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-semibold text-gray-500">
+                              {formatCurrency(earned)} earned
+                            </span>
+                            {pending > 0 ? (
+                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">
+                                ₹{pending.toLocaleString('en-IN')} due
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full border border-emerald-200">
+                                All Settled ✓
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button onClick={(e) => openEditModal(m, e)} className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-all">
@@ -275,59 +358,135 @@ export default function FashionModelsPage() {
                 )}
               </div>
 
-              {/* Stats row */}
-              <div className="grid grid-cols-3 gap-4">
-                {(() => {
-                  const assignments = modelDetail.projectAssignments || [];
-                  const totalEarned = assignments.reduce((s: number, a: any) => s + Number(a.modelRate || 0), 0);
-                  const lastShoot = assignments[0]?.project?.shootDate;
-                  return [
-                    { label: 'Total Shoots', value: String(assignments.length) },
-                    { label: 'Total Earnings', value: formatCurrency(totalEarned) },
-                    { label: 'Last Shoot', value: lastShoot ? formatDate(lastShoot) : '—' },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 text-center">
-                      <p className="text-lg font-bold text-gray-900">{value}</p>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-0.5">{label}</p>
-                    </div>
-                  ));
-                })()}
+              {/* ─── Financial Account Summary ─── */}
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { label: 'Total Shoots', value: String(modelDetail.totalShoots || 0), color: 'text-gray-900', bg: '' },
+                  { label: 'Total Earned', value: formatCurrency(modelDetail.totalEarned || 0), color: 'text-[#C59B27]', bg: '' },
+                  { label: 'Paid to Model', value: formatCurrency(modelDetail.totalPaid || 0), color: 'text-emerald-600', bg: '' },
+                  {
+                    label: 'Pending Balance',
+                    value: formatCurrency(modelDetail.pendingBalance || 0),
+                    color: (modelDetail.pendingBalance || 0) > 0 ? 'text-amber-600' : 'text-emerald-600',
+                    bg: (modelDetail.pendingBalance || 0) > 0 ? 'bg-amber-50/50 border-amber-200' : 'bg-emerald-50/50 border-emerald-200',
+                  },
+                ].map(({ label, value, color, bg }) => (
+                  <div key={label} className={`rounded-2xl border shadow-sm p-4 text-center ${bg || 'bg-white border-gray-100'}`}>
+                    <p className={`text-lg font-bold ${color}`}>{value}</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-0.5">{label}</p>
+                  </div>
+                ))}
               </div>
 
-              {/* Project History */}
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <History className="w-4 h-4 text-purple-600" /> Project History
-                </h3>
-                {(modelDetail.projectAssignments || []).length === 0 ? (
-                  <p className="text-xs text-gray-400 py-4 text-center">
-                    No projects yet. This model will appear in the project model dropdown when assigning.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-[2fr_1fr_1fr_80px] gap-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1">
-                      <span>Project</span><span>Client</span><span>Shoot Date</span><span className="text-right">Rate</span>
-                    </div>
-                    {(modelDetail.projectAssignments || []).map((a: any) => (
-                      <div key={a.id} className="grid grid-cols-[2fr_1fr_1fr_80px] gap-3 items-center py-2.5 px-3 bg-gray-50 rounded-xl text-xs">
-                        <div>
-                          <p className="font-semibold text-gray-900">{a.project?.name || '—'}</p>
-                          <p className="text-gray-400 text-[10px]">{a.project?.projectNumber}</p>
+              {/* Record Payment Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={openPayModal}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+                >
+                  <Wallet className="w-3.5 h-3.5" /> Record Payment to {modelDetail.name?.split(' ')[0]}
+                </button>
+              </div>
+
+              {/* ─── Tabs: Shoots & Earnings / Payments ─── */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="flex border-b border-gray-100">
+                  <button
+                    onClick={() => setDetailTab('shoots')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold transition-colors border-b-2 -mb-px ${
+                      detailTab === 'shoots'
+                        ? 'border-[#C59B27] text-[#C59B27]'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <History className="w-3.5 h-3.5" /> Shoots & Earnings ({(modelDetail.projectAssignments || []).length})
+                  </button>
+                  <button
+                    onClick={() => setDetailTab('payments')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold transition-colors border-b-2 -mb-px ${
+                      detailTab === 'payments'
+                        ? 'border-emerald-600 text-emerald-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <CreditCard className="w-3.5 h-3.5" /> Payments Made ({(modelDetail.payments || []).length})
+                  </button>
+                </div>
+
+                <div className="p-5">
+                  {/* Shoots Tab */}
+                  {detailTab === 'shoots' && (
+                    <>
+                      {(modelDetail.projectAssignments || []).length === 0 ? (
+                        <p className="text-xs text-gray-400 py-4 text-center">
+                          No projects yet. This model will appear in the project model dropdown when assigning.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-[2fr_1fr_1fr_80px] gap-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1">
+                            <span>Project</span><span>Client</span><span>Shoot Date</span><span className="text-right">Rate</span>
+                          </div>
+                          {(modelDetail.projectAssignments || []).map((a: any) => (
+                            <div key={a.id} className="grid grid-cols-[2fr_1fr_1fr_80px] gap-3 items-center py-2.5 px-3 bg-gray-50 rounded-xl text-xs">
+                              <div>
+                                <p className="font-semibold text-gray-900">{a.project?.name || '—'}</p>
+                                <p className="text-gray-400 text-[10px]">{a.project?.projectNumber}</p>
+                              </div>
+                              <p className="text-gray-500 truncate">{a.project?.customer?.companyName || a.project?.customer?.fullName || '—'}</p>
+                              <p className="text-gray-500">{a.project?.shootDate ? formatDate(a.project.shootDate) : '—'}</p>
+                              <p className="text-right font-bold text-[#C59B27]">{formatCurrency(a.modelRate)}</p>
+                            </div>
+                          ))}
                         </div>
-                        <p className="text-gray-500 truncate">{a.project?.customer?.companyName || a.project?.customer?.fullName || '—'}</p>
-                        <p className="text-gray-500">{a.project?.shootDate ? formatDate(a.project.shootDate) : '—'}</p>
-                        <p className="text-right font-bold text-[#C59B27]">{formatCurrency(a.modelRate)}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      )}
+                    </>
+                  )}
+
+                  {/* Payments Tab */}
+                  {detailTab === 'payments' && (
+                    <>
+                      {(modelDetail.payments || []).length === 0 ? (
+                        <div className="text-center py-6">
+                          <Wallet className="w-8 h-8 mx-auto text-gray-300 mb-2" />
+                          <p className="text-xs text-gray-400">No payments recorded yet.</p>
+                          <button onClick={openPayModal} className="mt-3 text-xs font-semibold text-emerald-600 hover:underline">
+                            Record first payment →
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-[1fr_100px_80px_1fr_40px] gap-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-1">
+                            <span>Date</span><span>Amount</span><span>Method</span><span>Reference / Notes</span><span></span>
+                          </div>
+                          {(modelDetail.payments || []).map((p: any) => (
+                            <div key={p.id} className="grid grid-cols-[1fr_100px_80px_1fr_40px] gap-3 items-center py-2.5 px-3 bg-emerald-50/40 rounded-xl text-xs border border-emerald-100">
+                              <p className="text-gray-700 font-medium">{formatDate(p.paymentDate)}</p>
+                              <p className="font-bold text-emerald-700">{formatCurrency(p.amount)}</p>
+                              <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded text-center">
+                                {(p.paymentMethod || '').replace(/_/g, ' ')}
+                              </span>
+                              <p className="text-gray-500 truncate">{p.reference || p.notes || '—'}</p>
+                              <button
+                                onClick={() => handleDeletePayment(p.id)}
+                                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                title="Delete payment"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Modal */}
+      {/* ─── Create / Edit Model Modal ─── */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}
         title={editingModel ? 'Edit Model Profile' : 'Add New Model'}>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -413,6 +572,114 @@ export default function FashionModelsPage() {
             <button type="submit"
               className="px-5 py-2 text-xs font-semibold bg-[#C59B27] hover:bg-[#b58c1e] text-white rounded-xl shadow-sm transition-all flex items-center gap-1.5">
               {editingModel ? 'Save Changes' : 'Add Model'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* ─── Record Payment Modal ─── */}
+      <Modal isOpen={isPayModalOpen} onClose={() => setIsPayModalOpen(false)}
+        title={`Record Payment — ${modelDetail?.name || 'Model'}`}>
+        <form onSubmit={handlePaySubmit} className="space-y-4">
+          {/* Pending Balance Banner */}
+          {modelDetail && (
+            <div className={`p-3 rounded-xl text-xs flex items-center justify-between ${
+              (modelDetail.pendingBalance || 0) > 0
+                ? 'bg-amber-50 border border-amber-200 text-amber-800'
+                : 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+            }`}>
+              <div className="flex items-center gap-2">
+                {(modelDetail.pendingBalance || 0) > 0
+                  ? <AlertCircle className="w-4 h-4 text-amber-500" />
+                  : <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                }
+                <span className="font-semibold">
+                  {(modelDetail.pendingBalance || 0) > 0
+                    ? `Pending Balance: ${formatCurrency(modelDetail.pendingBalance)}`
+                    : 'All Settled — No pending dues'
+                  }
+                </span>
+              </div>
+              <span className="text-gray-500">Earned: {formatCurrency(modelDetail.totalEarned || 0)} | Paid: {formatCurrency(modelDetail.totalPaid || 0)}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Amount (₹) *</label>
+              <div className="relative">
+                <IndianRupee className="w-4 h-4 text-emerald-500 absolute left-3 top-2.5" />
+                <input
+                  type="number" min={1} required
+                  value={payForm.amount}
+                  onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
+                  placeholder="e.g. 5000"
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-emerald-500 font-semibold"
+                />
+              </div>
+              {modelDetail && (modelDetail.pendingBalance || 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPayForm({ ...payForm, amount: String(modelDetail.pendingBalance) })}
+                  className="text-[10px] font-semibold text-emerald-600 hover:underline mt-1"
+                >
+                  Set full pending: ₹{Number(modelDetail.pendingBalance).toLocaleString('en-IN')}
+                </button>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Payment Date *</label>
+              <div className="relative">
+                <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                <input
+                  type="date" required
+                  value={payForm.paymentDate}
+                  onChange={(e) => setPayForm({ ...payForm, paymentDate: e.target.value })}
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Payment Method</label>
+              <select
+                value={payForm.paymentMethod}
+                onChange={(e) => setPayForm({ ...payForm, paymentMethod: e.target.value })}
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
+              >
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m} value={m}>{m.replace(/_/g, ' ')}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Transaction Ref / UTR</label>
+              <input
+                value={payForm.reference}
+                onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })}
+                placeholder="e.g. UTR-123456789"
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+              <textarea
+                value={payForm.notes}
+                onChange={(e) => setPayForm({ ...payForm, notes: e.target.value })}
+                placeholder="Optional notes about this payment..."
+                rows={2}
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <button type="button" onClick={() => setIsPayModalOpen(false)}
+              className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-xl">
+              Cancel
+            </button>
+            <button type="submit" disabled={paySaving}
+              className="px-5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50">
+              {paySaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wallet className="w-3.5 h-3.5" />}
+              {paySaving ? 'Recording…' : 'Record Payment'}
             </button>
           </div>
         </form>

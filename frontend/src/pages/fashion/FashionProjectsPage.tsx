@@ -72,7 +72,6 @@ function emptyProject() {
     budget: '',       // contractAmount (client-facing)
     baseBudget: '',   // internal production budget
     studioAmount: '', // studio production amount
-    labourCost: '',   // labour / crew cost
     advanceAmount: '', // advance payment received upfront
     quantity: '',     // total dresses / looks
     productType: '',  // product type(s)
@@ -83,6 +82,7 @@ function emptyProject() {
     shootType: '',
     driveLink: '',
     notes: '',
+    applyGst: false,  // 18% GST toggle
   };
 }
 
@@ -223,7 +223,7 @@ export default function FashionProjectsPage() {
       budget: p.budget ? String(p.budget) : '',
       baseBudget: p.baseBudget ? String(p.baseBudget) : '',
       studioAmount: p.studioAmount ? String(p.studioAmount) : (p.baseBudget ? String(p.baseBudget) : ''),
-      labourCost: p.labourCost ? String(p.labourCost) : '',
+      applyGst: false,
       advanceAmount: '',
       quantity: p.quantity != null ? String(p.quantity) : '',
       productType: p.productType || '',
@@ -416,8 +416,6 @@ export default function FashionProjectsPage() {
           notes: a.notes || '',
         })),
       };
-      // Add labourCost to payload
-      (payload as any).labourCost = Number((projectForm as any).labourCost) || 0;
       if (editingProject) {
         await projectApi.update(editingProject.id, payload);
         toast.success('Project updated');
@@ -642,7 +640,12 @@ export default function FashionProjectsPage() {
   const modalTotalModelCost = modalModelAssignments.reduce((s, a) => s + (Number(a.modelRate) || 0), 0);
 
   const modalBaseBudget = Number((projectForm as any).baseBudget) || 0;
-  const modalTotalBudget = modalBaseBudget + modalTotalModelCost;
+  // Model costs are internal (model accounts) — NOT added to client bill
+  const modalTotalBudget = modalBaseBudget;
+  const gstRate = 0.18;
+  const budgetBaseForGst = Number(projectForm.budget) || 0;
+  const gstAmount = Math.round(budgetBaseForGst * gstRate);
+  const budgetWithGst = budgetBaseForGst + gstAmount;
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -1715,10 +1718,10 @@ export default function FashionProjectsPage() {
               </div>
             </div>
 
-            {/* Studio Amount + Labour Cost — same row (internal costs) */}
-            <div>
+            {/* Studio Amount (internal production cost) */}
+            <div className="md:col-span-2">
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Studio Amount (₹) <span className="text-gray-400 font-normal">— bay / production cost</span>
+                Studio Amount (₹) <span className="text-gray-400 font-normal">— bay / production cost (internal)</span>
               </label>
               <div className="relative">
                 <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
@@ -1734,23 +1737,6 @@ export default function FashionProjectsPage() {
                   }
                   placeholder="e.g. 30000"
                   className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold"
-                />
-              </div>
-            </div>
-
-            {/* Labour Cost */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Labour Cost (₹) <span className="text-gray-400 font-normal">— crew / team cost</span>
-              </label>
-              <div className="relative">
-                <IndianRupee className="w-4 h-4 text-orange-400 absolute left-3 top-2.5" />
-                <input
-                  type="number" min={0}
-                  value={(projectForm as any).labourCost || ''}
-                  onChange={(e) => setProjectForm({ ...projectForm, labourCost: e.target.value } as any)}
-                  placeholder="e.g. 8000"
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-orange-200 bg-orange-50/20 rounded-lg outline-none focus:border-orange-400 font-semibold"
                 />
               </div>
             </div>
@@ -1780,37 +1766,16 @@ export default function FashionProjectsPage() {
               )}
             </div>
 
-            {/* ─── Total Budget Breakdown Box ─── */}
-            <div className="md:col-span-2 bg-[#C59B27]/5 border border-[#C59B27]/20 rounded-xl p-3.5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#C59B27]">Total Cost Breakdown</p>
-                  <p className="text-xs text-gray-700 mt-0.5">
-                    Studio: <strong>{formatCurrency(modalBaseBudget)}</strong>
-                    {' '}+ Labour: <strong className="text-orange-600">{formatCurrency(Number((projectForm as any).labourCost) || 0)}</strong>
-                    {' '}+ Models: <strong className="text-purple-700">{formatCurrency(modalTotalModelCost)}</strong>
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-gray-400 uppercase font-semibold">Total Production Cost</p>
-                  <p className="text-base font-bold text-gray-900">{formatCurrency(modalTotalBudget + (Number((projectForm as any).labourCost) || 0))}</p>
-                </div>
+            {/* ─── Internal Cost Info (Model Fees — NOT added to client bill) ─── */}
+            {modalTotalModelCost > 0 && (
+              <div className="md:col-span-2 bg-purple-50/50 border border-purple-200/50 rounded-xl p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-purple-600">Model Fees (Internal — tracked in model accounts)</p>
+                <p className="text-xs text-gray-700 mt-0.5">
+                  Total model fees: <strong className="text-purple-700">{formatCurrency(modalTotalModelCost)}</strong>
+                  <span className="text-gray-400 ml-2">— paid to models separately, not added to client bill</span>
+                </p>
               </div>
-              {(modalTotalBudget + (Number((projectForm as any).labourCost) || 0)) > 0 && (
-                <div className="mt-2.5 pt-2 border-t border-[#C59B27]/10 flex items-center justify-between text-xs">
-                  <span className="text-gray-500">
-                    Contract set: <strong>{formatCurrency(projectForm.budget || 0)}</strong>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setProjectForm({ ...projectForm, budget: String(modalTotalBudget + (Number((projectForm as any).labourCost) || 0)) })}
-                    className="text-[11px] font-semibold text-[#C59B27] hover:underline"
-                  >
-                    Set Contract = Total Cost ({formatCurrency(modalTotalBudget + (Number((projectForm as any).labourCost) || 0))}) →
-                  </button>
-                </div>
-              )}
-            </div>
+            )}
 
             {/* ─── Shoot / Contract Amount — BILLED TO CLIENT (at bottom) ─── */}
             <div className="md:col-span-2">
@@ -1832,6 +1797,42 @@ export default function FashionProjectsPage() {
                 />
               </div>
               <p className="text-[10px] text-gray-400 mt-1">This is the amount charged to the client for the full photoshoot project.</p>
+
+              {/* ─── 18% GST Toggle ─── */}
+              <div className="mt-2">
+                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={(projectForm as any).applyGst || false}
+                    onChange={(e) => setProjectForm({ ...projectForm, applyGst: e.target.checked } as any)}
+                    className="w-4 h-4 rounded border-gray-300 text-[#C59B27] focus:ring-[#C59B27] accent-[#C59B27]"
+                  />
+                  <span className="text-xs font-semibold text-gray-700">Apply 18% GST</span>
+                </label>
+                {(projectForm as any).applyGst && budgetBaseForGst > 0 && (
+                  <div className="mt-2 bg-blue-50/60 border border-blue-200/50 rounded-lg p-2.5 space-y-1">
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>Base Amount:</span>
+                      <strong>{formatCurrency(budgetBaseForGst)}</strong>
+                    </div>
+                    <div className="flex justify-between text-xs text-blue-700">
+                      <span>GST (18%):</span>
+                      <strong>{formatCurrency(gstAmount)}</strong>
+                    </div>
+                    <div className="flex justify-between text-xs font-bold text-gray-900 pt-1 border-t border-blue-200/40">
+                      <span>Total with GST:</span>
+                      <span>{formatCurrency(budgetWithGst)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setProjectForm({ ...projectForm, budget: String(budgetWithGst) })}
+                      className="mt-1 text-[11px] font-semibold text-blue-700 hover:underline"
+                    >
+                      Set Contract = ₹{budgetWithGst.toLocaleString('en-IN')} (incl. GST) →
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="md:col-span-2">

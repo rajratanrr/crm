@@ -34,9 +34,35 @@ export const getModels = asyncHandler(async (req: Request, res: Response) => {
       notes: true,
       createdAt: true,
       updatedAt: true,
+      projectAssignments: {
+        select: {
+          modelRate: true,
+        },
+      },
+      payments: {
+        select: {
+          amount: true,
+        },
+      },
     },
   });
-  res.json({ success: true, data: models });
+
+  const enriched = models.map((m) => {
+    const totalShoots = m.projectAssignments.length;
+    const totalEarned = m.projectAssignments.reduce((sum, a) => sum + Number(a.modelRate || 0), 0);
+    const totalPaid = m.payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const pendingBalance = totalEarned - totalPaid;
+    const { projectAssignments, payments, ...rest } = m;
+    return {
+      ...rest,
+      totalShoots,
+      totalEarned,
+      totalPaid,
+      pendingBalance,
+    };
+  });
+
+  res.json({ success: true, data: enriched });
 });
 
 export const getModel = asyncHandler(async (req: Request, res: Response) => {
@@ -71,10 +97,28 @@ export const getModel = asyncHandler(async (req: Request, res: Response) => {
         },
         orderBy: { createdAt: 'desc' },
       },
+      payments: {
+        orderBy: { paymentDate: 'desc' },
+      },
     },
   });
   if (!model) throw new ApiError(404, 'Model not found');
-  res.json({ success: true, data: model });
+
+  const totalShoots = model.projectAssignments.length;
+  const totalEarned = model.projectAssignments.reduce((sum, a) => sum + Number(a.modelRate || 0), 0);
+  const totalPaid = model.payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const pendingBalance = totalEarned - totalPaid;
+
+  res.json({
+    success: true,
+    data: {
+      ...model,
+      totalShoots,
+      totalEarned,
+      totalPaid,
+      pendingBalance,
+    },
+  });
 });
 
 export const createModel = asyncHandler(async (req: Request, res: Response) => {
@@ -143,10 +187,58 @@ export const updateModel = asyncHandler(async (req: Request, res: Response) => {
 
 export const deleteModel = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
-  // Remove project assignments first (model itself is not deleted from client/project views)
+  // Remove project assignments and payments first
   await prisma.fashionProjectModel.deleteMany({ where: { modelId: id } });
+  await prisma.modelPayment.deleteMany({ where: { modelId: id } });
   await prisma.model.delete({ where: { id } });
   res.json({ success: true, message: 'Model deleted successfully' });
+});
+
+// ─── FASHION MODEL PAYMENTS ──────────────────────────
+
+export const getModelPayments = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const payments = await prisma.modelPayment.findMany({
+    where: { modelId: id },
+    orderBy: { paymentDate: 'desc' },
+  });
+  res.json({ success: true, data: payments });
+});
+
+export const createModelPayment = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { amount, paymentDate, paymentMethod, reference, notes } = req.body;
+
+  if (!amount || Number(amount) <= 0) {
+    throw new ApiError(400, 'Valid payment amount is required');
+  }
+
+  const model = await prisma.model.findUnique({ where: { id } });
+  if (!model) throw new ApiError(404, 'Model not found');
+
+  const payment = await prisma.modelPayment.create({
+    data: {
+      modelId: id,
+      amount: Number(amount),
+      paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+      paymentMethod: paymentMethod || 'UPI',
+      reference: reference || null,
+      notes: notes || null,
+    },
+  });
+
+  res.status(201).json({ success: true, data: payment });
+});
+
+export const deleteModelPayment = asyncHandler(async (req: Request, res: Response) => {
+  const { id, paymentId } = req.params;
+  const payment = await prisma.modelPayment.findFirst({
+    where: { id: paymentId, modelId: id },
+  });
+  if (!payment) throw new ApiError(404, 'Payment record not found');
+
+  await prisma.modelPayment.delete({ where: { id: paymentId } });
+  res.json({ success: true, message: 'Payment record deleted successfully' });
 });
 
 // ─── FASHION GARMENT REQUIREMENTS ────────────────────

@@ -149,6 +149,9 @@ export const modelApi = {
   update: (id: string, data: any) => api.put(`/models/${id}`, data),
   patch: (id: string, data: any) => api.patch(`/models/${id}`, data),
   delete: (id: string) => api.delete(`/models/${id}`),
+  getPayments: (modelId: string) => api.get(`/models/${modelId}/payments`),
+  recordPayment: (modelId: string, data: any) => api.post(`/models/${modelId}/payments`, data),
+  deletePayment: (modelId: string, paymentId: string) => api.delete(`/models/${modelId}/payments/${paymentId}`),
 };
 
 // Fashion: project-level garment requirements + model assignments (legacy query-param style, kept for compat)
