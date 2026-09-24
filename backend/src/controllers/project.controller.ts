@@ -421,6 +421,12 @@ export const updateProject = asyncHandler(async (req: Request, res: Response) =>
   delete data.pendingAmount;
   delete data.remainingAmount;
   delete data.contractAmount;
+  // Frontend-only fields — not in DB schema
+  delete data.applyGst;
+  delete data.advanceAmount;
+  delete data.advance;
+  delete data.paymentMethod;
+  delete data.advanceNotes;
 
   const incomingModelAssignments = req.body.modelAssignments;
 
