@@ -16,11 +16,13 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email.trim(), password);
       toast.success("Welcome back!");
       navigate("/dashboard");
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Login failed");
+      const msg = err.response?.data?.message || err.message || "Login failed. Please check your credentials.";
+      toast.error(msg);
+      console.error("Login error:", err);
     } finally {
       setLoading(false);
     }
@@ -77,9 +79,16 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Sign In to Studio"}
           </button>
           <div className="text-center pt-2">
-            <span className="text-[11px] text-gray-400 bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
-              Demo: admin@studio.com / Admin@123
-            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setEmail("admin@studio.com");
+                setPassword("Admin@123");
+              }}
+              className="text-[11px] text-gray-500 hover:text-[#C59B27] bg-gray-50 hover:bg-amber-50/50 px-3 py-1.5 rounded-full border border-gray-200 transition-colors cursor-pointer inline-flex items-center gap-1"
+            >
+              Demo: <strong className="font-semibold text-gray-700">admin@studio.com</strong> / Admin@123 <span className="text-[10px] text-[#C59B27] ml-1">(click to fill)</span>
+            </button>
           </div>
         </form>
       </div>
