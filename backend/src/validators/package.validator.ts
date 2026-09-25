@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const createPackageSchema = z.object({
   name: z.string().min(1, 'Name is required').max(150),
+  domain: z.enum(['WEDDING', 'FASHION', 'GENERAL']).optional().default('WEDDING'),
   description: z.string().optional().nullable(),
   basePrice: z.number().min(0, 'Price cannot be negative'),
   duration: z.string().max(100).optional().nullable(),
@@ -16,3 +17,4 @@ export const createPackageSchema = z.object({
 export const updatePackageSchema = createPackageSchema.partial();
 
 export type CreatePackageInput = z.infer<typeof createPackageSchema>;
+

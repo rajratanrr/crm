@@ -244,21 +244,73 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
 
   // Auto-create contract if contractAmount (budget) > 0
   const budgetNum = Number(budget) || 0;
+  let createdContractId: string | null = null;
   if (budgetNum > 0) {
     try {
       const contractNumber = await generateContractNumber();
-      await prisma.contract.create({
+      const resolvedPackageId = req.body.packageId && req.body.packageId !== '' ? req.body.packageId : null;
+
+      // If package is selected, fetch its services to populate contract items
+      let packageServices: any[] = [];
+      if (resolvedPackageId) {
+        const pkg = await prisma.package.findUnique({
+          where: { id: resolvedPackageId },
+          include: { services: true },
+        });
+        if (pkg?.services) {
+          packageServices = pkg.services;
+        }
+      }
+
+      const createdContract = await prisma.contract.create({
         data: {
           contractNumber,
           customerId,
           projectId: project.id,
+          packageId: resolvedPackageId,
           contractDate: resolvedStartDate,
           subtotal: budgetNum,
           finalAmount: budgetNum,
           status: "SIGNED",
           termsAndConditions: `Service agreement for ${name} (${project.projectType})`,
+          items: packageServices.length > 0 ? {
+            create: packageServices.map((s) => ({
+              serviceName: s.serviceName,
+              description: s.description || null,
+              quantity: s.quantity || 1,
+              unitPrice: packageServices.length > 0 ? budgetNum / packageServices.length : budgetNum,
+              totalPrice: packageServices.length > 0 ? budgetNum / packageServices.length : budgetNum,
+            })),
+          } : undefined,
         },
       });
+      createdContractId = createdContract.id;
+
+      // If Wedding package has services, automatically seed the project deliverables
+      if (!isFashion && packageServices.length > 0) {
+        for (const s of packageServices) {
+          let delType: any = 'EDITED_PHOTOS';
+          const sName = s.serviceName.toUpperCase();
+          if (sName.includes('CINEMAT') || sName.includes('FILM')) delType = 'CINEMATIC_FILM';
+          else if (sName.includes('TEASER') || sName.includes('TRAILER')) delType = 'TEASER';
+          else if (sName.includes('FULL') || sName.includes('CEREMONY')) delType = 'FULL_WEDDING_VIDEO';
+          else if (sName.includes('HIGHLIGHT')) delType = 'HIGHLIGHT_VIDEO';
+          else if (sName.includes('ALBUM') || sName.includes('PHOTOBOOK')) delType = 'ALBUM';
+          else if (sName.includes('RAW')) delType = 'RAW_PHOTOS';
+
+          await prisma.deliverable.create({
+            data: {
+              projectId: project.id,
+              contractId: createdContract.id,
+              domain: 'WEDDING',
+              type: delType,
+              quantity: s.quantity || 1,
+              status: 'PENDING',
+              notes: `${s.serviceName}`,
+            },
+          });
+        }
+      }
     } catch (contractErr) {
       console.error("Failed to auto-create contract for project:", contractErr);
     }
@@ -309,6 +361,7 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
       await prisma.payment.create({
         data: {
           projectId: project.id,
+          contractId: createdContractId,
           customerId,
           domain: isFashion ? 'FASHION' : 'WEDDING',
           amount: advanceNum,
@@ -323,6 +376,7 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
       console.error('Failed to record initial advance payment:', payErr);
     }
   }
+
 
   const fullProject = await prisma.project.findUnique({
     where: { id: project.id },
@@ -474,32 +528,52 @@ export const deleteProject = asyncHandler(async (req: Request, res: Response) =>
   const existing = await prisma.project.findUnique({ where: { id } });
   if (!existing) throw new ApiError(404, "Project not found");
 
-  // 1. Delete contracts linked to this project
+  // 1. Find all contracts linked to this project
   const contracts = await prisma.contract.findMany({ where: { projectId: id }, select: { id: true } });
   const contractIds = contracts.map(c => c.id);
+
+  // 2. Delete deliverables linked to this project or its contracts (avoids FK error on contractId)
+  await prisma.deliverable.deleteMany({
+    where: {
+      OR: [
+        { projectId: id },
+        ...(contractIds.length > 0 ? [{ contractId: { in: contractIds } }] : []),
+      ],
+    },
+  });
+
+  // 3. Delete payments linked to this project or its contracts
+  await prisma.payment.deleteMany({
+    where: {
+      OR: [
+        { projectId: id },
+        ...(contractIds.length > 0 ? [{ contractId: { in: contractIds } }] : []),
+      ],
+    },
+  });
+
+  // 4. Delete contracts & items
   if (contractIds.length > 0) {
+    await prisma.invoice.deleteMany({ where: { contractId: { in: contractIds } } });
     await prisma.contractItem.deleteMany({ where: { contractId: { in: contractIds } } });
     await prisma.contract.deleteMany({ where: { projectId: id } });
   }
 
-  // 2. Delete payments linked to this project
-  await prisma.payment.deleteMany({ where: { projectId: id } });
-
-  // 3. Delete tasks and deliverables linked to this project
-  await prisma.deliverable.deleteMany({ where: { projectId: id } });
+  // 5. Delete tasks linked to this project
   await prisma.task.deleteMany({ where: { projectId: id } });
 
-  // 4. Delete studio bookings linked to this project
+  // 6. Delete studio bookings linked to this project
   await prisma.studioBooking.deleteMany({ where: { projectId: id } });
 
-  // 5. Delete fashion-specific sub-records
+  // 7. Delete fashion-specific sub-records
   await prisma.fashionGarmentRequirement.deleteMany({ where: { projectId: id } });
   await prisma.fashionProjectModel.deleteMany({ where: { projectId: id } });
 
-  // 6. Unlink events
+  // 8. Unlink events
   await prisma.event.updateMany({ where: { projectId: id }, data: { projectId: null } });
 
-  // 7. Delete project
+  // 9. Delete project
   await prisma.project.delete({ where: { id } });
   res.json({ success: true, message: "Project deleted successfully" });
 });
+

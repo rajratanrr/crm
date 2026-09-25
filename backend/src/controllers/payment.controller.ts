@@ -154,12 +154,29 @@ export const createPayment = asyncHandler(async (req: Request, res: Response) =>
   const customer = await prisma.customer.findUnique({ where: { id: customerId } });
   if (!customer) throw new ApiError(400, 'Customer not found');
 
+  let resolvedProjectId = projectId && projectId !== '' ? projectId : null;
+  let resolvedContractId = contractId && contractId !== '' ? contractId : null;
+
+  if (resolvedContractId && !resolvedProjectId) {
+    const contract = await prisma.contract.findUnique({ where: { id: resolvedContractId } });
+    if (contract?.projectId) {
+      resolvedProjectId = contract.projectId;
+    }
+  }
+
   let resolvedDomain: BusinessDomain = (domain as BusinessDomain) || 'WEDDING';
 
-  if (projectId) {
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (resolvedProjectId) {
+    const project = await prisma.project.findUnique({ where: { id: resolvedProjectId } });
     if (!project) throw new ApiError(400, 'Project not found');
     resolvedDomain = project.projectType === 'FASHION' ? 'FASHION' : 'WEDDING';
+
+    if (!resolvedContractId) {
+      const existingContract = await prisma.contract.findFirst({ where: { projectId: resolvedProjectId } });
+      if (existingContract) {
+        resolvedContractId = existingContract.id;
+      }
+    }
   }
 
   // Determine paymentStatus: if explicitly provided use it, else derive from paymentType for compat
@@ -174,8 +191,8 @@ export const createPayment = asyncHandler(async (req: Request, res: Response) =>
   const payment = await prisma.payment.create({
     data: {
       customerId,
-      projectId: projectId || null,
-      contractId: contractId || null,
+      projectId: resolvedProjectId,
+      contractId: resolvedContractId,
       domain: resolvedDomain,
       amount: Number(amount),
       paymentMethod: paymentMethod as PaymentMethod,
@@ -192,6 +209,7 @@ export const createPayment = asyncHandler(async (req: Request, res: Response) =>
       contract: { select: { id: true, contractNumber: true } },
     },
   });
+
 
   res.status(201).json({ success: true, data: payment });
 });

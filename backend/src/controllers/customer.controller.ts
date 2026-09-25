@@ -233,49 +233,75 @@ export const deleteCustomer = asyncHandler(async (req: Request, res: Response) =
   });
   if (!existing) throw ApiError.notFound("Customer not found");
 
+  // Find all related entities first
+  const [projects, contracts, events] = await Promise.all([
+    prisma.project.findMany({ where: { customerId: id }, select: { id: true } }),
+    prisma.contract.findMany({ where: { customerId: id }, select: { id: true } }),
+    prisma.event.findMany({ where: { customerId: id }, select: { id: true } }),
+  ]);
+  const projectIds = projects.map(p => p.id);
+  const contractIds = contracts.map(c => c.id);
+  const eventIds = events.map(e => e.id);
+
   // 1. Delete associated payments
   await prisma.payment.deleteMany({ where: { customerId: id } });
 
-  // 2. Delete contract items & contracts
-  const contracts = await prisma.contract.findMany({ where: { customerId: id }, select: { id: true } });
-  const contractIds = contracts.map(c => c.id);
+  // 2. Delete deliverables linked to customer projects, contracts, or events first (prevents FK violation)
+  if (projectIds.length > 0 || contractIds.length > 0 || eventIds.length > 0) {
+    await prisma.deliverable.deleteMany({
+      where: {
+        OR: [
+          ...(projectIds.length > 0 ? [{ projectId: { in: projectIds } }] : []),
+          ...(contractIds.length > 0 ? [{ contractId: { in: contractIds } }] : []),
+          ...(eventIds.length > 0 ? [{ eventId: { in: eventIds } }] : []),
+        ],
+      },
+    });
+  }
+
+  // 3. Delete contract items & contracts
   if (contractIds.length > 0) {
     await prisma.contractItem.deleteMany({ where: { contractId: { in: contractIds } } });
     await prisma.contract.deleteMany({ where: { customerId: id } });
   }
 
-  // 3. Delete invoices
+  // 4. Delete invoices
   await prisma.invoice.deleteMany({ where: { customerId: id } });
 
-  // 4. Delete event assignments, subEvents, & events
-  const events = await prisma.event.findMany({ where: { customerId: id }, select: { id: true } });
-  const eventIds = events.map(e => e.id);
+  // 5. Delete event assignments, subEvents, & events
   if (eventIds.length > 0) {
     await prisma.eventAssignment.deleteMany({ where: { eventId: { in: eventIds } } });
     await prisma.eventSubEvent.deleteMany({ where: { eventId: { in: eventIds } } });
     await prisma.event.deleteMany({ where: { customerId: id } });
   }
 
-  // 5. Delete deliverables & tasks linked to customer or customer projects
-  const projects = await prisma.project.findMany({ where: { customerId: id }, select: { id: true } });
-  const projectIds = projects.map(p => p.id);
+  // 6. Delete tasks and projects linked to customer
+  await prisma.task.deleteMany({
+    where: {
+      OR: [
+        { customerId: id },
+        ...(projectIds.length > 0 ? [{ projectId: { in: projectIds } }] : []),
+      ],
+    },
+  });
+
   if (projectIds.length > 0) {
-    await prisma.deliverable.deleteMany({ where: { projectId: { in: projectIds } } });
-    await prisma.task.deleteMany({ where: { projectId: { in: projectIds } } });
+    await prisma.fashionGarmentRequirement.deleteMany({ where: { projectId: { in: projectIds } } });
+    await prisma.fashionProjectModel.deleteMany({ where: { projectId: { in: projectIds } } });
+    await prisma.studioBooking.deleteMany({ where: { projectId: { in: projectIds } } });
     await prisma.project.deleteMany({ where: { customerId: id } });
-  } else {
-    await prisma.task.deleteMany({ where: { customerId: id } });
   }
 
-  // 6. Delete interactions, studio bookings, leads
+  // 7. Delete interactions, studio bookings, leads
   await prisma.interaction.deleteMany({ where: { customerId: id } });
   await prisma.studioBooking.deleteMany({ where: { customerId: id } });
   await prisma.lead.updateMany({ where: { customerId: id }, data: { customerId: null } });
 
-  // 7. Delete customer
+  // 8. Delete customer
   await prisma.customer.delete({ where: { id } });
 
   res.json({ success: true, message: "Customer and all associated records deleted successfully" });
+
 });
 
 export const bulkImportCustomers = asyncHandler(async (req: Request, res: Response) => {

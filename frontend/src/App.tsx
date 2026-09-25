@@ -24,6 +24,8 @@ import SettingsPage from './pages/SettingsPage';
 import AllProjectsPage from './pages/projects/AllProjectsPage';
 import WeddingProjectsPage from './pages/wedding/WeddingProjectsPage';
 import WeddingClientsPage from './pages/wedding/WeddingClientsPage';
+import WeddingPackagesPage from './pages/wedding/WeddingPackagesPage';
+import WeddingContractsPage from './pages/wedding/WeddingContractsPage';
 import WeddingPaymentsPage from './pages/wedding/WeddingPaymentsPage';
 import WeddingDeliverablesPage from './pages/wedding/WeddingDeliverablesPage';
 
@@ -85,8 +87,8 @@ export default function App() {
               {/* Wedding Shoot Domain */}
               <Route path="/wedding/projects" element={<WeddingProjectsPage />} />
               <Route path="/wedding/clients" element={<WeddingClientsPage />} />
-              <Route path="/wedding/packages" element={<PackagesPage />} />
-              <Route path="/wedding/contracts" element={<ContractsPage />} />
+              <Route path="/wedding/packages" element={<WeddingPackagesPage />} />
+              <Route path="/wedding/contracts" element={<WeddingContractsPage />} />
               <Route path="/wedding/payments" element={<WeddingPaymentsPage />} />
               <Route path="/wedding/deliverables" element={<WeddingDeliverablesPage />} />
 

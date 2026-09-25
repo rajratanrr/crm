@@ -84,6 +84,25 @@ export const createDeliverable = asyncHandler(async (req: Request, res: Response
   if (!data.projectId || data.projectId === '') delete data.projectId;
   if (!data.contractId || data.contractId === '') delete data.contractId;
 
+  // Auto-link contract and project if one is provided
+  if (data.projectId && !data.contractId) {
+    const existingContract = await prisma.contract.findFirst({
+      where: { projectId: data.projectId },
+      select: { id: true },
+    });
+    if (existingContract) {
+      data.contractId = existingContract.id;
+    }
+  } else if (data.contractId && !data.projectId) {
+    const con = await prisma.contract.findUnique({
+      where: { id: data.contractId },
+      select: { projectId: true },
+    });
+    if (con?.projectId) {
+      data.projectId = con.projectId;
+    }
+  }
+
   // Auto-detect domain if not provided
   if (!data.domain) {
     if (data.projectId) {
@@ -98,6 +117,7 @@ export const createDeliverable = asyncHandler(async (req: Request, res: Response
       data.domain = 'WEDDING';
     }
   }
+
 
   if (data.dueDate) data.dueDate = new Date(data.dueDate);
   if (data.deliveryDate) data.deliveryDate = new Date(data.deliveryDate);
