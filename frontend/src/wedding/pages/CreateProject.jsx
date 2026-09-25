@@ -30,7 +30,7 @@ export default function CreateProject({ onDone, project }) {
 
   const matchedClient = clients.find((c) => c.phone.replace(/\D/g,'').endsWith(clientPhone.replace(/\D/g,'').slice(-10)) && clientPhone.length >= 10)
 
-  const save = () => {
+  const save = async () => {
     if (!name || !packageCost) return
     const cid = clientId || matchedClient?.id || ''
     const payload = {
@@ -44,8 +44,8 @@ export default function CreateProject({ onDone, project }) {
       deliverables: deliverables.filter(d => d.name),
       events: schedules.filter((schedule) => schedule.name && schedule.date).map(({ id, name: eventName, ...schedule }) => ({ id, name: eventName, ...schedule })),
     }
-    if (project) updateProject(project.id, payload)
-    else addProject(payload)
+    if (project) await updateProject(project.id, payload)
+    else await addProject(payload)
     onDone()
   }
 

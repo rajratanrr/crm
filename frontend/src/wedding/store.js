@@ -1,180 +1,578 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { create } from 'zustand';
+import {
+  customerApi,
+  projectApi,
+  leadApi,
+  paymentApi,
+  deliverableApi,
+  employeeApi,
+  eventApi,
+} from '../services/api';
 
-const uid = () => Math.random().toString(36).slice(2, 10)
-const today = new Date().toISOString().slice(0, 10)
+const uid = () => Math.random().toString(36).slice(2, 10);
+const today = new Date().toISOString().slice(0, 10);
 
-const seedClients = [
-  { id: 'c1', brideName: 'Ananya', groomName: 'Rohan', phone: '+91 98765 43210', email: 'ananya@mail.com', weddingDate: '2026-02-14', venue: 'Taj Palace, Delhi', createdAt: today },
-  { id: 'c2', brideName: 'Priya',   groomName: 'Arjun', phone: '+91 99887 76655', email: 'priya@mail.com',  weddingDate: '2026-03-22', venue: 'Umaid Bhawan, Jodhpur', createdAt: today },
-  { id: 'c3', brideName: 'Sneha',   groomName: 'Vikram',phone: '+91 90000 11223', email: 'sneha@mail.com',  weddingDate: '2026-05-08', venue: 'Leela Palace, Udaipur', createdAt: today },
-]
+const cleanPhone = (phone) => {
+  if (!phone) return '9876543210';
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length >= 10) return digits.slice(-10);
+  return digits.padEnd(10, '0');
+};
 
-const seedLeads = [
-  { id: 'l1', name: 'Kavya & Aditya',  phone: '+91 97654 32109', weddingDate: '2026-11-12', location: 'Jaipur',      source: 'Instagram', status: 'NEW',              budget: 350000, assignedTo: 'Neha' },
-  { id: 'l2', name: 'Meera & Kabir',   phone: '+91 96543 21098', weddingDate: '2026-12-05', location: 'Goa',         source: 'Website',   status: 'CONTACTED',         budget: 500000, assignedTo: 'Neha' },
-  { id: 'l3', name: 'Riya & Sameer',   phone: '+91 95432 10987', weddingDate: '2027-01-18', location: 'Mumbai',      source: 'Referral',  status: 'PROPOSAL_SENT',     budget: 750000, assignedTo: 'Rahul' },
-  { id: 'l4', name: 'Tanvi & Ishaan',  phone: '+91 94321 09876', weddingDate: '2026-10-30', location: 'Delhi',       source: 'Wedding Wire', status: 'NEGOTIATION',   budget: 400000, assignedTo: 'Rahul' },
-  { id: 'l5', name: 'Nisha & Varun',   phone: '+91 93210 98765', weddingDate: '2026-09-15', location: 'Chandigarh',  source: 'Instagram', status: 'BOOKED',           budget: 600000, assignedTo: 'Neha' },
-]
+const mapDbCustomerToClient = (c) => {
+  let bride = c.fullName || 'Client';
+  let groom = '';
+  if (c.fullName && c.fullName.includes('&')) {
+    const parts = c.fullName.split('&');
+    bride = parts[0]?.trim() || '';
+    groom = parts[1]?.trim() || '';
+  }
+  return {
+    id: c.id,
+    brideName: bride,
+    groomName: groom,
+    phone: c.phone || '',
+    email: c.email || '',
+    weddingDate: c.shootDate ? String(c.shootDate).slice(0, 10) : '',
+    venue: c.address || c.city || '',
+    createdAt: c.createdAt ? String(c.createdAt).slice(0, 10) : today,
+    rawCustomer: c,
+  };
+};
 
-const seedProjects = [
-  { id: 'p1', name: 'Ananya & Rohan Wedding', clientId: 'c1', totalBudget: 450000, amountPaid: 150000, status: 'SHOOTING', weddingDate: '2026-02-14', venue: 'Taj Palace, Delhi',
-    deliverables: [
-      { id: 'd1', name: 'Wedding Album',   status: 'EDITING',           dueDate: '2026-04-15' },
-      { id: 'd2', name: 'Highlight Film',  status: 'CLIENT_SELECTION',  dueDate: '2026-04-01' },
-      { id: 'd3', name: 'Teaser Reel',     status: 'DELIVERED',         dueDate: '2026-03-01' },
-    ],
-    events: [
-      { id: 'e1', name: 'Haldi',   date: '2026-02-11', startTime: '10:00', endTime: '14:00', venue: 'Family Home',    team: ['Rahul'] },
-      { id: 'e2', name: 'Mehndi',  date: '2026-02-12', startTime: '16:00', endTime: '21:00', venue: 'Taj Lawn',       team: ['Neha','Amit'] },
-      { id: 'e3', name: 'Sangeet', date: '2026-02-13', startTime: '19:00', endTime: '23:00', venue: 'Taj Ballroom',   team: ['Rahul','Amit'] },
-      { id: 'e4', name: 'Wedding', date: '2026-02-14', startTime: '06:00', endTime: '14:00', venue: 'Taj Palace',     team: ['Rahul','Neha','Amit'] },
-      { id: 'e5', name: 'Reception',date:'2026-02-14', startTime: '19:00', endTime: '23:00', venue: 'Taj Ballroom',   team: ['Neha','Amit'] },
-    ],
+const mapDbProjectToProject = (p, existing) => {
+  const paymentsList = p.payments || [];
+  const amountPaid = paymentsList.reduce((sum, pay) => sum + Number(pay.amount || 0), 0) || Number(p.totalPaid || 0);
+
+  const deliverables = (p.deliverables && p.deliverables.length > 0)
+    ? p.deliverables.map((d) => ({
+        id: d.id,
+        name: d.notes || d.type || 'Deliverable',
+        status: d.status === 'DELIVERED' ? 'DELIVERED' : d.status === 'IN_PRODUCTION' ? 'EDITING' : 'PENDING',
+        dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : '',
+      }))
+    : (existing?.deliverables || []);
+
+  const events = (p.events && p.events.length > 0)
+    ? p.events.map((e) => ({
+        id: e.id,
+        name: e.eventName || e.name || 'Event',
+        date: e.startDate ? String(e.startDate).slice(0, 10) : '',
+        startTime: e.startDate ? String(e.startDate).slice(11, 16) : '10:00',
+        endTime: e.endDate ? String(e.endDate).slice(11, 16) : '18:00',
+        venue: e.venue || '',
+        team: (e.assignments || []).map((a) => a.employee?.name || a.employeeId),
+      }))
+    : (existing?.events || []);
+
+  return {
+    id: p.id,
+    name: p.name,
+    clientId: p.customerId,
+    totalBudget: Number(p.budget || p.contractAmount || 0),
+    amountPaid,
+    status: p.status || 'PLANNING',
+    weddingDate: p.weddingDate ? String(p.weddingDate).slice(0, 10) : (p.startDate ? String(p.startDate).slice(0, 10) : ''),
+    venue: p.venue || p.city || '',
+    deliverables,
+    events,
+    rawProject: p,
+  };
+};
+
+const mapDbLeadToLead = (l) => ({
+  id: l.id,
+  name: l.name,
+  phone: l.phone || '',
+  weddingDate: l.estimatedDate ? String(l.estimatedDate).slice(0, 10) : '',
+  location: l.shootType || l.notes || 'Studio',
+  source: l.source || 'Website',
+  status: l.status === 'WON' ? 'BOOKED' : l.status || 'NEW',
+  budget: Number(l.estimatedBudget || 0),
+  assignedTo: l.assignedUser?.name || l.assignedTo || 'Team',
+  rawLead: l,
+});
+
+const mapDbPaymentToPayment = (pay) => ({
+  id: pay.id,
+  projectId: pay.projectId,
+  amount: Number(pay.amount),
+  method: pay.paymentMethod === 'BANK_TRANSFER' ? 'Bank' : pay.paymentMethod === 'UPI' ? 'UPI' : pay.paymentMethod === 'CASH' ? 'Cash' : pay.paymentMethod || 'UPI',
+  date: pay.paymentDate ? String(pay.paymentDate).slice(0, 10) : (pay.createdAt ? String(pay.createdAt).slice(0, 10) : today),
+  description: pay.notes || pay.paymentType || 'Payment',
+  reference: pay.referenceNumber || '',
+  rawPayment: pay,
+});
+
+// =====================================================
+// NO localStorage persistence — always fresh from PostgreSQL
+// This ensures all employees see the same real-time data
+// =====================================================
+export const useStore = create((set, get) => ({
+  leads: [],
+  clients: [],
+  projects: [],
+  payments: [],
+  expenses: [],
+  salaries: [],
+  attendance: [],
+  invoices: [],
+  payroll: [],
+  bundles: [],
+  team: [],
+  tasks: [],
+  isSyncing: false,
+  lastSyncedAt: null,
+  _initialLoaded: false,
+
+  // ==========================================
+  // LIVE POSTGRESQL DATABASE SYNC
+  // Always fetches fresh from the central database
+  // ==========================================
+  fetchFromDb: async () => {
+    // Prevent concurrent fetches
+    if (get().isSyncing) return;
+    try {
+      set({ isSyncing: true });
+      const [customersRes, projectsRes, leadsRes, paymentsRes, teamRes] = await Promise.all([
+        customerApi.getAll({ clientType: 'WEDDING', limit: 250 }).catch(() => ({ data: { data: [] } })),
+        projectApi.getAll({ projectType: 'WEDDING', limit: 250 }).catch(() => ({ data: { data: [] } })),
+        leadApi.getAll({ clientType: 'WEDDING', limit: 250 }).catch(() => ({ data: { data: [] } })),
+        paymentApi.getAll({ domain: 'WEDDING', limit: 250 }).catch(() => ({ data: { data: [] } })),
+        employeeApi.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } })),
+      ]);
+
+      const rawCustomers = customersRes.data?.data || [];
+      const rawProjects = projectsRes.data?.data || [];
+      const rawLeads = leadsRes.data?.data || [];
+      const rawPayments = paymentsRes.data?.data || [];
+      const rawTeam = teamRes.data?.data || [];
+
+      const existingProjects = get().projects;
+      const dbClients = rawCustomers.map(mapDbCustomerToClient);
+      const dbProjects = rawProjects.map((p) => {
+        const ex = existingProjects.find((x) => x.id === p.id);
+        return mapDbProjectToProject(p, ex);
+      });
+      const dbLeads = rawLeads.map(mapDbLeadToLead);
+      const dbPayments = rawPayments.map(mapDbPaymentToPayment);
+      const dbTeam = rawTeam.map((t) => ({
+        id: t.id,
+        name: t.name,
+        role: t.role || 'Staff',
+        type: String(t.role || '').toUpperCase().includes('PHOTO') ? 'PHOTOGRAPHER' : 'VIDEOGRAPHER',
+        email: t.email,
+        phone: t.phone,
+        active: t.isActive ?? true,
+      }));
+
+      // Always replace with fresh DB data — never fall back to stale cache
+      set({
+        clients: dbClients,
+        projects: dbProjects,
+        leads: dbLeads,
+        payments: dbPayments,
+        team: dbTeam,
+        isSyncing: false,
+        lastSyncedAt: new Date().toISOString(),
+        _initialLoaded: true,
+      });
+    } catch (err) {
+      console.warn('PostgreSQL fetch error:', err);
+      set({ isSyncing: false });
+    }
   },
-  { id: 'p2', name: 'Priya & Arjun Wedding', clientId: 'c2', totalBudget: 750000, amountPaid: 375000, status: 'PLANNING', weddingDate: '2026-03-22', venue: 'Umaid Bhawan, Jodhpur',
-    deliverables: [
-      { id: 'd4', name: 'Pre-Wedding Shoot',  status: 'DELIVERED', dueDate: '2026-02-10' },
-      { id: 'd5', name: 'Cinematic Film',     status: 'PENDING',   dueDate: '2026-06-15' },
-      { id: 'd6', name: 'Photo Album',        status: 'PENDING',   dueDate: '2026-05-20' },
-    ],
-    events: [
-      { id: 'e6', name: 'Sangeet', date: '2026-03-21', startTime: '19:00', endTime: '23:30', venue: 'Umaid Gardens', team: ['Rahul'] },
-      { id: 'e7', name: 'Wedding', date: '2026-03-22', startTime: '07:00', endTime: '15:00', venue: 'Umaid Bhawan',  team: ['Rahul','Neha'] },
-    ],
-  },
-]
 
-const seedPayments = [
-  { id: 'pay1', projectId: 'p1', amount: 100000, method: 'UPI',  date: '2025-12-10', description: 'Advance Booking',  reference: 'UPI-8891' },
-  { id: 'pay2', projectId: 'p1', amount: 50000,  method: 'Bank', date: '2026-01-15', description: 'Second Installment', reference: 'NEFT-2233' },
-  { id: 'pay3', projectId: 'p2', amount: 300000, method: 'Bank', date: '2025-12-20', description: 'Booking Advance',  reference: 'NEFT-1192' },
-  { id: 'pay4', projectId: 'p2', amount: 75000,  method: 'Cash', date: '2026-01-28', description: 'Pre-wedding shoot',reference: 'CASH-001' },
-]
+  // ==========================================
+  // CLIENTS (POSTGRESQL CONNECTED)
+  // ==========================================
+  addClient: async (c) => {
+    const bride = c.brideName?.trim() || '';
+    const groom = c.groomName?.trim() || '';
+    const fullName = bride && groom ? `${bride} & ${groom}` : bride || groom || 'Wedding Client';
+    const phone = cleanPhone(c.phone);
 
-const seedTeam = [
-  { id: 't1', name: 'Rahul Mehta',  role: 'Lead Photographer',    type: 'PHOTOGRAPHER', email: 'rahul@pfs.com', phone: '+91 90000 11111', active: true },
-  { id: 't2', name: 'Neha Sharma',  role: 'Cinematographer',      type: 'VIDEOGRAPHER', email: 'neha@pfs.com',  phone: '+91 90000 22222', active: true },
-  { id: 't3', name: 'Amit Kumar',   role: 'Drone Operator',       type: 'VIDEOGRAPHER', email: 'amit@pfs.com',  phone: '+91 90000 33333', active: true },
-  { id: 't4', name: 'Zara Khan',    role: 'Senior Editor',        type: 'EDITOR',       email: 'zara@pfs.com',  phone: '+91 90000 44444', active: true },
-  { id: 't5', name: 'Priyanka Rao', role: 'Album Designer',       type: 'DESIGNER',     email: 'priya@pfs.com', phone: '+91 90000 55555', active: true },
-]
+    // Optimistic UI update
+    const tempId = uid();
+    const optimisticClient = { ...c, id: tempId, brideName: bride, groomName: groom, phone, createdAt: today };
+    set((s) => ({ clients: [optimisticClient, ...s.clients] }));
 
-const seedTasks = [
-  { id: 'tk1', title: 'Edit Haldi Ceremony Photos', projectId: 'p1', assignee: 'Zara Khan',   priority: 'HIGH',   status: 'IN_PROGRESS', dueDate: '2026-02-25' },
-  { id: 'tk2', title: 'Deliver Teaser Reel',        projectId: 'p1', assignee: 'Zara Khan',   priority: 'HIGH',   status: 'COMPLETED',   dueDate: '2026-02-20' },
-  { id: 'tk3', title: 'Confirm Drone Permits',      projectId: 'p2', assignee: 'Amit Kumar',  priority: 'MEDIUM', status: 'PENDING',     dueDate: '2026-03-10' },
-  { id: 'tk4', title: 'Design Sample Album Layout', projectId: 'p2', assignee: 'Priyanka Rao',priority: 'LOW',    status: 'PENDING',     dueDate: '2026-03-15' },
-]
+    try {
+      const res = await customerApi.create({
+        fullName,
+        phone,
+        email: c.email || undefined,
+        clientType: 'WEDDING',
+        address: c.venue || undefined,
+        city: c.venue || undefined,
+        shootDate: c.weddingDate ? c.weddingDate : undefined,
+      });
 
-const seedExpenses = []
-const seedSalaries = []
-const seedAttendance = []
-const seedInvoices = []
-const seedPayroll = []
-const seedBundles = []
-
-export const useStore = create(
-  persist(
-    (set, get) => ({
-      leads: seedLeads,
-      clients: seedClients,
-      projects: seedProjects,
-      payments: seedPayments,
-      expenses: seedExpenses,
-      salaries: seedSalaries,
-      attendance: seedAttendance,
-      invoices: seedInvoices,
-      payroll: seedPayroll,
-      bundles: seedBundles,
-      team: seedTeam,
-      tasks: seedTasks,
-
-      addLead: (lead) => set((s) => ({ leads: [{ ...lead, id: uid() }, ...s.leads] })),
-      updateLead: (id, patch) => set((s) => ({ leads: s.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) })),
-      deleteLead: (id) => set((s) => ({ leads: s.leads.filter((l) => l.id !== id) })),
-      convertLeadToClient: (leadId) => {
-        const lead = get().leads.find((l) => l.id === leadId)
-        if (!lead) return
-        const existingClient = get().clients.find((client) => client.phone === lead.phone)
-        if (lead.status === 'BOOKED') return existingClient
-        const [bride = '', groom = ''] = lead.name.split('&').map((x) => x.trim())
-        const client = {
-          id: uid(),
-          brideName: bride,
-          groomName: groom,
-          phone: lead.phone,
-          email: '',
-          weddingDate: lead.weddingDate,
-          venue: lead.location,
-          createdAt: today,
-        }
+      const savedDbCustomer = res.data?.data;
+      if (savedDbCustomer?.id) {
+        const realClient = mapDbCustomerToClient(savedDbCustomer);
         set((s) => ({
-          clients: existingClient ? s.clients : [client, ...s.clients],
-          leads: s.leads.map((l) => (l.id === leadId ? { ...l, status: 'BOOKED' } : l)),
-        }))
-        return existingClient || client
-      },
+          clients: s.clients.map((item) => (item.id === tempId ? realClient : item)),
+        }));
+        setTimeout(() => get().fetchFromDb(), 300);
+        return realClient;
+      }
+    } catch (err) {
+      console.error('Failed to create client in PostgreSQL database:', err);
+    }
+    return optimisticClient;
+  },
 
-      addClient: (c) => set((s) => ({ clients: [{ ...c, id: uid(), createdAt: today }, ...s.clients] })),
-      updateClient: (id, patch) => set((s) => ({ clients: s.clients.map((c) => (c.id === id ? { ...c, ...patch } : c)) })),
-      deleteClient: (id) => set((s) => ({ clients: s.clients.filter((c) => c.id !== id) })),
+  updateClient: async (id, patch) => {
+    // Optimistic update
+    set((s) => ({
+      clients: s.clients.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    }));
 
-      addProject: (p) => set((s) => ({ projects: [{ ...p, id: uid() }, ...s.projects] })),
-      updateProject: (id, patch) => set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)) })),
-      deleteProject: (id) => set((s) => ({ projects: s.projects.filter((p) => p.id !== id) })),
+    try {
+      const client = get().clients.find((c) => c.id === id);
+      const bride = patch.brideName !== undefined ? patch.brideName : client?.brideName;
+      const groom = patch.groomName !== undefined ? patch.groomName : client?.groomName;
+      const fullName = bride && groom ? `${bride} & ${groom}` : bride || groom;
 
-      addPayment: (pay) => {
-        set((s) => ({ payments: [{ ...pay, id: uid() }, ...s.payments] }))
-        const p = get().projects.find((x) => x.id === pay.projectId)
-        if (p) {
-          get().updateProject(p.id, { amountPaid: (p.amountPaid || 0) + Number(pay.amount) })
+      const payload = {
+        ...(fullName && { fullName }),
+        ...(patch.phone && { phone: cleanPhone(patch.phone) }),
+        ...(patch.email !== undefined && { email: patch.email }),
+        ...(patch.venue !== undefined && { address: patch.venue, city: patch.venue }),
+        ...(patch.weddingDate && { shootDate: patch.weddingDate }),
+      };
+
+      await customerApi.update(id, payload);
+      // Re-fetch to ensure consistency across all employees
+      setTimeout(() => get().fetchFromDb(), 300);
+    } catch (err) {
+      console.error('Failed to update client in PostgreSQL database:', err);
+    }
+  },
+
+  deleteClient: async (id) => {
+    set((s) => ({ clients: s.clients.filter((c) => c.id !== id) }));
+    try {
+      await customerApi.delete(id);
+      setTimeout(() => get().fetchFromDb(), 300);
+    } catch (err) {
+      console.error('Failed to delete client in PostgreSQL database:', err);
+    }
+  },
+
+  // ==========================================
+  // PROJECTS (POSTGRESQL CONNECTED)
+  // ==========================================
+  addProject: async (p) => {
+    const tempId = uid();
+    const optimisticProject = { ...p, id: tempId };
+    set((s) => ({ projects: [optimisticProject, ...s.projects] }));
+
+    try {
+      // Resolve customer ID
+      let customerId = p.clientId;
+      if (!customerId || customerId.startsWith('c')) {
+        const matchedClient = get().clients.find((c) => c.id === p.clientId);
+        if (matchedClient?.rawCustomer?.id) {
+          customerId = matchedClient.rawCustomer.id;
+        } else if (matchedClient) {
+          const newCust = await customerApi.create({
+            fullName: `${matchedClient.brideName} & ${matchedClient.groomName}`,
+            phone: cleanPhone(matchedClient.phone),
+            clientType: 'WEDDING',
+            address: p.venue || matchedClient.venue,
+            shootDate: p.weddingDate || matchedClient.weddingDate,
+          });
+          customerId = newCust.data?.data?.id;
         }
-      },
-      updatePayment: (id, patch) => set((s) => ({ payments: s.payments.map((payment) => (payment.id === id ? { ...payment, ...patch } : payment)) })),
-      deletePayment: (id) => set((s) => ({ payments: s.payments.filter((payment) => payment.id !== id) })),
+      }
 
-      addInvoice: (invoice) => set((s) => ({ invoices: [{ ...invoice, id: uid() }, ...s.invoices] })),
-      updateInvoice: (id, patch) => set((s) => ({ invoices: s.invoices.map((invoice) => (invoice.id === id ? { ...invoice, ...patch } : invoice)) })),
-      deleteInvoice: (id) => set((s) => ({ invoices: s.invoices.filter((invoice) => invoice.id !== id) })),
+      if (customerId) {
+        const payload = {
+          name: p.name,
+          customerId,
+          budget: Number(p.totalBudget) || 0,
+          advanceAmount: Number(p.amountPaid) || 0,
+          projectType: 'WEDDING',
+          status: p.status || 'PLANNING',
+          weddingDate: p.weddingDate || undefined,
+          venue: p.venue || undefined,
+          events: (p.events || []).map((e) => ({
+            eventName: e.name,
+            eventType: 'WEDDING',
+            startDate: e.date || undefined,
+            venue: e.venue || undefined,
+          })),
+        };
 
-      addExpense: (expense) => set((s) => ({ expenses: [{ ...expense, id: uid() }, ...s.expenses] })),
-      updateExpense: (id, patch) => set((s) => ({ expenses: s.expenses.map((expense) => (expense.id === id ? { ...expense, ...patch } : expense)) })),
-      deleteExpense: (id) => set((s) => ({ expenses: s.expenses.filter((expense) => expense.id !== id) })),
+        const res = await projectApi.create(payload);
+        const savedProject = res.data?.data;
+        if (savedProject?.id) {
+          const realProject = mapDbProjectToProject(savedProject, p);
+          set((s) => ({
+            projects: s.projects.map((item) => (item.id === tempId ? realProject : item)),
+          }));
+          return realProject;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to create project in PostgreSQL database:', err);
+    }
+    return optimisticProject;
+  },
 
-      addSalary: (salary) => set((s) => ({ salaries: [{ ...salary, id: uid() }, ...s.salaries] })),
-      updateSalary: (id, patch) => set((s) => ({ salaries: s.salaries.map((salary) => (salary.id === id ? { ...salary, ...patch } : salary)) })),
-      deleteSalary: (id) => set((s) => ({ salaries: s.salaries.filter((salary) => salary.id !== id) })),
-      addPayroll: (record) => set((s) => ({ payroll: [{ ...record, id: uid() }, ...s.payroll] })),
-      updatePayroll: (id, patch) => set((s) => ({ payroll: s.payroll.map((record) => (record.id === id ? { ...record, ...patch } : record)) })),
-      deletePayroll: (id) => set((s) => ({ payroll: s.payroll.filter((record) => record.id !== id) })),
+  updateProject: async (id, patch) => {
+    set((s) => ({
+      projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+    }));
 
-      addBundle: (bundle) => set((s) => ({ bundles: [{ ...bundle, id: uid() }, ...s.bundles] })),
-      updateBundle: (id, patch) => set((s) => ({ bundles: s.bundles.map((bundle) => (bundle.id === id ? { ...bundle, ...patch } : bundle)) })),
-      deleteBundle: (id) => set((s) => ({ bundles: s.bundles.filter((bundle) => bundle.id !== id) })),
-      importDeliverables: (projectId, deliverables) => set((s) => ({ projects: s.projects.map((project) => {
-        if (project.id !== projectId) return project
-        const existingNames = new Set((project.deliverables || []).map((item) => item.name.trim().toLowerCase()))
-        const additions = deliverables.filter((item) => !existingNames.has(item.name.trim().toLowerCase())).map((item) => ({ ...item, id: uid() }))
-        return { ...project, deliverables: [...(project.deliverables || []), ...additions] }
-      }) })),
+    try {
+      const payload = {
+        ...(patch.name && { name: patch.name }),
+        ...(patch.totalBudget !== undefined && { budget: Number(patch.totalBudget) }),
+        ...(patch.status && { status: patch.status }),
+        ...(patch.weddingDate && { weddingDate: patch.weddingDate }),
+        ...(patch.venue && { venue: patch.venue }),
+      };
+      await projectApi.update(id, payload);
+      // Re-fetch to ensure consistency across all employees
+      setTimeout(() => get().fetchFromDb(), 500);
+    } catch (err) {
+      console.error('Failed to update project in PostgreSQL database:', err);
+    }
+  },
 
-      setAttendance: (record) => set((s) => {
-        const exists = s.attendance.some((item) => item.eventId === record.eventId && item.date === record.date && item.memberId === record.memberId)
-        return { attendance: exists
-          ? s.attendance.map((item) => item.eventId === record.eventId && item.date === record.date && item.memberId === record.memberId ? { ...item, ...record } : item)
-          : [{ ...record, id: uid() }, ...s.attendance] }
+  deleteProject: async (id) => {
+    set((s) => ({ projects: s.projects.filter((p) => p.id !== id) }));
+    try {
+      await projectApi.delete(id);
+    } catch (err) {
+      console.error('Failed to delete project in PostgreSQL database:', err);
+    }
+  },
+
+  // ==========================================
+  // PAYMENTS (POSTGRESQL CONNECTED)
+  // ==========================================
+  addPayment: async (pay) => {
+    const tempId = uid();
+    set((s) => ({ payments: [{ ...pay, id: tempId }, ...s.payments] }));
+    const p = get().projects.find((x) => x.id === pay.projectId);
+    if (p) {
+      get().updateProject(p.id, { amountPaid: (p.amountPaid || 0) + Number(pay.amount) });
+    }
+
+    try {
+      const payload = {
+        projectId: pay.projectId,
+        amount: Number(pay.amount),
+        paymentMethod: pay.method === 'UPI' ? 'UPI' : pay.method === 'Bank' ? 'BANK_TRANSFER' : pay.method === 'Cash' ? 'CASH' : 'OTHER',
+        paymentType: 'MID_PAYMENT',
+        paymentDate: pay.date || new Date().toISOString(),
+        referenceNumber: pay.reference || undefined,
+        notes: pay.description || undefined,
+      };
+      const res = await paymentApi.create(payload);
+      if (res.data?.data?.id) {
+        set((s) => ({
+          payments: s.payments.map((item) => (item.id === tempId ? { ...item, id: res.data.data.id } : item)),
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to create payment in PostgreSQL database:', err);
+    }
+  },
+
+  updatePayment: async (id, patch) => {
+    set((s) => ({
+      payments: s.payments.map((payment) => (payment.id === id ? { ...payment, ...patch } : payment)),
+    }));
+    try {
+      await paymentApi.patch(id, patch);
+    } catch (err) {
+      console.error('Failed to update payment in PostgreSQL database:', err);
+    }
+  },
+
+  deletePayment: async (id) => {
+    set((s) => ({ payments: s.payments.filter((payment) => payment.id !== id) }));
+    try {
+      await paymentApi.delete(id);
+    } catch (err) {
+      console.error('Failed to delete payment in PostgreSQL database:', err);
+    }
+  },
+
+  // ==========================================
+  // LEADS (POSTGRESQL CONNECTED)
+  // ==========================================
+  addLead: async (lead) => {
+    const tempId = uid();
+    set((s) => ({ leads: [{ ...lead, id: tempId }, ...s.leads] }));
+    try {
+      const res = await leadApi.create({
+        name: lead.name,
+        phone: cleanPhone(lead.phone),
+        clientType: 'WEDDING',
+        estimatedBudget: Number(lead.budget) || undefined,
+        estimatedDate: lead.weddingDate || undefined,
+        source: lead.source || undefined,
+        status: lead.status || 'NEW',
+        notes: lead.location || undefined,
+      });
+      if (res.data?.data?.id) {
+        set((s) => ({
+          leads: s.leads.map((l) => (l.id === tempId ? mapDbLeadToLead(res.data.data) : l)),
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to create lead in PostgreSQL database:', err);
+    }
+  },
+
+  updateLead: async (id, patch) => {
+    set((s) => ({ leads: s.leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) }));
+    try {
+      const payload = {
+        ...(patch.name && { name: patch.name }),
+        ...(patch.phone && { phone: cleanPhone(patch.phone) }),
+        ...(patch.budget !== undefined && { estimatedBudget: Number(patch.budget) }),
+        ...(patch.status && { status: patch.status === 'BOOKED' ? 'WON' : patch.status }),
+        ...(patch.weddingDate && { estimatedDate: patch.weddingDate }),
+        ...(patch.location && { notes: patch.location }),
+      };
+      await leadApi.update(id, payload);
+    } catch (err) {
+      console.error('Failed to update lead in PostgreSQL database:', err);
+    }
+  },
+
+  deleteLead: async (id) => {
+    set((s) => ({ leads: s.leads.filter((l) => l.id !== id) }));
+    try {
+      await leadApi.delete(id);
+    } catch (err) {
+      console.error('Failed to delete lead in PostgreSQL database:', err);
+    }
+  },
+
+  convertLeadToClient: async (leadId) => {
+    const lead = get().leads.find((l) => l.id === leadId);
+    if (!lead) return;
+    const phone = cleanPhone(lead.phone);
+    const existingClient = get().clients.find((client) => cleanPhone(client.phone) === phone);
+    if (lead.status === 'BOOKED') return existingClient;
+
+    const [bride = '', groom = ''] = lead.name.split('&').map((x) => x.trim());
+    const newClientData = {
+      brideName: bride || lead.name,
+      groomName: groom,
+      phone,
+      email: '',
+      weddingDate: lead.weddingDate,
+      venue: lead.location,
+    };
+
+    const client = await get().addClient(newClientData);
+    await get().updateLead(leadId, { status: 'BOOKED' });
+    return existingClient || client;
+  },
+
+  // Other entities
+  addInvoice: (invoice) => set((s) => ({ invoices: [{ ...invoice, id: uid() }, ...s.invoices] })),
+  updateInvoice: (id, patch) => set((s) => ({ invoices: s.invoices.map((inv) => (inv.id === id ? { ...inv, ...patch } : inv)) })),
+  deleteInvoice: (id) => set((s) => ({ invoices: s.invoices.filter((inv) => inv.id !== id) })),
+
+  addExpense: (expense) => set((s) => ({ expenses: [{ ...expense, id: uid() }, ...s.expenses] })),
+  updateExpense: (id, patch) => set((s) => ({ expenses: s.expenses.map((exp) => (exp.id === id ? { ...exp, ...patch } : exp)) })),
+  deleteExpense: (id) => set((s) => ({ expenses: s.expenses.filter((exp) => exp.id !== id) })),
+
+  addSalary: (salary) => set((s) => ({ salaries: [{ ...salary, id: uid() }, ...s.salaries] })),
+  updateSalary: (id, patch) => set((s) => ({ salaries: s.salaries.map((sal) => (sal.id === id ? { ...sal, ...patch } : sal)) })),
+  deleteSalary: (id) => set((s) => ({ salaries: s.salaries.filter((sal) => sal.id !== id) })),
+  addPayroll: (record) => set((s) => ({ payroll: [{ ...record, id: uid() }, ...s.payroll] })),
+  updatePayroll: (id, patch) => set((s) => ({ payroll: s.payroll.map((pay) => (pay.id === id ? { ...pay, ...patch } : pay)) })),
+  deletePayroll: (id) => set((s) => ({ payroll: s.payroll.filter((pay) => pay.id !== id) })),
+
+  addBundle: (bundle) => set((s) => ({ bundles: [{ ...bundle, id: uid() }, ...s.bundles] })),
+  updateBundle: (id, patch) => set((s) => ({ bundles: s.bundles.map((b) => (b.id === id ? { ...b, ...patch } : b)) })),
+  deleteBundle: (id) => set((s) => ({ bundles: s.bundles.filter((b) => b.id !== id) })),
+
+  importDeliverables: async (projectId, deliverables) => {
+    set((s) => ({
+      projects: s.projects.map((project) => {
+        if (project.id !== projectId) return project;
+        const existingNames = new Set((project.deliverables || []).map((item) => item.name.trim().toLowerCase()));
+        const additions = deliverables.filter((item) => !existingNames.has(item.name.trim().toLowerCase())).map((item) => ({ ...item, id: uid() }));
+        return { ...project, deliverables: [...(project.deliverables || []), ...additions] };
       }),
+    }));
+    try {
+      for (const d of deliverables) {
+        await deliverableApi.create({
+          projectId,
+          notes: d.name,
+          domain: 'WEDDING',
+          type: 'FULL_WEDDING_VIDEO',
+          status: 'PENDING',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to sync deliverables to database:', err);
+    }
+  },
 
-      addTask: (t) => set((s) => ({ tasks: [{ ...t, id: uid() }, ...s.tasks] })),
-      updateTask: (id, patch) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
-      deleteTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
+  setAttendance: (record) => set((s) => {
+    const exists = s.attendance.some((item) => item.eventId === record.eventId && item.date === record.date && item.memberId === record.memberId);
+    return {
+      attendance: exists
+        ? s.attendance.map((item) => item.eventId === record.eventId && item.date === record.date && item.memberId === record.memberId ? { ...item, ...record } : item)
+        : [{ ...record, id: uid() }, ...s.attendance],
+    };
+  }),
 
-      addTeam: (m) => set((s) => ({ team: [{ ...m, id: uid(), active: true }, ...s.team] })),
-      updateTeam: (id, patch) => set((s) => ({ team: s.team.map((m) => (m.id === id ? { ...m, ...patch } : m)) })),
-      deleteTeam: (id) => set((s) => ({ team: s.team.filter((m) => m.id !== id) })),
-    }),
-    { name: 'pfs-crm-store' }
-  )
-)
+  addTask: (t) => set((s) => ({ tasks: [{ ...t, id: uid() }, ...s.tasks] })),
+  updateTask: (id, patch) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
+  deleteTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
+
+  addTeam: (m) => set((s) => ({ team: [{ ...m, id: uid(), active: true }, ...s.team] })),
+  updateTeam: (id, patch) => set((s) => ({ team: s.team.map((m) => (m.id === id ? { ...m, ...patch } : m)) })),
+  deleteTeam: (id) => set((s) => ({ team: s.team.filter((m) => m.id !== id) })),
+}));
+
+// =====================================================
+// CROSS-EMPLOYEE REAL-TIME SYNC
+// Ensures all employees see the same data from PostgreSQL
+// =====================================================
+if (typeof window !== 'undefined') {
+  // 1. Fetch immediately on app load
+  setTimeout(() => {
+    useStore.getState().fetchFromDb();
+  }, 100);
+
+  // 2. Refetch whenever window/tab receives focus (employee switches back)
+  window.addEventListener('focus', () => {
+    useStore.getState().fetchFromDb();
+  });
+
+  // 3. Refetch when network comes back online
+  window.addEventListener('online', () => {
+    useStore.getState().fetchFromDb();
+  });
+
+  // 4. Periodic background sync every 8 seconds across all devices/employees
+  setInterval(() => {
+    // Only sync if tab is visible (saves bandwidth when tab is in background)
+    if (!document.hidden) {
+      useStore.getState().fetchFromDb();
+    }
+  }, 8000);
+
+  // 5. Also sync when tab becomes visible after being hidden
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      useStore.getState().fetchFromDb();
+    }
+  });
+}

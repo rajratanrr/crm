@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Search, Users, Plus, Phone, Mail, Building2, MapPin,
   Briefcase, UserCircle, IndianRupee,
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { customerApi, fashionApi, modelApi } from '../../services/api';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import Modal from '../../components/ui/Modal';
 import toast from 'react-hot-toast';
 
@@ -96,24 +97,23 @@ export default function FashionClientsPage() {
   const [clientModels, setClientModels] = useState<ClientModelRow[]>([]);
   const [saving, setSaving] = useState(false);
 
-  const loadClients = async () => {
-    setLoading(true);
+  const loadClients = useCallback(async () => {
     try {
       const { data } = await customerApi.getAll({ clientType: 'FASHION', search: search || undefined });
       setClients(data.data || []);
     } catch {
-      toast.error('Failed to load Fashion clients');
+      // Background auto-sync fail silently
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
 
-  const loadAllModels = async () => {
+  const loadAllModels = useCallback(async () => {
     try {
       const { data } = await modelApi.getAll();
       setAllModels(data.data || []);
     } catch {}
-  };
+  }, []);
 
   const loadDetail = async (client: any) => {
     setSelectedClient(client);
@@ -129,9 +129,13 @@ export default function FashionClientsPage() {
   };
 
   useEffect(() => {
+    setLoading(true);
     loadClients();
     loadAllModels();
-  }, [search]);
+  }, [loadClients, loadAllModels]);
+
+  // Real-time cross-employee auto-sync every 8s + on tab focus
+  useAutoSync(loadClients, 8000);
 
   const openCreate = () => {
     setEditingClient(null);

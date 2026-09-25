@@ -2,9 +2,18 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: (() => {
-    const raw = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "/api" : "http://localhost:5001/api");
-    if (!raw.startsWith("http")) return raw;
-    return raw.endsWith("/api") ? raw : `${raw.replace(/\/$/, "")}/api`;
+    let raw = import.meta.env.VITE_API_URL;
+    if (!raw) {
+      if (typeof window !== 'undefined' && window.location.hostname.includes('onrender.com')) {
+        raw = 'https://studio-crm-backend-4ybn.onrender.com/api';
+      } else if (import.meta.env.PROD) {
+        raw = 'https://studio-crm-backend-4ybn.onrender.com/api';
+      } else {
+        raw = 'http://localhost:5001/api';
+      }
+    }
+    if (!raw.startsWith('http')) return raw;
+    return raw.endsWith('/api') ? raw : `${raw.replace(/\/$/, '')}/api`;
   })(),
   headers: { 'Content-Type': 'application/json' },
 });

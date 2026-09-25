@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Plus, Search, Shirt, ChevronRight, X, Trash2, Edit2,
   IndianRupee, Calendar, Link2, MapPin, Film, PackagePlus,
@@ -9,6 +9,7 @@ import {
   projectApi, customerApi, paymentApi, modelApi,
   fashionApi, deliverableApi, formatCurrency, formatDate,
 } from '../../services/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import Modal from '../../components/ui/Modal';
 import toast from 'react-hot-toast';
 
@@ -133,8 +134,7 @@ export default function FashionProjectsPage() {
 
 
   // ─── Loaders ────────────────────────────────────────────────────────────────
-  const loadProjects = async () => {
-    setLoading(true);
+  const loadProjects = useCallback(async () => {
     try {
       const [projRes, custRes, modsRes] = await Promise.all([
         projectApi.getAll({ type: 'FASHION', search: search || undefined }),
@@ -145,11 +145,11 @@ export default function FashionProjectsPage() {
       setCustomers(custRes.data.data || []);
       setAllModels(modsRes.data.data || []);
     } catch {
-      toast.error('Failed to load Fashion projects');
+      // Silent fail on auto-sync
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
 
   const loadDetail = async (id: string) => {
     setDetailLoading(true);
@@ -187,7 +187,10 @@ export default function FashionProjectsPage() {
     }
   };
 
-  useEffect(() => { loadProjects(); }, [search]);
+  useEffect(() => { setLoading(true); loadProjects(); }, [loadProjects]);
+
+  // Auto-sync: refresh every 10s + on tab focus for cross-employee real-time updates
+  useAutoSync(loadProjects, 10000);
 
   // ─── Project CRUD ────────────────────────────────────────────────────────────
   const openCreateModal = async () => {

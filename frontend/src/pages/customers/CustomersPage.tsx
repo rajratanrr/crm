@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Users, Heart, Shirt, CreditCard, IndianRupee, Calendar, CheckCircle2, Trash2, Upload, Download } from 'lucide-react';
 import ImportModal from '../../components/common/ImportModal';
 import { customerApi, paymentApi, projectApi } from '../../services/api';
 import { formatCurrency, formatDate } from '../../lib/utils';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import Modal from '../../components/ui/Modal';
 import EmptyState from '../../components/ui/EmptyState';
 import toast from 'react-hot-toast';
@@ -46,8 +47,7 @@ export default function CustomersPage({ domainFilter }: { domainFilter?: 'WEDDIN
 
   const navigate = useNavigate();
 
-  const load = async () => {
-    setLoading(true);
+  const load = useCallback(async () => {
     try {
       const { data } = await customerApi.getAll({
         search,
@@ -55,15 +55,19 @@ export default function CustomersPage({ domainFilter }: { domainFilter?: 'WEDDIN
       });
       setCustomers(data.data);
     } catch {
-      toast.error('Failed to load clients');
+      // Background auto-sync fail silently
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, activeTab, domainFilter]);
 
   useEffect(() => {
+    setLoading(true);
     load();
-  }, [search, activeTab, domainFilter]);
+  }, [load]);
+
+  // Real-time cross-employee auto-sync every 8s + on tab focus
+  useAutoSync(load, 8000);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

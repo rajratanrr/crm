@@ -1,14 +1,18 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, X, Phone, Mail, MapPin, Calendar, Pencil, Trash2 } from 'lucide-react'
 import { useStore } from '../store'
 
 export default function Clients() {
-  const { clients, addClient, updateClient, deleteClient, projects } = useStore()
+  const { clients, addClient, updateClient, deleteClient, projects, fetchFromDb } = useStore()
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState(null)
   const [editing, setEditing] = useState(null)
   const [form, setForm] = useState({ brideName: '', groomName: '', phone: '', email: '', weddingDate: '', venue: '' })
+
+  useEffect(() => {
+    fetchFromDb()
+  }, [fetchFromDb])
 
   const resetForm = () => setForm({ brideName: '', groomName: '', phone: '', email: '', weddingDate: '', venue: '' })
 
@@ -30,16 +34,16 @@ export default function Clients() {
     resetForm()
   }
 
-  const save = () => {
-    if (!form.brideName || !form.groomName) return
-    if (editing) updateClient(editing.id, form)
-    else addClient(form)
+  const save = async () => {
+    if (!form.brideName && !form.groomName) return
+    if (editing) await updateClient(editing.id, form)
+    else await addClient(form)
     closeForm()
   }
 
-  const remove = (client) => {
+  const remove = async (client) => {
     if (!window.confirm(`Remove ${client.brideName} & ${client.groomName}? This action cannot be undone.`)) return
-    deleteClient(client.id)
+    await deleteClient(client.id)
     if (selected?.id === client.id) setSelected(null)
   }
 

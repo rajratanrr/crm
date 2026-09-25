@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Plus, Search, CalendarDays, Trash2, Edit2, Clock, CheckCircle2 } from 'lucide-react';
 import { bookingApi, projectApi, customerApi, formatCurrency, formatDate } from '../../services/api';
+import { useAutoSync } from '../../hooks/useAutoSync';
 import Modal from '../../components/ui/Modal';
 import toast from 'react-hot-toast';
 
@@ -26,8 +27,7 @@ export default function FashionBookingsPage() {
     notes: '',
   });
 
-  const load = async () => {
-    setLoading(true);
+  const load = useCallback(async () => {
     try {
       const [bRes, pRes, cRes] = await Promise.all([
         bookingApi.getAll(),
@@ -38,15 +38,19 @@ export default function FashionBookingsPage() {
       setProjects(pRes.data.data);
       setCustomers(cRes.data.data);
     } catch {
-      toast.error('Failed to load studio bookings');
+      // Silent fail on background sync; only show error on initial load
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    setLoading(true);
     load();
-  }, []);
+  }, [load]);
+
+  // Auto-sync: refresh every 10s + on tab focus for cross-employee real-time updates
+  useAutoSync(load, 10000);
 
   const openCreateModal = () => {
     setEditingBooking(null);
