@@ -1,38 +1,20 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-  --color-brand-50: #fff1f7;
-  --color-brand-100: #ffe0ee;
-  --color-brand-200: #ffc2dc;
-  --color-brand-300: #ff91bd;
-  --color-brand-400: #f85a99;
-  --color-brand-500: #ec2778;
-  --color-brand-600: #d91668;
-  --color-brand-700: #b91258;
-  --color-brand-800: #971047;
-  --color-brand-900: #760d39;
-  --shadow-soft: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
-  --shadow-card: 0 4px 16px rgba(34,12,25,.07), 0 2px 5px rgba(16,24,40,.04);
-  --shadow-pop: 0 20px 40px -8px rgba(190,18,93,.2);
-}
-
-:root {
-  --primary: #6366f1;
-  --primary-dark: #4f46e5;
-  --sidebar-width: 260px;
-}
-
+html, body, #root { height: 100%; }
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #f8fafc;
-  color: #1e293b;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  background: #faf9fb;
+  -webkit-font-smoothing: antialiased;
 }
-
-/* Custom scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-thumb { background: #f3a8c6; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #ec2778; }
+
+button, input, select, textarea { font: inherit; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #ec2778; outline-offset: 2px; }
 
 .brand-mark {
   background: linear-gradient(145deg, #f85a99 0%, #b91258 100%);
@@ -72,6 +54,11 @@ body {
 .theme-dark .text-brand-700, .theme-dark .text-brand-800 { color: #ff86b5 !important; }
 .theme-dark .text-brand-600 { color: #ff6ca6 !important; }
 .theme-dark .text-brand-500, .theme-dark .text-brand-400 { color: #ff9bc1 !important; }
+.theme-dark .ring-white { --tw-ring-color: #171619 !important; }
+
+@media (max-width: 640px) {
+  .theme-dark .card { border-radius: .75rem; }
+}
 
 @layer components {
   .btn-primary {

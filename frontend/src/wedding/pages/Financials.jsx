@@ -1,0 +1,69 @@
+import { useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { FileText, Plus, Receipt, Search, Trash2, Users, Wallet, X } from 'lucide-react'
+import { useStore } from '../store'
+
+const today = new Date().toISOString().slice(0, 10)
+const blank = {
+  invoice: { invoiceNumber: '', invoiceDate: today, dueDate: today, amount: '', projectId: '', status: 'Pending' },
+  expense: { date: today, category: 'Studio', reference: '', vendor: '', amount: '', description: '', method: 'Bank' },
+  salary: { name: '', type: 'SALARIED', role: '', amount: '', email: '', phone: '' },
+  payroll: { memberId: '', period: today.slice(0, 7), amount: '', status: 'Pending', paidOn: today },
+}
+
+export default function Financials() {
+  const store = useStore()
+  const { projects, invoices = [], expenses = [], salaries = [], payroll = [], team } = store
+  const [tab, setTab] = useState('invoice')
+  const [modal, setModal] = useState(null)
+  const [editing, setEditing] = useState(null)
+  const [query, setQuery] = useState('')
+  const monthSpend = expenses.filter((item) => item.date?.slice(0, 7) === today.slice(0, 7)).reduce((sum, item) => sum + Number(item.amount || 0), 0)
+  const totalInvoiced = invoices.length ? invoices.reduce((sum, item) => sum + Number(item.amount || 0), 0) : projects.reduce((sum, item) => sum + Number(item.totalBudget || 0), 0)
+  const totalPaid = invoices.length ? invoices.filter((item) => item.status === 'Paid').reduce((sum, item) => sum + Number(item.amount || 0), 0) : projects.reduce((sum, item) => sum + Number(item.amountPaid || 0), 0)
+  const filteredExpenses = expenses.filter((item) => `${item.vendor} ${item.category} ${item.description} ${item.reference}`.toLowerCase().includes(query.toLowerCase()))
+  const filteredInvoices = invoices.filter((item) => `${item.invoiceNumber} ${item.status}`.toLowerCase().includes(query.toLowerCase()))
+  const labels = { invoice: 'Create Invoice', expense: 'New Expense', salary: 'Add Employee', payroll: 'Create Payroll' }
+
+  const openModal = (type, item = null) => { setEditing(item); setModal(type) }
+  const closeModal = () => { setEditing(null); setModal(null) }
+  const save = (event) => {
+    event.preventDefault()
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries())
+    const saveRecord = (addAction, updateAction, payload) => editing ? store[updateAction](editing.id, payload) : store[addAction](payload)
+    if (modal === 'invoice' && data.invoiceNumber && data.projectId && Number(data.amount) > 0) saveRecord('addInvoice', 'updateInvoice', { ...data, amount: Number(data.amount) })
+    if (modal === 'expense' && data.vendor && data.description && Number(data.amount) > 0) saveRecord('addExpense', 'updateExpense', { ...data, amount: Number(data.amount) })
+    if (modal === 'salary' && data.name && Number(data.amount) > 0) saveRecord('addSalary', 'updateSalary', { ...data, amount: Number(data.amount), memberName: data.name })
+    if (modal === 'payroll' && data.memberId && Number(data.amount) > 0) saveRecord('addPayroll', 'updatePayroll', { ...data, amount: Number(data.amount), memberName: team.find((item) => item.id === data.memberId)?.name || '' })
+    closeModal()
+  }
+  const remove = (action, id) => { if (window.confirm('Delete this record? This action cannot be undone.')) store[action](id) }
+
+  return <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
+    <div className="flex flex-wrap items-center justify-between gap-3 mb-6"><div><h1 className="text-2xl font-bold text-gray-900 tracking-tight">Financials</h1><p className="text-sm text-gray-500 mt-1">Billing, company expenses and salary management.</p></div><button onClick={() => openModal(tab)} className="btn-primary"><Plus size={15} /> {labels[tab]}</button></div>
+    <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4 mb-6"><Metric icon={<FileText size={16} />} label="Total Invoiced" value={totalInvoiced} /><Metric icon={<Wallet size={16} />} label="Amount Paid" value={totalPaid} tone="emerald" /><Metric icon={<Receipt size={16} />} label="Amount Pending" value={Math.max(0, totalInvoiced - totalPaid)} tone="amber" /><Metric icon={<Receipt size={16} />} label="This Month Spend" value={monthSpend} tone="rose" /><Metric icon={<Users size={16} />} label="Team Records" value={salaries.length + payroll.length} tone="purple" numeric /></div>
+    <div className="flex flex-wrap gap-2 mb-4">{[['invoice', 'Billings / Invoices'], ['expense', 'Company Expense'], ['salary', 'Manage Salary'], ['payroll', 'Monthly Payroll']].map(([key, label]) => <button key={key} onClick={() => setTab(key)} className={`px-4 py-2 rounded-lg text-sm font-semibold ${tab === key ? 'bg-brand-600 text-white' : 'bg-white text-gray-600 border border-gray-200'}`}>{label}</button>)}</div>
+    {(tab === 'invoice' || tab === 'expense') && <div className="mb-4 relative max-w-md"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input className="input pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search records..." /></div>}
+    {tab === 'invoice' && <InvoiceTable items={filteredInvoices} projects={projects} onEdit={(item) => openModal('invoice', item)} onDelete={(id) => remove('deleteInvoice', id)} />}
+    {tab === 'expense' && <ExpenseTable items={filteredExpenses} onEdit={(item) => openModal('expense', item)} onDelete={(id) => remove('deleteExpense', id)} />}
+    {tab === 'salary' && <SalaryTable items={salaries} onEdit={(item) => openModal('salary', item)} onDelete={(id) => remove('deleteSalary', id)} />}
+    {tab === 'payroll' && <PayrollTable items={payroll} onEdit={(item) => openModal('payroll', item)} onDelete={(id) => remove('deletePayroll', id)} />}
+    <AnimatePresence>{modal && <FinanceModal type={modal} item={editing} projects={projects} team={team} onClose={closeModal} onSave={save} />}</AnimatePresence>
+  </div>
+}
+
+function InvoiceTable({ items, projects, onEdit, onDelete }) { return <Table title="Billing & Invoices" items={items} headers={['Invoice', 'Project', 'Invoice Date', 'Due Date', 'Amount', 'Status', '']} empty="No invoices yet.">{(item) => <tr key={item.id} className="border-b border-gray-50"><Cell>{item.invoiceNumber}</Cell><Cell>{projects.find((project) => project.id === item.projectId)?.name || '—'}</Cell><Cell>{item.invoiceDate}</Cell><Cell>{item.dueDate}</Cell><Cell align>₹{Number(item.amount).toLocaleString('en-IN')}</Cell><Cell><span className="badge bg-brand-50 text-brand-700">{item.status}</span></Cell><Actions item={item} onEdit={onEdit} onDelete={onDelete} /></tr>}</Table> }
+function ExpenseTable({ items, onEdit, onDelete }) { return <Table title="Company Expenses" items={items} headers={['Date', 'Category', 'Reference', 'Vendor', 'Amount', 'Description', '']} empty="No expenses yet.">{(item) => <tr key={item.id} className="border-b border-gray-50"><Cell>{item.date}</Cell><Cell>{item.category}</Cell><Cell>{item.reference || '—'}</Cell><Cell>{item.vendor}</Cell><Cell align>₹{Number(item.amount).toLocaleString('en-IN')}</Cell><Cell>{item.description}</Cell><Actions item={item} onEdit={onEdit} onDelete={onDelete} /></tr>}</Table> }
+function SalaryTable({ items, onEdit, onDelete }) { return <Table title="Salaried Employees & Freelancers" items={items} headers={['Name', 'Type', 'Role', 'Amount', 'Contact', '']} empty="No employee or freelancer records yet.">{(item) => <tr key={item.id} className="border-b border-gray-50"><Cell>{item.name || item.memberName}</Cell><Cell>{item.type}</Cell><Cell>{item.role || '—'}</Cell><Cell align>₹{Number(item.amount).toLocaleString('en-IN')}</Cell><Cell>{item.email || item.phone || '—'}</Cell><Actions item={item} onEdit={onEdit} onDelete={onDelete} /></tr>}</Table> }
+function PayrollTable({ items, onEdit, onDelete }) { return <Table title="Monthly Payroll" items={items} headers={['Period', 'Team Member', 'Amount', 'Status', 'Paid On', '']} empty="No payroll records yet.">{(item) => <tr key={item.id} className="border-b border-gray-50"><Cell>{item.period}</Cell><Cell>{item.memberName}</Cell><Cell align>₹{Number(item.amount).toLocaleString('en-IN')}</Cell><Cell>{item.status}</Cell><Cell>{item.paidOn}</Cell><Actions item={item} onEdit={onEdit} onDelete={onDelete} /></tr>}</Table> }
+function Table({ title, items, headers, empty, children }) { return <div className="card overflow-hidden"><div className="px-6 py-4 border-b border-gray-100 flex justify-between"><h2 className="font-semibold text-gray-900">{title}</h2><span className="text-xs text-gray-500">{items.length} records</span></div><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50"><tr>{headers.map((header) => <th key={header} className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{header}</th>)}</tr></thead><tbody>{items.map(children)}</tbody></table></div>{!items.length && <div className="p-16 text-center text-gray-400">{empty}</div>}</div> }
+function Cell({ children, align }) { return <td className={`px-5 py-3.5 text-gray-700 ${align ? 'text-right font-semibold' : ''}`}>{children}</td> }
+function Actions({ item, onEdit, onDelete }) { return <td className="px-5 py-3.5 text-right whitespace-nowrap"><button onClick={() => onEdit(item)} className="text-xs font-semibold text-brand-600 mr-3">Edit</button><button onClick={() => onDelete(item.id)} className="p-1.5 text-gray-400 hover:text-rose-600" aria-label="Delete"><Trash2 size={15} /></button></td> }
+function Metric({ icon, label, value, tone = 'brand', numeric = false }) { const colors = { brand: 'bg-brand-50 text-brand-700', emerald: 'bg-emerald-50 text-emerald-700', amber: 'bg-amber-50 text-amber-700', rose: 'bg-rose-50 text-rose-700', purple: 'bg-purple-50 text-purple-700' }; return <div className="card p-5"><div className={`w-9 h-9 rounded-lg flex items-center justify-center ${colors[tone]} mb-2`}>{icon}</div><div className="text-xs text-gray-500">{label}</div><div className="text-2xl font-bold text-gray-900 mt-1">{numeric ? value : `₹${Number(value).toLocaleString('en-IN')}`}</div></div> }
+
+function FinanceModal({ type, item, projects, team, onClose, onSave }) {
+  const initial = item || blank[type]
+  const fields = type === 'invoice' ? [['invoiceNumber', 'Invoice Number', 'text'], ['invoiceDate', 'Invoice Date', 'date'], ['dueDate', 'Due Date', 'date'], ['amount', 'Amount', 'number']] : type === 'expense' ? [['date', 'Expense Date', 'date'], ['reference', 'Reference Number', 'text'], ['vendor', 'Vendor Name', 'text'], ['amount', 'Amount', 'number'], ['description', 'Description', 'text']] : type === 'salary' ? [['name', 'Name', 'text'], ['role', 'Role', 'text'], ['amount', 'Base Amount', 'number'], ['email', 'Email', 'email'], ['phone', 'Phone', 'text']] : [['period', 'Payroll Month', 'month'], ['amount', 'Amount', 'number'], ['paidOn', 'Paid On', 'date']]
+  const required = new Set(type === 'invoice' ? ['invoiceNumber', 'amount'] : type === 'expense' ? ['vendor', 'amount', 'description'] : type === 'salary' ? ['name', 'amount'] : ['amount'])
+  return <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}><motion.form onSubmit={onSave} initial={{ scale: .95 }} animate={{ scale: 1 }} className="bg-white rounded-2xl w-full max-w-lg shadow-pop" onClick={(event) => event.stopPropagation()}><div className="flex justify-between p-5 border-b"><h3 className="font-semibold text-gray-900">{item ? 'Edit' : 'Create'} {type}</h3><button type="button" onClick={onClose}><X size={16} /></button></div><div className="p-5 space-y-4">{type === 'invoice' && <><div><label className="label">Project *</label><select name="projectId" defaultValue={initial.projectId || ''} className="input" required><option value="">Select project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></div><div><label className="label">Payment Status</label><select name="status" defaultValue={initial.status || 'Pending'} className="input"><option>Paid</option><option>Pending</option><option>Partially Paid</option></select></div></>}{type === 'expense' && <div className="grid grid-cols-2 gap-4"><div><label className="label">Category</label><select name="category" defaultValue={initial.category} className="input">{['Studio', 'Equipment', 'Travel', 'Marketing', 'Software', 'Other'].map((value) => <option key={value}>{value}</option>)}</select></div><div><label className="label">Payment Method</label><select name="method" defaultValue={initial.method} className="input">{['Bank', 'UPI', 'Cash', 'Card'].map((value) => <option key={value}>{value}</option>)}</select></div></div>}{type === 'salary' && <div><label className="label">Record Type</label><select name="type" defaultValue={initial.type || 'SALARIED'} className="input"><option value="SALARIED">Salaried Employee</option><option value="FREELANCER">Freelancer</option></select></div>}{type === 'payroll' && <div><label className="label">Team Member *</label><select name="memberId" defaultValue={initial.memberId || ''} className="input" required><option value="">Select member</option>{team.map((member) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></div>}{fields.map(([name, label, inputType]) => <div key={name}><label className="label">{label}{required.has(name) ? ' *' : ''}</label><input name={name} type={inputType} defaultValue={initial[name] || ''} className="input" required={required.has(name)} min={inputType === 'number' ? '1' : undefined} /></div>)}</div><div className="flex justify-end gap-2 p-5 border-t"><button type="button" onClick={onClose} className="btn-outline">Cancel</button><button type="submit" className="btn-primary">Save</button></div></motion.form></motion.div>
+}

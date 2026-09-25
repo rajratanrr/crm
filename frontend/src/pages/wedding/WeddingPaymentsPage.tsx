@@ -1,5 +1,5 @@
-import GlobalPaymentsPage from '../finance/GlobalPaymentsPage';
+import Financials from '../../wedding/pages/Financials';
 
 export default function WeddingPaymentsPage() {
-  return <GlobalPaymentsPage domainFilter="WEDDING" />;
+  return <Financials />;
 }

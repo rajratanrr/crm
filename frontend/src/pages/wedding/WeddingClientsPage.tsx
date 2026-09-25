@@ -1,5 +1,5 @@
-import CustomersPage from '../customers/CustomersPage';
+import Clients from '../../wedding/pages/Clients';
 
 export default function WeddingClientsPage() {
-  return <CustomersPage domainFilter="WEDDING" />;
+  return <Clients />;
 }

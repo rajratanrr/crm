@@ -1,5 +1,5 @@
-import DeliverablesPage from '../deliverables/DeliverablesPage';
+import Deliverables from '../../wedding/pages/Deliverables';
 
 export default function WeddingDeliverablesPage() {
-  return <DeliverablesPage domainFilter="WEDDING" />;
+  return <Deliverables />;
 }

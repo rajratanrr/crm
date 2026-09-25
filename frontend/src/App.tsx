@@ -28,6 +28,13 @@ import WeddingPackagesPage from './pages/wedding/WeddingPackagesPage';
 import WeddingContractsPage from './pages/wedding/WeddingContractsPage';
 import WeddingPaymentsPage from './pages/wedding/WeddingPaymentsPage';
 import WeddingDeliverablesPage from './pages/wedding/WeddingDeliverablesPage';
+import WeddingDashboardPage from './pages/wedding/WeddingDashboardPage';
+import WeddingCalendarPage from './pages/wedding/WeddingCalendarPage';
+import WeddingLeadsPage from './pages/wedding/WeddingLeadsPage';
+import WeddingAttendancePage from './pages/wedding/WeddingAttendancePage';
+import WeddingTeamPage from './pages/wedding/WeddingTeamPage';
+import WeddingChatPage from './pages/wedding/WeddingChatPage';
+import WeddingWorkspacePage from './pages/wedding/WeddingWorkspacePage';
 
 import FashionProjectsPage from './pages/fashion/FashionProjectsPage';
 import FashionClientsPage from './pages/fashion/FashionClientsPage';
@@ -85,12 +92,20 @@ export default function App() {
               <Route path="/events/:id" element={<EventsPage />} />
 
               {/* Wedding Shoot Domain */}
+              <Route path="/wedding" element={<WeddingDashboardPage />} />
+              <Route path="/wedding/dashboard" element={<WeddingDashboardPage />} />
               <Route path="/wedding/projects" element={<WeddingProjectsPage />} />
               <Route path="/wedding/clients" element={<WeddingClientsPage />} />
               <Route path="/wedding/packages" element={<WeddingPackagesPage />} />
               <Route path="/wedding/contracts" element={<WeddingContractsPage />} />
               <Route path="/wedding/payments" element={<WeddingPaymentsPage />} />
               <Route path="/wedding/deliverables" element={<WeddingDeliverablesPage />} />
+              <Route path="/wedding/calendar" element={<WeddingCalendarPage />} />
+              <Route path="/wedding/leads" element={<WeddingLeadsPage />} />
+              <Route path="/wedding/attendance" element={<WeddingAttendancePage />} />
+              <Route path="/wedding/team" element={<WeddingTeamPage />} />
+              <Route path="/wedding/chat" element={<WeddingChatPage />} />
+              <Route path="/wedding/workspace" element={<WeddingWorkspacePage />} />
 
               {/* Studio Fashion Domain */}
               <Route path="/fashion/projects" element={<FashionProjectsPage />} />
