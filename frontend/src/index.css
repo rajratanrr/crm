@@ -11,14 +11,26 @@
   --color-brand-700: #b91258;
   --color-brand-800: #971047;
   --color-brand-900: #760d39;
+
+  --color-indigo-50: #fff1f7;
+  --color-indigo-100: #ffe0ee;
+  --color-indigo-200: #ffc2dc;
+  --color-indigo-300: #ff91bd;
+  --color-indigo-400: #f85a99;
+  --color-indigo-500: #ec2778;
+  --color-indigo-600: #d91668;
+  --color-indigo-700: #b91258;
+  --color-indigo-800: #971047;
+  --color-indigo-900: #760d39;
+
   --shadow-soft: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
   --shadow-card: 0 4px 16px rgba(34,12,25,.07), 0 2px 5px rgba(16,24,40,.04);
   --shadow-pop: 0 20px 40px -8px rgba(190,18,93,.2);
 }
 
 :root {
-  --primary: #6366f1;
-  --primary-dark: #4f46e5;
+  --primary: #ec2778;
+  --primary-dark: #b91258;
   --sidebar-width: 260px;
 }
 

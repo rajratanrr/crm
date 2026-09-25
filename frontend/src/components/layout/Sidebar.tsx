@@ -122,7 +122,7 @@ export default function Sidebar() {
       {/* Brand Header */}
       <div className="h-20 flex items-center px-4 border-b border-gray-100/90 justify-between bg-white select-none">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D4AF37] via-[#C59B27] to-[#9A7318] flex items-center justify-center flex-shrink-0 shadow-md shadow-[#C59B27]/20 text-white font-bold text-sm tracking-wider">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#ec2778] via-[#d91668] to-[#b91258] flex items-center justify-center flex-shrink-0 shadow-md shadow-[#ec2778]/25 text-white font-bold text-sm tracking-wider">
             PFS
           </div>
           {!collapsed && (
@@ -130,7 +130,7 @@ export default function Sidebar() {
               <span className="font-bold text-sm tracking-tight text-gray-900 leading-snug">
                 Photo Fashion Studio
               </span>
-              <span className="text-[9px] font-semibold tracking-wider text-[#B8860B] uppercase mt-0.5">
+              <span className="text-[9px] font-semibold tracking-wider text-brand-600 uppercase mt-0.5">
                 WEDDING &bull; FASHION &bull; CREATIVE
               </span>
             </div>
@@ -157,7 +157,7 @@ export default function Sidebar() {
                 {section.badge && (
                   <span className={cn(
                     'text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider',
-                    section.badge === 'WEDDING' ? 'bg-amber-50 text-amber-700 border border-amber-200/50' : 'bg-purple-50 text-purple-700 border border-purple-200/50'
+                    section.badge === 'WEDDING' ? 'bg-brand-50 text-brand-700 border border-brand-200/60' : 'bg-purple-50 text-purple-700 border border-purple-200/50'
                   )}>
                     {section.badge}
                   </span>
@@ -176,14 +176,14 @@ export default function Sidebar() {
                   className={cn(
                     'flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 relative group',
                     active
-                      ? 'bg-[#FAF5EB] text-[#9A7318] font-semibold border-l-[3.5px] border-[#C59B27] shadow-sm'
+                      ? 'bg-brand-50/70 text-brand-700 font-semibold border-l-[3.5px] border-brand-600 shadow-sm'
                       : 'text-gray-600 hover:bg-gray-50/80 hover:text-gray-900'
                   )}
                 >
                   <Icon
                     className={cn(
                       'w-[18px] h-[18px] flex-shrink-0 transition-colors',
-                      active ? 'text-[#C59B27]' : 'text-gray-400 group-hover:text-gray-700'
+                      active ? 'text-brand-600' : 'text-gray-400 group-hover:text-gray-700'
                     )}
                   />
                   {!collapsed && (
@@ -203,7 +203,7 @@ export default function Sidebar() {
         <div className="p-3 border-t border-gray-100 bg-gray-50/50 m-2 rounded-xl text-xs space-y-1.5">
           <div className="flex items-center justify-between text-[11px] text-gray-500 font-medium">
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" /> Wedding
+              <span className="w-2 h-2 rounded-full bg-brand-500 inline-block" /> Wedding
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" /> Fashion

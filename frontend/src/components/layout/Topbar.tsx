@@ -53,7 +53,7 @@ export default function Topbar() {
       <div className="flex items-center gap-4">
         {/* Search */}
         <div ref={searchRef} className="relative hidden sm:block">
-          <div className="flex items-center bg-gray-50 rounded-lg px-3 py-2 w-72 border border-gray-200 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+          <div className="flex items-center bg-gray-50 rounded-lg px-3 py-2 w-72 border border-gray-200 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 transition-all">
             <Search className="w-4 h-4 text-gray-400 mr-2" />
             <input type="text" placeholder="Search customers, events, contracts..."
               className="bg-transparent text-sm outline-none w-full text-gray-700 placeholder-gray-400"
@@ -105,7 +105,7 @@ export default function Topbar() {
         <div ref={profileRef} className="relative">
           <button onClick={() => setShowProfile(!showProfile)}
             className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-semibold">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-100 to-brand-200 text-brand-700 flex items-center justify-center text-sm font-semibold shadow-sm">
               {getInitials(user?.name || 'U')}
             </div>
             <div className="text-left hidden sm:block">
