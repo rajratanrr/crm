@@ -35,6 +35,9 @@ import { globalLimiter, searchLimiter } from './middleware/rateLimiter';
 
 const app = express();
 
+// Trust Render reverse proxy for accurate client IP detection and rate limiting
+app.set('trust proxy', 1);
+
 // Disable technology disclosure header
 app.disable('x-powered-by');
 
