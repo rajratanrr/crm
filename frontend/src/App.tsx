@@ -34,7 +34,6 @@ import WeddingLeadsPage from './pages/wedding/WeddingLeadsPage';
 import WeddingAttendancePage from './pages/wedding/WeddingAttendancePage';
 import WeddingTeamPage from './pages/wedding/WeddingTeamPage';
 import WeddingChatPage from './pages/wedding/WeddingChatPage';
-import WeddingWorkspacePage from './pages/wedding/WeddingWorkspacePage';
 
 import FashionProjectsPage from './pages/fashion/FashionProjectsPage';
 import FashionClientsPage from './pages/fashion/FashionClientsPage';
@@ -105,7 +104,7 @@ export default function App() {
               <Route path="/wedding/attendance" element={<WeddingAttendancePage />} />
               <Route path="/wedding/team" element={<WeddingTeamPage />} />
               <Route path="/wedding/chat" element={<WeddingChatPage />} />
-              <Route path="/wedding/workspace" element={<WeddingWorkspacePage />} />
+              <Route path="/wedding/workspace" element={<Navigate to="/wedding/dashboard" replace />} />
 
               {/* Studio Fashion Domain */}
               <Route path="/fashion/projects" element={<FashionProjectsPage />} />

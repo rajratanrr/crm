@@ -55,7 +55,6 @@ const navigationSections = [
       { label: 'Leads', route: '/wedding/leads', icon: UserPlus },
       { label: 'Packages', route: '/wedding/packages', icon: Package },
       { label: 'Contracts', route: '/wedding/contracts', icon: FileText },
-      { label: 'Studio Workspace', route: '/wedding/workspace', icon: Camera },
     ],
   },
   {
