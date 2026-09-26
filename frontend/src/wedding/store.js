@@ -136,16 +136,25 @@ export const useStore = create((set, get) => ({
       set({ isSyncing: true });
       const [customersRes, projectsRes, leadsRes, paymentsRes, teamRes] = await Promise.all([
         customerApi.getAll({ clientType: 'WEDDING', limit: 250 }).catch(() => ({ data: { data: [] } })),
-        projectApi.getAll({ projectType: 'WEDDING', limit: 250 }).catch(() => ({ data: { data: [] } })),
+        projectApi.getAll({ type: 'WEDDING', projectType: 'WEDDING', limit: 250 }).catch(() => ({ data: { data: [] } })),
         leadApi.getAll({ clientType: 'WEDDING', limit: 250 }).catch(() => ({ data: { data: [] } })),
         paymentApi.getAll({ domain: 'WEDDING', limit: 250 }).catch(() => ({ data: { data: [] } })),
         employeeApi.getAll({ limit: 100 }).catch(() => ({ data: { data: [] } })),
       ]);
 
-      const rawCustomers = customersRes.data?.data || [];
-      const rawProjects = projectsRes.data?.data || [];
-      const rawLeads = leadsRes.data?.data || [];
-      const rawPayments = paymentsRes.data?.data || [];
+      // Strictly isolate WEDDING domain only — never mix with Fashion
+      const rawCustomers = (customersRes.data?.data || []).filter(
+        (c) => c.clientType === 'WEDDING'
+      );
+      const rawProjects = (projectsRes.data?.data || []).filter(
+        (p) => p.projectType === 'WEDDING'
+      );
+      const rawLeads = (leadsRes.data?.data || []).filter(
+        (l) => l.clientType === 'WEDDING' || (!l.clientType && l.eventType)
+      );
+      const rawPayments = (paymentsRes.data?.data || []).filter(
+        (pay) => pay.domain === 'WEDDING' || pay.project?.projectType === 'WEDDING'
+      );
       const rawTeam = teamRes.data?.data || [];
 
       const existingProjects = get().projects;

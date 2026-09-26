@@ -21,6 +21,8 @@ export default function Projects({ onCreate, onEdit }) {
     if (window.confirm(`Delete ${project.name}? This will remove the project and its schedules.`)) deleteProject(project.id)
   }
 
+  const weddingProjects = projects.filter((p) => p.projectType === 'WEDDING' || (!p.projectType && !p.name?.toLowerCase().includes('shoot')));
+
   return (
     <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -32,7 +34,7 @@ export default function Projects({ onCreate, onEdit }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {projects.map((p) => {
+        {weddingProjects.map((p) => {
           const client = clients.find((c) => c.id === p.clientId)
           const pct = Math.round((p.amountPaid / p.totalBudget) * 100)
           return (

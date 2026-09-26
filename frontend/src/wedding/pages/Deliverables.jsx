@@ -38,7 +38,8 @@ export default function Deliverables() {
   const [bundleProjectId, setBundleProjectId] = useState('')
   const fileRef = useRef(null)
 
-  const groupedByProject = projects.map((p) => ({ project: p, deliverables: p.deliverables || [] }))
+  const weddingProjects = projects.filter((p) => p.projectType === 'WEDDING' || (!p.projectType && !p.name?.toLowerCase().includes('shoot')));
+  const groupedByProject = weddingProjects.map((p) => ({ project: p, deliverables: p.deliverables || [] }))
 
   const closeModal = () => {
     setOpen(false)

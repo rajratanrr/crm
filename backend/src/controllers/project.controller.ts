@@ -12,11 +12,12 @@ function isReceived(paymentStatus: string | null | undefined): boolean {
 }
 
 export const getProjects = asyncHandler(async (req: Request, res: Response) => {
-  const { type, status, customerId, search } = req.query as Record<string, string>;
+  const { type, projectType, status, customerId, search } = req.query as Record<string, string>;
 
   const where: any = {};
-  if (type && (type === 'WEDDING' || type === 'FASHION')) {
-    where.projectType = type;
+  const filterType = type || projectType;
+  if (filterType && (filterType === 'WEDDING' || filterType === 'FASHION')) {
+    where.projectType = filterType;
   }
   if (status) {
     where.status = status;

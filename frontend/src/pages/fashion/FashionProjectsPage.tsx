@@ -141,7 +141,7 @@ export default function FashionProjectsPage() {
         customerApi.getAll({ clientType: 'FASHION' }),
         modelApi.getAll(),
       ]);
-      setProjects(projRes.data.data || []);
+      setProjects((projRes.data.data || []).filter((p: any) => p.projectType === 'FASHION'));
       setCustomers(custRes.data.data || []);
       setAllModels(modsRes.data.data || []);
     } catch {
