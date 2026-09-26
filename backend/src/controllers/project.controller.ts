@@ -41,7 +41,8 @@ export const getProjects = asyncHandler(async (req: Request, res: Response) => {
       payments: { select: { id: true, amount: true, paymentDate: true, paymentMethod: true, paymentStatus: true } },
       contracts: { select: { id: true, contractNumber: true, finalAmount: true, status: true } },
       tasks: { select: { id: true, status: true } },
-      deliverables: { select: { id: true, status: true, type: true } },
+      deliverables: { select: { id: true, status: true, type: true, notes: true, dueDate: true, deliveryLink: true } },
+      events: { include: { assignments: { include: { employee: true } } } },
       garmentRequirements: true,
       modelAssignments: {
         include: {
@@ -210,12 +211,19 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
   const resolvedStudioAmount = studioAmount !== undefined && studioAmount !== '' ? Number(studioAmount) || 0 : (baseBudget ? Number(baseBudget) || 0 : 0);
   const resolvedBaseBudget = Number(baseBudget) || resolvedStudioAmount || 0;
 
+  const validStatuses = ['PLANNING', 'CONFIRMED', 'IN_PROGRESS', 'EDITING', 'COMPLETED', 'CANCELLED'];
+  let resolvedStatus: any = status;
+  if (!validStatuses.includes(resolvedStatus)) {
+    if (resolvedStatus === 'BOOKING') resolvedStatus = 'CONFIRMED';
+    else resolvedStatus = 'PLANNING';
+  }
+
   const project = await prisma.project.create({
     data: {
       projectNumber,
       name,
       projectType: isFashion ? 'FASHION' : 'WEDDING',
-      status,
+      status: resolvedStatus,
       customerId,
       budget: Number(budget) || 0,
       baseBudget: resolvedBaseBudget,
@@ -410,7 +418,13 @@ export const updateProject = asyncHandler(async (req: Request, res: Response) =>
   if (data.productType !== undefined) data.productType = data.productType || null;
   if (data.shootType !== undefined) data.shootType = data.shootType || null;
   if (data.brand !== undefined) data.brand = data.brand || null;
-  if (data.driveLink !== undefined) data.driveLink = data.driveLink || null;
+  if (data.status !== undefined) {
+    const validStatuses = ['PLANNING', 'CONFIRMED', 'IN_PROGRESS', 'EDITING', 'COMPLETED', 'CANCELLED'];
+    if (!validStatuses.includes(data.status)) {
+      if (data.status === 'BOOKING') data.status = 'CONFIRMED';
+      else data.status = 'PLANNING';
+    }
+  }
 
   // Handle contractAmount alias → budget column
   if (data.contractAmount !== undefined) {

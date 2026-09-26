@@ -48,8 +48,8 @@ export default function Team() {
             <motion.div key={m.id} layout whileHover={{ y: -3 }} className="card p-5">
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div className="flex items-center gap-3 min-w-0">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white font-bold text-lg">
-                  {m.name.split(' ').map((n) => n[0]).slice(0,2).join('')}
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                  {((m.name || 'Team').split(' ').filter(Boolean).map((n) => n[0]).slice(0, 2).join('')).toUpperCase() || 'T'}
                 </div>
                 <div className="min-w-0">
                   <div className="font-semibold text-gray-900 truncate">{m.name}</div>
@@ -77,7 +77,7 @@ export default function Team() {
             className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
             onClick={closeForm}>
             <motion.div initial={{ scale: .95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: .95, y: 20 }}
-              className="bg-white rounded-2xl w-full max-w-md shadow-pop" onClick={(e) => e.stopPropagation()}>
+              className="bg-white rounded-2xl w-full max-w-md shadow-pop max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-5 border-b border-gray-100">
                 <h3 className="font-semibold text-gray-900">{editing ? 'Edit Team Member' : 'Add Team Member'}</h3>
                 <button onClick={closeForm} aria-label="Close team form"><X size={16}/></button>

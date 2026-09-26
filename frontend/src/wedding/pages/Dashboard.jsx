@@ -37,11 +37,11 @@ function Stat({ icon: Icon, label, value, delta, tone = 'brand' }) {
 
 export default function Dashboard({ goto }) {
   const { leads, clients, projects, payments } = useStore()
-  const totalRevenue = payments.reduce((s, p) => s + p.amount, 0)
-  const pending = projects.reduce((s, p) => s + (p.totalBudget - p.amountPaid), 0)
+  const totalRevenue = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
+  const pending = projects.reduce((s, p) => s + ((Number(p.totalBudget) || 0) - (Number(p.amountPaid) || 0)), 0)
   const upcoming = projects
-    .flatMap((p) => p.events.map((e) => ({ ...e, project: p.name })))
-    .sort((a, b) => a.date.localeCompare(b.date))
+    .flatMap((p) => (p.events || []).map((e) => ({ ...e, project: p.name })))
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
     .slice(0, 5)
 
   return (
@@ -122,7 +122,9 @@ export default function Dashboard({ goto }) {
           <h2 className="text-base font-semibold text-gray-900 mb-4">Active Wedding Projects</h2>
           <div className="space-y-3">
             {projects.slice(0, 3).map((p) => {
-              const pct = Math.round((p.amountPaid / p.totalBudget) * 100)
+              const budget = Number(p.totalBudget) || 0
+              const paid = Number(p.amountPaid) || 0
+              const pct = budget > 0 ? Math.min(100, Math.round((paid / budget) * 100)) : 0
               return (
                 <div key={p.id} className="p-4 rounded-lg border border-gray-100 hover:border-brand-200 hover:bg-brand-50/30 transition-colors">
                   <div className="flex items-center justify-between mb-2">
@@ -136,8 +138,8 @@ export default function Dashboard({ goto }) {
                     <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 1, ease: 'easeOut' }} className="h-full bg-gradient-to-r from-brand-500 to-brand-700 rounded-full" />
                   </div>
                   <div className="flex justify-between text-xs mt-2 text-gray-500">
-                    <span>₹{p.amountPaid.toLocaleString('en-IN')} paid</span>
-                    <span>{pct}% of ₹{p.totalBudget.toLocaleString('en-IN')}</span>
+                    <span>₹{paid.toLocaleString('en-IN')} paid</span>
+                    <span>{pct}% of ₹{budget.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               )

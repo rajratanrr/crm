@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
+import { generateEventCode } from '../utils/generateCode';
 
 
 
@@ -77,6 +78,12 @@ export const getCalendarEvents = asyncHandler(async (req: Request, res: Response
 
 export const createEvent = asyncHandler(async (req: Request, res: Response) => {
   const { subEvents, ...eventData } = req.body;
+  if (!eventData.eventCode) {
+    eventData.eventCode = await generateEventCode();
+  }
+  if (!eventData.projectId || eventData.projectId === '') {
+    delete eventData.projectId;
+  }
   const event = await prisma.event.create({
     data: {
       ...eventData,

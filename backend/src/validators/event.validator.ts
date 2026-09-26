@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 export const createEventSchema = z.object({
   customerId: z.string().uuid('Invalid customer ID'),
+  projectId: z.string().uuid().optional().nullable().or(z.literal('')),
+  eventCode: z.string().optional().nullable(),
   eventName: z.string().min(1, 'Event name is required').max(200),
   eventType: z.enum(['WEDDING','PRE_WEDDING','ENGAGEMENT','RECEPTION','HALDI','MEHENDI','SANGEET','BIRTHDAY','CORPORATE','FASHION','OTHER']),
   startDate: z.string().min(1, 'Start date is required'),

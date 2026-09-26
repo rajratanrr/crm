@@ -90,11 +90,11 @@ export default function Clients() {
             <motion.div key={c.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} whileHover={{ y: -3 }} onClick={() => setSelected(c)} className="card p-5 cursor-pointer hover:shadow-card transition-shadow">
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div className="flex items-center gap-3 min-w-0">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white font-bold">
-                  {c.brideName[0]}{c.groomName[0]}
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white font-bold shrink-0">
+                  {((c.brideName?.[0] || '') + (c.groomName?.[0] || '')).toUpperCase() || 'W'}
                 </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-gray-900 truncate">{c.brideName} & {c.groomName}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-gray-900 truncate">{c.brideName} {c.groomName ? `& ${c.groomName}` : ''}</div>
                   <div className="text-xs text-gray-500">{c.weddingDate || 'Date TBD'}</div>
                 </div>
                 </div>
@@ -123,11 +123,11 @@ export default function Clients() {
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl w-full max-w-2xl shadow-pop max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="p-6 border-b border-gray-100 flex items-start justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white text-xl font-bold">
-                    {selected.brideName[0]}{selected.groomName[0]}
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white text-xl font-bold shrink-0">
+                    {((selected.brideName?.[0] || '') + (selected.groomName?.[0] || '')).toUpperCase() || 'W'}
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">{selected.brideName} & {selected.groomName}</h3>
+                    <h3 className="text-xl font-bold text-gray-900">{selected.brideName} {selected.groomName ? `& ${selected.groomName}` : ''}</h3>
                     <p className="text-sm text-gray-500">{selected.venue || 'Venue TBD'}</p>
                   </div>
                 </div>
@@ -144,7 +144,7 @@ export default function Clients() {
                 {projects.filter((p) => p.clientId === selected.id).map((p) => (
                   <div key={p.id} className="p-3 rounded-lg bg-brand-50/50 border border-brand-100 mb-2">
                     <div className="font-medium text-sm text-gray-900">{p.name}</div>
-                    <div className="text-xs text-gray-500">₹{p.amountPaid.toLocaleString('en-IN')} / ₹{p.totalBudget.toLocaleString('en-IN')}</div>
+                    <div className="text-xs text-gray-500">₹{(p.amountPaid || 0).toLocaleString('en-IN')} / ₹{(p.totalBudget || 0).toLocaleString('en-IN')}</div>
                   </div>
                 ))}
                 {projects.filter((p) => p.clientId === selected.id).length === 0 && <div className="text-sm text-gray-400 py-4">No projects yet.</div>}
@@ -157,7 +157,7 @@ export default function Clients() {
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setOpen(false)}>
-            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl w-full max-w-lg shadow-pop" onClick={(e) => e.stopPropagation()}>
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className="bg-white rounded-2xl w-full max-w-lg shadow-pop max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between p-5 border-b border-gray-100">
                 <h3 className="font-semibold text-gray-900">{editing ? 'Edit Client' : 'Add Client'}</h3>
                 <button onClick={closeForm} aria-label="Close client form"><X size={16}/></button>

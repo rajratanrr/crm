@@ -76,3 +76,23 @@ export async function generateProjectNumber(isFashion: boolean): Promise<string>
     nextNum++;
   }
 }
+
+export async function generateEventCode(): Promise<string> {
+  const events = await prisma.event.findMany({
+    where: { eventCode: { startsWith: 'EVT-' } },
+    select: { eventCode: true },
+  });
+  let maxNum = 0;
+  for (const e of events) {
+    const num = parseInt(e.eventCode.replace('EVT-', ''), 10);
+    if (!isNaN(num) && num > maxNum) maxNum = num;
+  }
+  let nextNum = maxNum + 1;
+  while (true) {
+    const candidate = `EVT-${String(nextNum).padStart(4, '0')}`;
+    const exists = await prisma.event.findUnique({ where: { eventCode: candidate } });
+    if (!exists) return candidate;
+    nextNum++;
+  }
+}
+

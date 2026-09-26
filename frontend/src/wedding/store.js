@@ -48,8 +48,12 @@ const mapDbProjectToProject = (p, existing) => {
     ? p.deliverables.map((d) => ({
         id: d.id,
         name: d.notes || d.type || 'Deliverable',
-        status: d.status === 'DELIVERED' ? 'DELIVERED' : d.status === 'IN_PRODUCTION' ? 'EDITING' : 'PENDING',
+        status: d.status || 'PENDING',
         dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : '',
+        type: d.type || '',
+        deliveryLink: d.deliveryLink || '',
+        notes: d.notes || '',
+        dbDeliverable: d, // Keep reference to original DB record
       }))
     : (existing?.deliverables || []);
 
@@ -76,6 +80,7 @@ const mapDbProjectToProject = (p, existing) => {
     venue: p.venue || p.city || '',
     deliverables,
     events,
+    projectType: p.projectType || 'WEDDING',
     rawProject: p,
   };
 };
@@ -96,6 +101,8 @@ const mapDbLeadToLead = (l) => ({
 const mapDbPaymentToPayment = (pay) => ({
   id: pay.id,
   projectId: pay.projectId,
+  customerId: pay.customerId,
+  contractId: pay.contractId,
   amount: Number(pay.amount),
   method: pay.paymentMethod === 'BANK_TRANSFER' ? 'Bank' : pay.paymentMethod === 'UPI' ? 'UPI' : pay.paymentMethod === 'CASH' ? 'Cash' : pay.paymentMethod || 'UPI',
   date: pay.paymentDate ? String(pay.paymentDate).slice(0, 10) : (pay.createdAt ? String(pay.createdAt).slice(0, 10) : today),
@@ -227,7 +234,7 @@ export const useStore = create((set, get) => ({
         return realClient;
       }
     } catch (err) {
-      console.error('Failed to create client in PostgreSQL database:', err);
+      console.error('Failed to create client in PostgreSQL database:', err?.response?.data || err);
     }
     return optimisticClient;
   },
@@ -256,7 +263,7 @@ export const useStore = create((set, get) => ({
       // Re-fetch to ensure consistency across all employees
       setTimeout(() => get().fetchFromDb(), 300);
     } catch (err) {
-      console.error('Failed to update client in PostgreSQL database:', err);
+      console.error('Failed to update client in PostgreSQL database:', err?.response?.data || err);
     }
   },
 
@@ -266,7 +273,7 @@ export const useStore = create((set, get) => ({
       await customerApi.delete(id);
       setTimeout(() => get().fetchFromDb(), 300);
     } catch (err) {
-      console.error('Failed to delete client in PostgreSQL database:', err);
+      console.error('Failed to delete client in PostgreSQL database:', err?.response?.data || err);
     }
   },
 
@@ -282,53 +289,134 @@ export const useStore = create((set, get) => ({
       // Resolve customer ID
       let customerId = p.clientId;
       if (!customerId || customerId.startsWith('c')) {
-        const matchedClient = get().clients.find((c) => c.id === p.clientId);
+        let matchedClient = p.clientId ? get().clients.find((c) => c.id === p.clientId) : null;
+        if (!matchedClient && p.clientPhone) {
+          const digits = cleanPhone(p.clientPhone);
+          matchedClient = get().clients.find((c) => cleanPhone(c.phone) === digits);
+        }
         if (matchedClient?.rawCustomer?.id) {
           customerId = matchedClient.rawCustomer.id;
+        } else if (matchedClient?.id && !matchedClient.id.startsWith('c')) {
+          customerId = matchedClient.id;
         } else if (matchedClient) {
           const newCust = await customerApi.create({
-            fullName: `${matchedClient.brideName} & ${matchedClient.groomName}`,
-            phone: cleanPhone(matchedClient.phone),
+            fullName: `${matchedClient.brideName || ''} & ${matchedClient.groomName || ''}`.trim() || p.name || 'Wedding Client',
+            phone: cleanPhone(matchedClient.phone || p.clientPhone),
             clientType: 'WEDDING',
-            address: p.venue || matchedClient.venue,
-            shootDate: p.weddingDate || matchedClient.weddingDate,
+            address: p.venue || matchedClient.venue || undefined,
+            shootDate: p.weddingDate || matchedClient.weddingDate || undefined,
           });
           customerId = newCust.data?.data?.id;
+          if (newCust.data?.data) {
+            const addedClient = mapDbCustomerToClient(newCust.data.data);
+            set((s) => ({ clients: [addedClient, ...s.clients] }));
+          }
+        } else {
+          // If no client exists at all, auto-create one from project details
+          const newCust = await customerApi.create({
+            fullName: p.name || 'Wedding Client',
+            phone: cleanPhone(p.clientPhone),
+            clientType: 'WEDDING',
+            address: p.venue || undefined,
+            shootDate: p.weddingDate || undefined,
+          });
+          customerId = newCust.data?.data?.id;
+          if (newCust.data?.data) {
+            const addedClient = mapDbCustomerToClient(newCust.data.data);
+            set((s) => ({ clients: [addedClient, ...s.clients] }));
+          }
         }
       }
 
-      if (customerId) {
-        const payload = {
-          name: p.name,
-          customerId,
-          budget: Number(p.totalBudget) || 0,
-          advanceAmount: Number(p.amountPaid) || 0,
-          projectType: 'WEDDING',
-          status: p.status || 'PLANNING',
-          weddingDate: p.weddingDate || undefined,
-          venue: p.venue || undefined,
-          events: (p.events || []).map((e) => ({
-            eventName: e.name,
-            eventType: 'WEDDING',
-            startDate: e.date || undefined,
-            venue: e.venue || undefined,
-          })),
-        };
+      if (!customerId) {
+        console.error('Cannot create project: no valid customer ID resolved');
+        set((s) => ({ projects: s.projects.filter((x) => x.id !== tempId) }));
+        return null;
+      }
 
-        const res = await projectApi.create(payload);
-        const savedProject = res.data?.data;
-        if (savedProject?.id) {
-          const realProject = mapDbProjectToProject(savedProject, p);
-          set((s) => ({
-            projects: s.projects.map((item) => (item.id === tempId ? realProject : item)),
-          }));
-          return realProject;
+      // Map status: 'BOOKING' is not a valid Prisma enum, use 'PLANNING' or 'CONFIRMED'
+      let resolvedStatus = p.status || 'PLANNING';
+      const validStatuses = ['PLANNING', 'CONFIRMED', 'IN_PROGRESS', 'EDITING', 'COMPLETED', 'CANCELLED'];
+      if (!validStatuses.includes(resolvedStatus)) {
+        // Map frontend-only statuses to valid backend statuses
+        const statusMap = {
+          'BOOKING': 'CONFIRMED',
+          'LEAD': 'PLANNING',
+          'CONSULTATION': 'PLANNING',
+          'PROPOSAL': 'PLANNING',
+          'SHOOTING': 'IN_PROGRESS',
+          'DELIVERY': 'IN_PROGRESS',
+        };
+        resolvedStatus = statusMap[resolvedStatus] || 'PLANNING';
+      }
+
+      const payload = {
+        name: p.name,
+        customerId,
+        budget: Number(p.totalBudget) || 0,
+        advanceAmount: Number(p.amountPaid) || 0,
+        projectType: 'WEDDING',
+        status: resolvedStatus,
+        weddingDate: p.weddingDate || undefined,
+        venue: p.venue || undefined,
+      };
+
+      const res = await projectApi.create(payload);
+      const savedProject = res.data?.data;
+      if (savedProject?.id) {
+        const realProject = mapDbProjectToProject(savedProject, p);
+        set((s) => ({
+          projects: s.projects.map((item) => (item.id === tempId ? realProject : item)),
+        }));
+
+        // Create deliverables in the database for the new project
+        if (p.deliverables && p.deliverables.length > 0) {
+          for (const d of p.deliverables) {
+            if (!d.name?.trim()) continue;
+            try {
+              await deliverableApi.create({
+                projectId: savedProject.id,
+                domain: 'WEDDING',
+                type: 'EDITED_PHOTOS',
+                notes: d.name.trim(),
+                status: 'PENDING',
+                dueDate: d.dueDate || undefined,
+              });
+            } catch (delErr) {
+              console.error('Failed to create deliverable:', delErr?.response?.data || delErr);
+            }
+          }
         }
+
+        // Create events in the database for the new project
+        if (p.events && p.events.length > 0) {
+          for (const e of p.events) {
+            if (!e.name?.trim() || !e.date) continue;
+            try {
+              await eventApi.create({
+                eventName: e.name.trim(),
+                eventType: 'WEDDING',
+                customerId: customerId,
+                projectId: savedProject.id,
+                startDate: e.date,
+                venue: e.venue || undefined,
+              });
+            } catch (evtErr) {
+              console.error('Failed to create event:', evtErr?.response?.data || evtErr);
+            }
+          }
+        }
+
+        // Refresh to get full data from DB
+        setTimeout(() => get().fetchFromDb(), 500);
+        return realProject;
       }
     } catch (err) {
-      console.error('Failed to create project in PostgreSQL database:', err);
+      console.error('Failed to create project in PostgreSQL database:', err?.response?.data || err);
+      // Remove optimistic entry on failure
+      set((s) => ({ projects: s.projects.filter((x) => x.id !== tempId) }));
     }
-    return optimisticProject;
+    return null;
   },
 
   updateProject: async (id, patch) => {
@@ -344,11 +432,32 @@ export const useStore = create((set, get) => ({
         ...(patch.weddingDate && { weddingDate: patch.weddingDate }),
         ...(patch.venue && { venue: patch.venue }),
       };
-      await projectApi.update(id, payload);
+
+      // Only send to backend if there are actual project fields to update
+      const hasProjectFields = Object.keys(payload).length > 0;
+      if (hasProjectFields) {
+        // Map status to valid Prisma enum before sending
+        if (payload.status) {
+          const validStatuses = ['PLANNING', 'CONFIRMED', 'IN_PROGRESS', 'EDITING', 'COMPLETED', 'CANCELLED'];
+          if (!validStatuses.includes(payload.status)) {
+            const statusMap = {
+              'BOOKING': 'CONFIRMED',
+              'LEAD': 'PLANNING',
+              'CONSULTATION': 'PLANNING',
+              'PROPOSAL': 'PLANNING',
+              'SHOOTING': 'IN_PROGRESS',
+              'DELIVERY': 'IN_PROGRESS',
+            };
+            payload.status = statusMap[payload.status] || 'PLANNING';
+          }
+        }
+        await projectApi.update(id, payload);
+      }
+
       // Re-fetch to ensure consistency across all employees
       setTimeout(() => get().fetchFromDb(), 500);
     } catch (err) {
-      console.error('Failed to update project in PostgreSQL database:', err);
+      console.error('Failed to update project in PostgreSQL database:', err?.response?.data || err);
     }
   },
 
@@ -356,8 +465,83 @@ export const useStore = create((set, get) => ({
     set((s) => ({ projects: s.projects.filter((p) => p.id !== id) }));
     try {
       await projectApi.delete(id);
+      setTimeout(() => get().fetchFromDb(), 300);
     } catch (err) {
-      console.error('Failed to delete project in PostgreSQL database:', err);
+      console.error('Failed to delete project in PostgreSQL database:', err?.response?.data || err);
+    }
+  },
+
+  // ==========================================
+  // DELIVERABLES (POSTGRESQL CONNECTED)
+  // All CRUD operations go through the deliverableApi
+  // ==========================================
+  addDeliverable: async (deliverable) => {
+    try {
+      const payload = {
+        projectId: deliverable.projectId || undefined,
+        domain: 'WEDDING',
+        type: deliverable.dbType || 'EDITED_PHOTOS',
+        notes: deliverable.name?.trim() || deliverable.notes?.trim() || 'Deliverable',
+        status: deliverable.status || 'PENDING',
+        dueDate: deliverable.dueDate || undefined,
+        deliveryLink: deliverable.deliveryLink || undefined,
+      };
+
+      const res = await deliverableApi.create(payload);
+      if (res.data?.data?.id) {
+        // Refresh data from DB to update project deliverables
+        setTimeout(() => get().fetchFromDb(), 300);
+        return res.data.data;
+      }
+    } catch (err) {
+      console.error('Failed to create deliverable in PostgreSQL:', err?.response?.data || err);
+      throw err; // Re-throw so caller can handle
+    }
+    return null;
+  },
+
+  updateDeliverable: async (id, patch) => {
+    try {
+      const payload = {};
+      if (patch.name !== undefined) payload.notes = patch.name;
+      if (patch.notes !== undefined) payload.notes = patch.notes;
+      if (patch.status !== undefined) {
+        // Map frontend statuses to valid backend DeliverableStatus enum
+        const statusMap = {
+          'PENDING': 'PENDING',
+          'IN_PROGRESS': 'IN_PRODUCTION',
+          'IN_PRODUCTION': 'IN_PRODUCTION',
+          'EDITING': 'IN_PRODUCTION',
+          'COMPLETED': 'READY',
+          'READY': 'READY',
+          'CLIENT_SELECTION': 'IN_PRODUCTION',
+          'DELIVERED': 'DELIVERED',
+        };
+        payload.status = statusMap[patch.status] || patch.status;
+      }
+      if (patch.dueDate !== undefined) payload.dueDate = patch.dueDate || null;
+      if (patch.deliveryLink !== undefined) payload.deliveryLink = patch.deliveryLink || null;
+      if (patch.projectId !== undefined) payload.projectId = patch.projectId;
+
+      const res = await deliverableApi.update(id, payload);
+      if (res.data?.data) {
+        setTimeout(() => get().fetchFromDb(), 300);
+        return res.data.data;
+      }
+    } catch (err) {
+      console.error('Failed to update deliverable in PostgreSQL:', err?.response?.data || err);
+      throw err;
+    }
+    return null;
+  },
+
+  deleteDeliverable: async (id) => {
+    try {
+      await deliverableApi.delete(id);
+      setTimeout(() => get().fetchFromDb(), 300);
+    } catch (err) {
+      console.error('Failed to delete deliverable in PostgreSQL:', err?.response?.data || err);
+      throw err;
     }
   },
 
@@ -367,29 +551,50 @@ export const useStore = create((set, get) => ({
   addPayment: async (pay) => {
     const tempId = uid();
     set((s) => ({ payments: [{ ...pay, id: tempId }, ...s.payments] }));
-    const p = get().projects.find((x) => x.id === pay.projectId);
-    if (p) {
-      get().updateProject(p.id, { amountPaid: (p.amountPaid || 0) + Number(pay.amount) });
-    }
 
     try {
+      // Resolve customerId from the project
+      let customerId = pay.customerId;
+      if (!customerId && pay.projectId) {
+        const project = get().projects.find((x) => x.id === pay.projectId);
+        if (project?.clientId) {
+          customerId = project.clientId;
+        }
+        // If the project has raw data with customerId, use that
+        if (!customerId && project?.rawProject?.customerId) {
+          customerId = project.rawProject.customerId;
+        }
+      }
+
+      if (!customerId) {
+        console.error('Cannot create payment: no customer ID found. Project:', pay.projectId);
+        // Remove optimistic entry
+        set((s) => ({ payments: s.payments.filter((x) => x.id !== tempId) }));
+        return null;
+      }
+
       const payload = {
+        customerId,
         projectId: pay.projectId,
         amount: Number(pay.amount),
         paymentMethod: pay.method === 'UPI' ? 'UPI' : pay.method === 'Bank' ? 'BANK_TRANSFER' : pay.method === 'Cash' ? 'CASH' : 'OTHER',
         paymentType: 'MID_PAYMENT',
         paymentDate: pay.date || new Date().toISOString(),
-        referenceNumber: pay.reference || undefined,
+        reference: pay.reference || undefined,
         notes: pay.description || undefined,
+        domain: 'WEDDING',
       };
       const res = await paymentApi.create(payload);
       if (res.data?.data?.id) {
         set((s) => ({
-          payments: s.payments.map((item) => (item.id === tempId ? { ...item, id: res.data.data.id } : item)),
+          payments: s.payments.map((item) => (item.id === tempId ? mapDbPaymentToPayment(res.data.data) : item)),
         }));
+        setTimeout(() => get().fetchFromDb(), 500);
       }
     } catch (err) {
-      console.error('Failed to create payment in PostgreSQL database:', err);
+      console.error('Failed to create payment in PostgreSQL database:', err?.response?.data || err);
+      // Remove optimistic entry on failure
+      set((s) => ({ payments: s.payments.filter((x) => x.id !== tempId) }));
     }
   },
 
@@ -398,9 +603,19 @@ export const useStore = create((set, get) => ({
       payments: s.payments.map((payment) => (payment.id === id ? { ...payment, ...patch } : payment)),
     }));
     try {
-      await paymentApi.patch(id, patch);
+      const payload = {};
+      if (patch.amount !== undefined) payload.amount = Number(patch.amount);
+      if (patch.method) {
+        payload.paymentMethod = patch.method === 'UPI' ? 'UPI' : patch.method === 'Bank' ? 'BANK_TRANSFER' : patch.method === 'Cash' ? 'CASH' : 'OTHER';
+      }
+      if (patch.date) payload.paymentDate = patch.date;
+      if (patch.description !== undefined) payload.notes = patch.description;
+      if (patch.reference !== undefined) payload.reference = patch.reference;
+
+      await paymentApi.update(id, payload);
+      setTimeout(() => get().fetchFromDb(), 500);
     } catch (err) {
-      console.error('Failed to update payment in PostgreSQL database:', err);
+      console.error('Failed to update payment in PostgreSQL database:', err?.response?.data || err);
     }
   },
 
@@ -408,8 +623,9 @@ export const useStore = create((set, get) => ({
     set((s) => ({ payments: s.payments.filter((payment) => payment.id !== id) }));
     try {
       await paymentApi.delete(id);
+      setTimeout(() => get().fetchFromDb(), 300);
     } catch (err) {
-      console.error('Failed to delete payment in PostgreSQL database:', err);
+      console.error('Failed to delete payment in PostgreSQL database:', err?.response?.data || err);
     }
   },
 
@@ -436,7 +652,7 @@ export const useStore = create((set, get) => ({
         }));
       }
     } catch (err) {
-      console.error('Failed to create lead in PostgreSQL database:', err);
+      console.error('Failed to create lead in PostgreSQL database:', err?.response?.data || err);
     }
   },
 
@@ -453,7 +669,7 @@ export const useStore = create((set, get) => ({
       };
       await leadApi.update(id, payload);
     } catch (err) {
-      console.error('Failed to update lead in PostgreSQL database:', err);
+      console.error('Failed to update lead in PostgreSQL database:', err?.response?.data || err);
     }
   },
 
@@ -462,7 +678,7 @@ export const useStore = create((set, get) => ({
     try {
       await leadApi.delete(id);
     } catch (err) {
-      console.error('Failed to delete lead in PostgreSQL database:', err);
+      console.error('Failed to delete lead in PostgreSQL database:', err?.response?.data || err);
     }
   },
 
@@ -509,26 +725,20 @@ export const useStore = create((set, get) => ({
   deleteBundle: (id) => set((s) => ({ bundles: s.bundles.filter((b) => b.id !== id) })),
 
   importDeliverables: async (projectId, deliverables) => {
-    set((s) => ({
-      projects: s.projects.map((project) => {
-        if (project.id !== projectId) return project;
-        const existingNames = new Set((project.deliverables || []).map((item) => item.name.trim().toLowerCase()));
-        const additions = deliverables.filter((item) => !existingNames.has(item.name.trim().toLowerCase())).map((item) => ({ ...item, id: uid() }));
-        return { ...project, deliverables: [...(project.deliverables || []), ...additions] };
-      }),
-    }));
     try {
       for (const d of deliverables) {
         await deliverableApi.create({
           projectId,
           notes: d.name,
           domain: 'WEDDING',
-          type: 'FULL_WEDDING_VIDEO',
+          type: 'EDITED_PHOTOS',
           status: 'PENDING',
+          dueDate: d.dueDate || undefined,
         });
       }
+      setTimeout(() => get().fetchFromDb(), 500);
     } catch (err) {
-      console.error('Failed to sync deliverables to database:', err);
+      console.error('Failed to sync deliverables to database:', err?.response?.data || err);
     }
   },
 

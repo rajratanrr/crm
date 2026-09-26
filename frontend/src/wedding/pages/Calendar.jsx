@@ -27,8 +27,10 @@ export default function Calendar() {
   const eventsByDate = {}
   projects.forEach((p) => {
     ;(p.events || []).forEach((e) => {
-      if (!eventsByDate[e.date]) eventsByDate[e.date] = []
-      eventsByDate[e.date].push({ ...e, project: p.name })
+      if (e.date) {
+        if (!eventsByDate[e.date]) eventsByDate[e.date] = []
+        eventsByDate[e.date].push({ ...e, project: p.name })
+      }
     })
   })
 
@@ -105,7 +107,23 @@ export default function Calendar() {
         </div>
       </div>
 
-      {selectedEvent && <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onClick={() => setSelectedEvent(null)}><div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-pop" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between mb-4"><h2 className="font-bold text-gray-900">{selectedEvent.name}</h2><button onClick={() => setSelectedEvent(null)}><X size={18} /></button></div><div className="space-y-2 text-sm text-gray-600"><p><strong>Project:</strong> {selectedEvent.project}</p><p><strong>Date:</strong> {selectedEvent.date}</p><p><strong>Time:</strong> {selectedEvent.startTime || 'TBD'}{selectedEvent.endTime ? ` - ${selectedEvent.endTime}` : ''}</p><p><strong>Venue:</strong> {selectedEvent.venue || 'TBD'}</p><p><strong>Team:</strong> {selectedEvent.team?.join(', ') || 'Not assigned'}</p></div></div></div>}
+      {selectedEvent && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedEvent(null)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-pop max-h-[90vh] overflow-y-auto" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold text-gray-900">{selectedEvent.name}</h2>
+              <button onClick={() => setSelectedEvent(null)} className="p-1.5 hover:bg-gray-100 rounded-lg" aria-label="Close modal"><X size={18} /></button>
+            </div>
+            <div className="space-y-2 text-sm text-gray-600">
+              <p><strong>Project:</strong> {selectedEvent.project}</p>
+              <p><strong>Date:</strong> {selectedEvent.date}</p>
+              <p><strong>Time:</strong> {selectedEvent.startTime || 'TBD'}{selectedEvent.endTime ? ` - ${selectedEvent.endTime}` : ''}</p>
+              <p><strong>Venue:</strong> {selectedEvent.venue || 'TBD'}</p>
+              <p><strong>Team:</strong> {selectedEvent.team?.join(', ') || 'Not assigned'}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 card p-5">
         <div className="flex items-center justify-between mb-4">

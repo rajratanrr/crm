@@ -22,7 +22,7 @@ export default function TopBar({ onCreate, onSettingsClick }) {
   ]
 
   return (
-    <header className={`h-16 ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} border-b flex items-center px-6 gap-4 shrink-0 transition-colors`}>
+    <header className={`h-16 relative z-30 ${theme === 'dark' ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'} border-b flex items-center px-6 gap-4 shrink-0 transition-colors`}>
       <div className={`relative flex-1 max-w-xl ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'}`}>
         <Search size={16} className={`absolute left-3 top-1/2 -translate-y-1/2 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`} />
         <input
@@ -85,7 +85,7 @@ export default function TopBar({ onCreate, onSettingsClick }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-                className={`absolute right-0 mt-2 w-80 rounded-xl border shadow-pop ${
+                className={`absolute right-0 mt-2 w-80 rounded-xl border shadow-pop z-50 ${
                   theme === 'dark' 
                     ? 'bg-gray-900 border-gray-800' 
                     : 'bg-white border-gray-100'
@@ -153,7 +153,7 @@ export default function TopBar({ onCreate, onSettingsClick }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
                 transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-                className={`absolute right-0 mt-2 w-56 rounded-xl border shadow-pop ${
+                className={`absolute right-0 mt-2 w-56 rounded-xl border shadow-pop z-50 ${
                   theme === 'dark' 
                     ? 'bg-gray-900 border-gray-800' 
                     : 'bg-white border-gray-100'

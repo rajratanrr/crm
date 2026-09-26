@@ -10,6 +10,7 @@ router.get('/', getDeliverables);
 router.get('/:id', getDeliverable);
 router.post('/', validate(createDeliverableSchema), createDeliverable);
 router.put('/:id', validate(updateDeliverableSchema), updateDeliverable);
+router.patch('/:id', validate(updateDeliverableSchema), updateDeliverable);
 router.patch('/:id/status', validate(updateDeliverableStatusSchema), updateDeliverableStatus);
 router.delete('/:id', deleteDeliverable);
 export default router;
