@@ -46,7 +46,6 @@ const navigationSections = [
     section: 'WEDDING SHOOT',
     badge: 'WEDDING',
     items: [
-      { label: 'Wedding Dashboard', route: '/wedding/dashboard', icon: LayoutDashboard },
       { label: 'Wedding Projects', route: '/wedding/projects', icon: Heart },
       { label: 'Wedding Clients', route: '/wedding/clients', icon: Users },
       { label: 'Deliverables', route: '/wedding/deliverables', icon: Image },

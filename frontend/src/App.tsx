@@ -28,7 +28,6 @@ import WeddingPackagesPage from './pages/wedding/WeddingPackagesPage';
 import WeddingContractsPage from './pages/wedding/WeddingContractsPage';
 import WeddingPaymentsPage from './pages/wedding/WeddingPaymentsPage';
 import WeddingDeliverablesPage from './pages/wedding/WeddingDeliverablesPage';
-import WeddingDashboardPage from './pages/wedding/WeddingDashboardPage';
 import WeddingCalendarPage from './pages/wedding/WeddingCalendarPage';
 import WeddingLeadsPage from './pages/wedding/WeddingLeadsPage';
 import WeddingAttendancePage from './pages/wedding/WeddingAttendancePage';
@@ -91,8 +90,8 @@ export default function App() {
               <Route path="/events/:id" element={<EventsPage />} />
 
               {/* Wedding Shoot Domain */}
-              <Route path="/wedding" element={<WeddingDashboardPage />} />
-              <Route path="/wedding/dashboard" element={<WeddingDashboardPage />} />
+              <Route path="/wedding" element={<Navigate to="/wedding/projects" replace />} />
+              <Route path="/wedding/dashboard" element={<Navigate to="/dashboard" replace />} />
               <Route path="/wedding/projects" element={<WeddingProjectsPage />} />
               <Route path="/wedding/clients" element={<WeddingClientsPage />} />
               <Route path="/wedding/packages" element={<WeddingPackagesPage />} />
@@ -104,7 +103,7 @@ export default function App() {
               <Route path="/wedding/attendance" element={<WeddingAttendancePage />} />
               <Route path="/wedding/team" element={<WeddingTeamPage />} />
               <Route path="/wedding/chat" element={<WeddingChatPage />} />
-              <Route path="/wedding/workspace" element={<Navigate to="/wedding/dashboard" replace />} />
+              <Route path="/wedding/workspace" element={<Navigate to="/dashboard" replace />} />
 
               {/* Studio Fashion Domain */}
               <Route path="/fashion/projects" element={<FashionProjectsPage />} />
