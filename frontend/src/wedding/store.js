@@ -755,9 +755,56 @@ export const useStore = create((set, get) => ({
   updateTask: (id, patch) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
   deleteTask: (id) => set((s) => ({ tasks: s.tasks.filter((t) => t.id !== id) })),
 
-  addTeam: (m) => set((s) => ({ team: [{ ...m, id: uid(), active: true }, ...s.team] })),
-  updateTeam: (id, patch) => set((s) => ({ team: s.team.map((m) => (m.id === id ? { ...m, ...patch } : m)) })),
-  deleteTeam: (id) => set((s) => ({ team: s.team.filter((m) => m.id !== id) })),
+  addTeam: async (m) => {
+    const tempId = uid();
+    set((s) => ({ team: [{ ...m, id: tempId, active: true }, ...s.team] }));
+    try {
+      const validRole = ['PHOTOGRAPHER','VIDEOGRAPHER','DRONE_OPERATOR','EDITOR','ALBUM_DESIGNER','MANAGER','SALES_EXECUTIVE','ACCOUNTANT'];
+      const resolvedRole = validRole.includes(m.type) ? m.type : (m.type === 'DRONE' ? 'DRONE_OPERATOR' : (m.type === 'DESIGNER' ? 'ALBUM_DESIGNER' : 'PHOTOGRAPHER'));
+      const res = await employeeApi.create({
+        name: m.name,
+        role: resolvedRole,
+        specialization: m.role || undefined,
+        email: m.email || undefined,
+        phone: cleanPhone(m.phone),
+        isActive: true,
+      });
+      if (res.data?.data?.id) {
+        set((s) => ({
+          team: s.team.map((t) => (t.id === tempId ? { ...t, id: res.data.data.id } : t)),
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to create employee in DB:', err?.response?.data || err);
+    }
+  },
+
+  updateTeam: async (id, patch) => {
+    set((s) => ({ team: s.team.map((m) => (m.id === id ? { ...m, ...patch } : m)) }));
+    try {
+      const payload = {};
+      if (patch.name) payload.name = patch.name;
+      if (patch.role) payload.specialization = patch.role;
+      if (patch.email) payload.email = patch.email;
+      if (patch.phone) payload.phone = cleanPhone(patch.phone);
+      if (patch.type) {
+        const validRole = ['PHOTOGRAPHER','VIDEOGRAPHER','DRONE_OPERATOR','EDITOR','ALBUM_DESIGNER','MANAGER','SALES_EXECUTIVE','ACCOUNTANT'];
+        payload.role = validRole.includes(patch.type) ? patch.type : (patch.type === 'DRONE' ? 'DRONE_OPERATOR' : (patch.type === 'DESIGNER' ? 'ALBUM_DESIGNER' : undefined));
+      }
+      await employeeApi.update(id, payload);
+    } catch (err) {
+      console.error('Failed to update employee in DB:', err?.response?.data || err);
+    }
+  },
+
+  deleteTeam: async (id) => {
+    set((s) => ({ team: s.team.filter((m) => m.id !== id) }));
+    try {
+      await employeeApi.delete(id);
+    } catch (err) {
+      console.error('Failed to delete employee in DB:', err?.response?.data || err);
+    }
+  },
 }));
 
 // =====================================================

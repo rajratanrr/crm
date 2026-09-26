@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
+import { generateLeadNumber, generateCustomerCode } from '../utils/generateCode';
 
 
 
@@ -47,24 +48,36 @@ export const getLead = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const createLead = asyncHandler(async (req: Request, res: Response) => {
-  const { customerName, customerPhone, ...leadData } = req.body;
+  const { customerName, customerPhone, name, phone, eventDate, estimatedDate, ...leadData } = req.body;
+
+  const leadName = name || customerName || 'Prospective Client';
+  const leadPhone = phone || customerPhone || '9876543210';
+  const targetDate = estimatedDate || eventDate ? new Date(estimatedDate || eventDate) : null;
 
   // If no customerId but has name/phone, create or link customer
-  if (!leadData.customerId && customerName && customerPhone) {
-    let customer = await prisma.customer.findFirst({ where: { phone: customerPhone } });
+  let customerId = leadData.customerId;
+  if (!customerId && (customerName || name) && (customerPhone || phone)) {
+    const custPhone = customerPhone || phone;
+    let customer = await prisma.customer.findFirst({ where: { phone: custPhone } });
     if (!customer) {
-      const code = `CUST-${String(Date.now()).slice(-4)}`;
+      const code = await generateCustomerCode();
       customer = await prisma.customer.create({
-        data: { customerCode: code, fullName: customerName, phone: customerPhone, source: leadData.source },
+        data: { customerCode: code, fullName: leadName, phone: custPhone, source: leadData.source },
       });
     }
-    leadData.customerId = customer.id;
+    customerId = customer.id;
   }
+
+  const leadNumber = await generateLeadNumber();
 
   const lead = await prisma.lead.create({
     data: {
       ...leadData,
-      eventDate: leadData.eventDate ? new Date(leadData.eventDate) : null,
+      leadNumber,
+      name: leadName,
+      phone: leadPhone,
+      customerId: customerId || undefined,
+      estimatedDate: targetDate,
     },
     include: { customer: { select: { id: true, fullName: true, phone: true } }, assignedUser: { select: { id: true, name: true } } },
   });
@@ -76,11 +89,18 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
   const existing = await prisma.lead.findUnique({ where: { id: req.params.id } });
   if (!existing) throw ApiError.notFound('Lead not found');
 
+  const { eventDate, estimatedDate, customerName, customerPhone, ...rest } = req.body;
+  const targetDate = estimatedDate !== undefined
+    ? (estimatedDate ? new Date(estimatedDate) : null)
+    : (eventDate !== undefined ? (eventDate ? new Date(eventDate) : null) : undefined);
+
   const lead = await prisma.lead.update({
     where: { id: req.params.id },
     data: {
-      ...req.body,
-      eventDate: req.body.eventDate ? new Date(req.body.eventDate) : undefined,
+      ...rest,
+      ...(targetDate !== undefined && { estimatedDate: targetDate }),
+      ...(customerName && !rest.name && { name: customerName }),
+      ...(customerPhone && !rest.phone && { phone: customerPhone }),
     },
     include: { customer: { select: { id: true, fullName: true, phone: true } }, assignedUser: { select: { id: true, name: true } } },
   });

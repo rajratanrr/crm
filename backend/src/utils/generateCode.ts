@@ -96,3 +96,22 @@ export async function generateEventCode(): Promise<string> {
   }
 }
 
+export async function generateLeadNumber(): Promise<string> {
+  const leads = await prisma.lead.findMany({
+    where: { leadNumber: { startsWith: 'LEAD-' } },
+    select: { leadNumber: true },
+  });
+  let maxNum = 0;
+  for (const l of leads) {
+    const num = parseInt(l.leadNumber.replace('LEAD-', ''), 10);
+    if (!isNaN(num) && num > maxNum) maxNum = num;
+  }
+  let nextNum = maxNum + 1;
+  while (true) {
+    const candidate = `LEAD-${String(nextNum).padStart(4, '0')}`;
+    const exists = await prisma.lead.findUnique({ where: { leadNumber: candidate } });
+    if (!exists) return candidate;
+    nextNum++;
+  }
+}
+
