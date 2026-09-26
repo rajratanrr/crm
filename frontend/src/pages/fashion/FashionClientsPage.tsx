@@ -309,6 +309,22 @@ export default function FashionClientsPage() {
     }
   };
 
+  const handleDeleteClient = async (client: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to delete client "${client.fullName}"? This action cannot be undone.`)) return;
+    try {
+      await customerApi.delete(client.id);
+      toast.success(`Client "${client.fullName}" deleted successfully`);
+      if (selectedClient?.id === client.id) {
+        setSelectedClient(null);
+        setClientDetail(null);
+      }
+      loadClients();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to delete client');
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-48px)] overflow-hidden">
       {/* Left Panel */}
@@ -388,6 +404,13 @@ export default function FashionClientsPage() {
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
+                        <button
+                          onClick={(e) => handleDeleteClient(c, e)}
+                          className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                          title="Delete Client"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                         <ChevronRight className="w-4 h-4 text-gray-300" />
                       </div>
                     </div>
@@ -413,6 +436,7 @@ export default function FashionClientsPage() {
               activeTab={activeTab}
               onTabChange={setActiveTab}
               onEdit={() => openEdit(selectedClient)}
+              onDelete={() => handleDeleteClient(selectedClient)}
             />
           )}
         </div>
@@ -673,12 +697,14 @@ function ClientDetail({
   activeTab,
   onTabChange,
   onEdit,
+  onDelete,
 }: {
   client: any;
   detail: any;
   activeTab: DetailTab;
   onTabChange: (t: DetailTab) => void;
   onEdit: () => void;
+  onDelete: () => void;
 }) {
   const {
     projects = [],
@@ -745,12 +771,21 @@ function ClientDetail({
               </div>
             </div>
           </div>
-          <button
-            onClick={onEdit}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all flex-shrink-0"
-          >
-            <Edit2 className="w-3.5 h-3.5" /> Edit Client
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={onEdit}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl border border-gray-200 transition-all flex-shrink-0"
+            >
+              <Edit2 className="w-3.5 h-3.5" /> Edit Client
+            </button>
+            <button
+              onClick={onDelete}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl border border-rose-200 transition-all flex-shrink-0"
+              title="Delete Client"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </button>
+          </div>
         </div>
       </div>
 
