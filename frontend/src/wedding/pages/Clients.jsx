@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, X, Phone, Mail, MapPin, Calendar, Pencil, Trash2 } from 'lucide-react'
+import { Plus, X, Phone, Mail, MapPin, Calendar, Pencil, Trash2, AlertCircle } from 'lucide-react'
 import { useStore } from '../store'
 
 export default function Clients() {
@@ -8,13 +8,17 @@ export default function Clients() {
   const [open, setOpen] = useState(false)
   const [selected, setSelected] = useState(null)
   const [editing, setEditing] = useState(null)
+  const [error, setError] = useState('')
   const [form, setForm] = useState({ brideName: '', groomName: '', phone: '', email: '', weddingDate: '', venue: '' })
 
   useEffect(() => {
     fetchFromDb()
   }, [fetchFromDb])
 
-  const resetForm = () => setForm({ brideName: '', groomName: '', phone: '', email: '', weddingDate: '', venue: '' })
+  const resetForm = () => {
+    setForm({ brideName: '', groomName: '', phone: '', email: '', weddingDate: '', venue: '' })
+    setError('')
+  }
 
   const openAdd = () => {
     setEditing(null)
@@ -24,7 +28,8 @@ export default function Clients() {
 
   const openEdit = (client) => {
     setEditing(client)
-    setForm({ brideName: client.brideName || '', groomName: client.groomName || '', phone: client.phone || '', email: client.email || '', weddingDate: client.weddingDate || '', venue: client.venue || '' })
+    setError('')
+    setForm({ brideName: client.brideName || '', groomName: client.groomName || '', phone: (client.phone || '').replace(/\D/g, '').slice(-10), email: client.email || '', weddingDate: client.weddingDate || '', venue: client.venue || '' })
     setOpen(true)
   }
 
@@ -35,9 +40,30 @@ export default function Clients() {
   }
 
   const save = async () => {
-    if (!form.brideName && !form.groomName) return
-    if (editing) await updateClient(editing.id, form)
-    else await addClient(form)
+    setError('')
+    if (!form.brideName?.trim() && !form.groomName?.trim()) {
+      setError('Please enter Bride Name or Groom Name.')
+      return
+    }
+
+    const clean = (form.phone || '').replace(/\D/g, '')
+    if (!clean || clean.length !== 10) {
+      setError('Phone number is mandatory and must be exactly 10 digits.')
+      return
+    }
+
+    if (!form.weddingDate) {
+      setError('Wedding date is compulsory.')
+      return
+    }
+
+    const payload = {
+      ...form,
+      phone: clean,
+    }
+
+    if (editing) await updateClient(editing.id, payload)
+    else await addClient(payload)
     closeForm()
   }
 
@@ -137,17 +163,100 @@ export default function Clients() {
                 <button onClick={closeForm} aria-label="Close client form"><X size={16}/></button>
               </div>
               <div className="p-5 space-y-4">
+                {error && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-medium flex items-center gap-2">
+                    <AlertCircle size={15} className="shrink-0 text-rose-600" />
+                    <span>{error}</span>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="label">Bride Name *</label><input className="input" value={form.brideName} onChange={(e) => setForm({...form, brideName: e.target.value})} /></div>
-                  <div><label className="label">Groom Name *</label><input className="input" value={form.groomName} onChange={(e) => setForm({...form, groomName: e.target.value})} /></div>
+                  <div>
+                    <label className="label">Bride Name *</label>
+                    <input
+                      className="input"
+                      placeholder="e.g. Priya"
+                      value={form.brideName}
+                      onChange={(e) => {
+                        setForm({...form, brideName: e.target.value})
+                        if (error) setError('')
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Groom Name *</label>
+                    <input
+                      className="input"
+                      placeholder="e.g. Rahul"
+                      value={form.groomName}
+                      onChange={(e) => {
+                        setForm({...form, groomName: e.target.value})
+                        if (error) setError('')
+                      }}
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="label">Phone</label><input className="input" value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} /></div>
-                  <div><label className="label">Email</label><input className="input" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} /></div>
+                  <div>
+                    <label className="label">
+                      Phone * <span className="text-[11px] text-gray-400 font-normal">(10 digits)</span>
+                    </label>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="9876543210"
+                      className={`input ${form.phone && form.phone.length !== 10 ? 'border-amber-400 focus:border-amber-500' : ''}`}
+                      value={form.phone}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 10)
+                        setForm({...form, phone: digits})
+                        if (error) setError('')
+                      }}
+                    />
+                    <div className="flex justify-between items-center text-[10px] mt-1 text-gray-400">
+                      <span>Mandatory 10-digit number</span>
+                      <span className={form.phone?.length === 10 ? 'text-emerald-600 font-semibold' : 'text-gray-400'}>
+                        {form.phone ? form.phone.length : 0}/10
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Email</label>
+                    <input
+                      type="email"
+                      placeholder="client@example.com"
+                      className="input"
+                      value={form.email}
+                      onChange={(e) => setForm({...form, email: e.target.value})}
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="label">Wedding Date</label><input type="date" className="input" value={form.weddingDate} onChange={(e) => setForm({...form, weddingDate: e.target.value})} /></div>
-                  <div><label className="label">Venue</label><input className="input" value={form.venue} onChange={(e) => setForm({...form, venue: e.target.value})} /></div>
+                  <div>
+                    <label className="label">
+                      Wedding Date <span className="text-rose-500 font-bold">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      className="input"
+                      value={form.weddingDate}
+                      onChange={(e) => {
+                        setForm({...form, weddingDate: e.target.value})
+                        if (error) setError('')
+                      }}
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">Compulsory</p>
+                  </div>
+                  <div>
+                    <label className="label">Venue</label>
+                    <input
+                      placeholder="City / Venue"
+                      className="input"
+                      value={form.venue}
+                      onChange={(e) => setForm({...form, venue: e.target.value})}
+                    />
+                  </div>
                 </div>
               </div>
               <div className="flex justify-end gap-2 p-5 border-t border-gray-100">
