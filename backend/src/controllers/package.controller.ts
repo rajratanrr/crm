@@ -23,7 +23,7 @@ export const getPackages = asyncHandler(async (req: Request, res: Response) => {
     orderBy: { basePrice: 'asc' },
     include: {
       services: { orderBy: { serviceName: 'asc' } },
-      _count: { select: { contracts: true } },
+      _count: { select: { contracts: true, sharedPackages: true } },
     },
   });
 
@@ -106,5 +106,91 @@ export const deletePackage = asyncHandler(async (req: Request, res: Response) =>
     await prisma.package.delete({ where: { id } });
     res.json({ success: true, message: 'Package deleted successfully' });
   }
+});
+
+export const sharePackage = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { customerId, projectId, notes, sharedBy } = req.body;
+
+  const pkg = await prisma.package.findUnique({
+    where: { id },
+    include: { services: true },
+  });
+  if (!pkg) throw ApiError.notFound('Package not found');
+
+  if (!customerId && !projectId) {
+    throw ApiError.badRequest('Either Client (customerId) or Project (projectId) is required to share a package');
+  }
+
+  // Check if already shared with this client/project
+  const existingShare = await prisma.sharedPackage.findFirst({
+    where: {
+      packageId: id,
+      ...(customerId ? { customerId } : {}),
+      ...(projectId ? { projectId } : {}),
+    },
+    include: {
+      customer: { select: { id: true, fullName: true, phone: true } },
+      project: { select: { id: true, name: true, projectNumber: true } },
+    },
+  });
+
+  if (existingShare) {
+    const updated = await prisma.sharedPackage.update({
+      where: { id: existingShare.id },
+      data: {
+        sharedAt: new Date(),
+        sharedBy: sharedBy || (req as any).user?.name || 'Admin',
+        notes: notes || existingShare.notes,
+        status: 'SHARED',
+      },
+      include: {
+        customer: { select: { id: true, fullName: true, phone: true } },
+        project: { select: { id: true, name: true, projectNumber: true } },
+        package: true,
+      },
+    });
+    res.json({
+      success: true,
+      message: 'Package share updated successfully',
+      data: updated,
+    });
+    return;
+  }
+
+  const share = await prisma.sharedPackage.create({
+    data: {
+      packageId: id,
+      customerId: customerId || null,
+      projectId: projectId || null,
+      sharedBy: sharedBy || (req as any).user?.name || 'Admin',
+      notes: notes || null,
+      status: 'SHARED',
+    },
+    include: {
+      customer: { select: { id: true, fullName: true, phone: true } },
+      project: { select: { id: true, name: true, projectNumber: true } },
+      package: true,
+    },
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Package shared successfully with client',
+    data: share,
+  });
+});
+
+export const getPackageShares = asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const shares = await prisma.sharedPackage.findMany({
+    where: { packageId: id },
+    orderBy: { sharedAt: 'desc' },
+    include: {
+      customer: { select: { id: true, fullName: true, phone: true, email: true } },
+      project: { select: { id: true, name: true, projectNumber: true, projectType: true } },
+    },
+  });
+  res.json({ success: true, data: shares });
 });
 

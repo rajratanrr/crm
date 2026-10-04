@@ -421,10 +421,10 @@ export default function FashionProjectsPage() {
       };
       if (editingProject) {
         await projectApi.update(editingProject.id, payload);
-        toast.success('Project updated');
+        toast.success('Fashion shoot updated');
       } else {
         await projectApi.create(payload);
-        toast.success('Fashion project created');
+        toast.success('Fashion shoot created');
       }
       setIsProjectModalOpen(false);
       loadProjects();
@@ -658,14 +658,14 @@ export default function FashionProjectsPage() {
         {/* Header */}
         <div className="p-4 border-b border-gray-100 flex items-center justify-between gap-3">
           <div className="flex-1">
-            <h1 className="text-lg font-bold text-gray-900">Fashion Projects</h1>
+            <h1 className="text-lg font-bold text-gray-900">Fashion Shoots</h1>
             <p className="text-xs text-gray-500">Studio Fashion lookbooks & campaigns</p>
           </div>
           <button
             onClick={openCreateModal}
             className="flex items-center gap-1.5 px-3 py-2 bg-[#C59B27] hover:bg-[#b58c1e] text-white rounded-xl text-xs font-semibold shadow-sm transition-all flex-shrink-0"
           >
-            <Plus className="w-3.5 h-3.5" /> New Project
+            <Plus className="w-3.5 h-3.5" /> New Shoot
           </button>
         </div>
 
@@ -674,7 +674,7 @@ export default function FashionProjectsPage() {
           <div className="flex items-center bg-gray-50 rounded-lg px-3 py-2 border border-gray-200 focus-within:border-[#C59B27] transition-all">
             <Search className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
             <input
-              type="text" placeholder="Search projects..."
+              type="text" placeholder="Search shoots, clients, brands..."
               value={search} onChange={(e) => setSearch(e.target.value)}
               className="bg-transparent text-xs outline-none w-full"
             />
@@ -690,10 +690,10 @@ export default function FashionProjectsPage() {
           ) : projects.length === 0 ? (
             <div className="text-center py-16 px-4">
               <Shirt className="w-10 h-10 mx-auto mb-3 text-purple-300" />
-              <p className="font-semibold text-gray-700">No fashion projects yet</p>
-              <p className="text-xs text-gray-400 mt-1">Create your first lookbook or campaign project.</p>
+              <p className="font-semibold text-gray-700">No fashion shoots yet</p>
+              <p className="text-xs text-gray-400 mt-1">Create your first lookbook or campaign shoot.</p>
               <button onClick={openCreateModal} className="mt-4 px-4 py-2 bg-[#C59B27] text-white text-xs font-semibold rounded-xl">
-                Create First Project
+                Create First Shoot
               </button>
             </div>
           ) : (
@@ -1314,7 +1314,7 @@ export default function FashionProjectsPage() {
       <Modal
         isOpen={isProjectModalOpen}
         onClose={() => setIsProjectModalOpen(false)}
-        title={editingProject ? `Edit — ${editingProject.name}` : 'New Fashion Project'}
+        title={editingProject ? `Edit Shoot — ${editingProject.name}` : 'New Fashion Shoot'}
       >
         <form onSubmit={handleProjectSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1405,9 +1405,7 @@ export default function FashionProjectsPage() {
                     Model Selection &amp; Agreed Client Rates
                   </label>
                   <p className="text-[11px] text-gray-500 mt-0.5">
-                    {selectedClientData
-                      ? `Auto-loaded from ${selectedClientData.companyName || selectedClientData.fullName}'s saved roster.`
-                      : 'Tick checkboxes or choose from dropdown to attach models to this shoot.'}
+                    Choose from the dropdown below to assign models to this shoot.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1436,45 +1434,9 @@ export default function FashionProjectsPage() {
                 </div>
               </div>
 
-              {/* Quick-Tick Model Checkboxes */}
-              {allModels.length > 0 && (
-                <div className="bg-white border border-gray-200 rounded-xl p-2.5 mb-2.5">
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Quick-Tick Models for this Shoot:
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {allModels.map((m) => {
-                      const isAssigned = modalModelAssignments.some((a) => a.modelId === m.id);
-                      return (
-                        <button
-                          type="button"
-                          key={m.id}
-                          onClick={() => toggleModalModel(m.id)}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-                            isAssigned
-                              ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                              : 'bg-white text-gray-700 border-gray-200 hover:border-purple-300'
-                          }`}
-                        >
-                          <span
-                            className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold ${
-                              isAssigned ? 'bg-white text-purple-700' : 'border border-gray-300'
-                            }`}
-                          >
-                            {isAssigned ? '✓' : ''}
-                          </span>
-                          <span>{m.name}</span>
-                          {m.gender && <span className="text-[10px] opacity-80">({m.gender})</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
               {modalModelAssignments.length === 0 ? (
                 <div className="p-3 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-center">
-                  <p className="text-xs text-gray-500">No models selected yet — tick above or select client to auto-load</p>
+                  <p className="text-xs text-gray-500">No models selected yet — select from dropdown above to assign models</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -1528,102 +1490,90 @@ export default function FashionProjectsPage() {
               )}
             </div>
 
-            {/* ─── Type of Shoot (Dropdown + Checkbox Pills) ─── */}
+            {/* ─── Type of Shoot (Dropdown Selector) ─── */}
             <div className="md:col-span-2 bg-blue-50/40 border border-blue-100 rounded-xl p-3">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
                     <Film className="w-4 h-4 text-blue-600" />
-                    Type of Shoot (Tick checkboxes or select)
+                    Type of Shoot
                   </label>
                   <select
                     value=""
                     onChange={(e) => { if (e.target.value) { toggleProjectShootType(e.target.value); } }}
                     className="px-2.5 py-1 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] font-medium text-gray-700"
                   >
-                    <option value="">+ Add Shoot Type from Dropdown...</option>
+                    <option value="">+ Select Shoot Type from Dropdown...</option>
                     {SHOOT_TYPES.map((st) => (
                       <option key={st.value} value={st.label}>{st.label}</option>
                     ))}
                   </select>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {SHOOT_TYPES.map((st) => {
-                    const selectedTypes = projectForm.shootType
-                      ? projectForm.shootType.split(',').map((s) => s.trim().toLowerCase())
-                      : [];
-                    const isChecked =
-                      selectedTypes.includes(st.label.toLowerCase()) ||
-                      selectedTypes.includes(st.value.toLowerCase());
-                    return (
-                      <button
-                        type="button" key={st.value}
-                        onClick={() => toggleProjectShootType(st.label)}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-                          isChecked ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300'
-                        }`}
+                {projectForm.shootType ? (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {projectForm.shootType.split(',').map((s) => s.trim()).filter(Boolean).map((label) => (
+                      <span
+                        key={label}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-600 text-white shadow-xs"
                       >
-                        <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold ${
-                          isChecked ? 'bg-white text-blue-600' : 'border border-gray-300'
-                        }`}>{isChecked ? '✓' : ''}</span>
-                        {st.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                {projectForm.shootType && (
-                  <p className="text-[11px] text-blue-700 font-semibold">
-                    Selected: {projectForm.shootType}
-                  </p>
+                        <span>{label}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleProjectShootType(label)}
+                          className="hover:bg-blue-700 rounded p-0.5"
+                          title="Remove"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-400 italic">No shoot type selected yet — choose from dropdown above</p>
                 )}
               </div>
             </div>
 
-            {/* ─── Product Type / Outfits (Dropdown + Checkbox Pills) ─── */}
+            {/* ─── Product Type / Outfits (Dropdown Selector) ─── */}
             <div className="md:col-span-2 bg-pink-50/40 border border-pink-100 rounded-xl p-3">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
                     <Tag className="w-4 h-4 text-pink-600" />
-                    Product Type / Outfits (Tick checkboxes or select)
+                    Product Type / Outfits
                   </label>
                   <select
                     value=""
                     onChange={(e) => { if (e.target.value) { toggleProjectProductType(e.target.value); } }}
                     className="px-2.5 py-1 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] font-medium text-gray-700"
                   >
-                    <option value="">+ Add Product Type...</option>
+                    <option value="">+ Select Product Type from Dropdown...</option>
                     {PRODUCT_TYPES.map((pt) => (
                       <option key={pt} value={pt}>{pt}</option>
                     ))}
                   </select>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {PRODUCT_TYPES.map((pt) => {
-                    const selectedProds = projectForm.productType
-                      ? projectForm.productType.split(',').map((s) => s.trim().toLowerCase())
-                      : [];
-                    const isChecked = selectedProds.includes(pt.toLowerCase());
-                    return (
-                      <button
-                        type="button" key={pt}
-                        onClick={() => toggleProjectProductType(pt)}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-                          isChecked ? 'bg-[#C59B27] text-white border-[#C59B27]' : 'bg-white text-gray-700 border-gray-200 hover:border-[#C59B27]/40'
-                        }`}
+                {projectForm.productType ? (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {projectForm.productType.split(',').map((s) => s.trim()).filter(Boolean).map((label) => (
+                      <span
+                        key={label}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#C59B27] text-white shadow-xs"
                       >
-                        <span className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold ${
-                          isChecked ? 'bg-white text-[#C59B27]' : 'border border-gray-300'
-                        }`}>{isChecked ? '✓' : ''}</span>
-                        {pt}
-                      </button>
-                    );
-                  })}
-                </div>
-                {projectForm.productType && (
-                  <p className="text-[11px] text-[#C59B27] font-semibold">
-                    Selected: {projectForm.productType}
-                  </p>
+                        <span>{label}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleProjectProductType(label)}
+                          className="hover:bg-[#a88219] rounded p-0.5"
+                          title="Remove"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-400 italic">No product type selected yet — choose from dropdown above</p>
                 )}
               </div>
             </div>
@@ -1779,64 +1729,6 @@ export default function FashionProjectsPage() {
                 </p>
               </div>
             )}
-
-            {/* ─── Shoot / Contract Amount — BILLED TO CLIENT (at bottom) ─── */}
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-gray-900 mb-1 flex items-center gap-1.5">
-                <IndianRupee className="w-4 h-4 text-emerald-600" />
-                Shoot / Contract Amount (₹)
-                <span className="text-[11px] font-normal text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                  Billed to Client
-                </span>
-              </label>
-              <div className="relative">
-                <IndianRupee className="w-4 h-4 text-emerald-500 absolute left-3 top-2.5" />
-                <input
-                  type="number" min={0}
-                  value={projectForm.budget}
-                  onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
-                  placeholder="e.g. 75000"
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-emerald-300 bg-emerald-50/30 rounded-lg outline-none focus:border-emerald-500 font-bold text-gray-900"
-                />
-              </div>
-              <p className="text-[10px] text-gray-400 mt-1">This is the amount charged to the client for the full photoshoot project.</p>
-
-              {/* ─── 18% GST Toggle ─── */}
-              <div className="mt-2">
-                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={(projectForm as any).applyGst || false}
-                    onChange={(e) => setProjectForm({ ...projectForm, applyGst: e.target.checked } as any)}
-                    className="w-4 h-4 rounded border-gray-300 text-[#C59B27] focus:ring-[#C59B27] accent-[#C59B27]"
-                  />
-                  <span className="text-xs font-semibold text-gray-700">Apply 18% GST</span>
-                </label>
-                {(projectForm as any).applyGst && budgetBaseForGst > 0 && (
-                  <div className="mt-2 bg-blue-50/60 border border-blue-200/50 rounded-lg p-2.5 space-y-1">
-                    <div className="flex justify-between text-xs text-gray-600">
-                      <span>Base Amount:</span>
-                      <strong>{formatCurrency(budgetBaseForGst)}</strong>
-                    </div>
-                    <div className="flex justify-between text-xs text-blue-700">
-                      <span>GST (18%):</span>
-                      <strong>{formatCurrency(gstAmount)}</strong>
-                    </div>
-                    <div className="flex justify-between text-xs font-bold text-gray-900 pt-1 border-t border-blue-200/40">
-                      <span>Total with GST:</span>
-                      <span>{formatCurrency(budgetWithGst)}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setProjectForm({ ...projectForm, budget: String(budgetWithGst) })}
-                      className="mt-1 text-[11px] font-semibold text-blue-700 hover:underline"
-                    >
-                      Set Contract = ₹{budgetWithGst.toLocaleString('en-IN')} (incl. GST) →
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
 
             <div className="md:col-span-2">
               <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1.5">

@@ -60,6 +60,121 @@ export const getPayments = asyncHandler(async (req: Request, res: Response) => {
     },
   });
 });
+export const getPaymentsByClient = asyncHandler(async (req: Request, res: Response) => {
+  const { domain, search } = req.query as Record<string, string>;
+  const paymentWhere: any = {};
+  const projectWhere: any = {};
+
+  if (domain && (domain === 'WEDDING' || domain === 'FASHION' || domain === 'GENERAL')) {
+    paymentWhere.domain = domain as BusinessDomain;
+    projectWhere.projectType = domain as any;
+  }
+
+  // Find all payments matching domain filter
+  const allPayments = await prisma.payment.findMany({
+    where: paymentWhere,
+    orderBy: { paymentDate: 'desc' },
+    include: {
+      customer: { select: { id: true, fullName: true, phone: true, email: true } },
+      project: { select: { id: true, name: true, projectNumber: true, projectType: true, budget: true } },
+      contract: { select: { id: true, contractNumber: true, finalAmount: true } },
+    },
+  });
+
+  // Group payments by customerId
+  const customerMap = new Map<string, {
+    customer: any;
+    projects: Map<string, any>;
+    payments: any[];
+  }>();
+
+  for (const p of allPayments) {
+    const custId = p.customerId || 'unassigned';
+    if (!customerMap.has(custId)) {
+      customerMap.set(custId, {
+        customer: p.customer || { id: custId, fullName: 'Direct Client', phone: '' },
+        projects: new Map(),
+        payments: [],
+      });
+    }
+    const entry = customerMap.get(custId)!;
+    entry.payments.push(p);
+    if (p.project) {
+      entry.projects.set(p.project.id, p.project);
+    }
+  }
+
+  // Also query projects for these customers to ensure all project budgets are included
+  const customerIds = Array.from(customerMap.keys()).filter(id => id !== 'unassigned');
+  if (customerIds.length > 0) {
+    const customerProjects = await prisma.project.findMany({
+      where: {
+        ...projectWhere,
+        customerId: { in: customerIds },
+      },
+      select: { id: true, name: true, projectNumber: true, projectType: true, budget: true, customerId: true },
+    });
+
+    for (const prj of customerProjects) {
+      if (prj.customerId && customerMap.has(prj.customerId)) {
+        customerMap.get(prj.customerId)!.projects.set(prj.id, prj);
+      }
+    }
+  }
+
+  // Compute aggregations per customer
+  const clientRows = Array.from(customerMap.values()).map(entry => {
+    const projectList = Array.from(entry.projects.values());
+    const projectTotalBudget = projectList.reduce((sum, prj) => sum + (Number(prj.budget) || 0), 0);
+    
+    // Total received = payments with ADVANCE or DONE (or legacy without status)
+    const receivedPayments = entry.payments.filter(p => isReceived(p.paymentStatus));
+    const totalPaid = receivedPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    // If there are projects with budgets, use projectTotalBudget. Else if contracts with finalAmount, use that.
+    // If no project budget exists, fallback to totalPaid so pending is 0 unless pending payment records exist.
+    const pendingPaymentRecords = entry.payments.filter(p => !isReceived(p.paymentStatus));
+    const pendingRecordAmount = pendingPaymentRecords.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+
+    const totalAmount = projectTotalBudget > 0 ? projectTotalBudget : (totalPaid + pendingRecordAmount);
+    const pendingAmount = Math.max(0, totalAmount - totalPaid);
+
+    let status = 'CLEARED';
+    if (pendingAmount > 0 && totalPaid > 0) {
+      status = 'PARTIAL';
+    } else if (pendingAmount > 0 && totalPaid === 0) {
+      status = 'PENDING';
+    }
+
+    return {
+      customerId: entry.customer.id,
+      customer: entry.customer,
+      projects: projectList,
+      totalAmount,
+      totalPaid,
+      pendingAmount,
+      status,
+      paymentsCount: entry.payments.length,
+      payments: entry.payments,
+    };
+  });
+
+  // Apply search filter if present
+  let filteredRows = clientRows;
+  if (search) {
+    const q = search.toLowerCase();
+    filteredRows = clientRows.filter(r => 
+      r.customer.fullName?.toLowerCase().includes(q) ||
+      r.customer.phone?.toLowerCase().includes(q) ||
+      r.projects.some(p => p.name?.toLowerCase().includes(q))
+    );
+  }
+
+  res.json({
+    success: true,
+    data: filteredRows,
+  });
+});
 
 export const getFinanceSummary = asyncHandler(async (req: Request, res: Response) => {
   const { domain } = req.query as Record<string, string>;

@@ -135,14 +135,14 @@ export default function FashionBookingsPage() {
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Studio Bay Bookings</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Schedule and allocate studio floors, cyclorama bays, and lighting rigs</p>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Studio Calendar (For Rent)</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Manage studio rentals, bay bookings, daylight lofts, and hourly/day rental schedules</p>
         </div>
         <button
           onClick={openCreateModal}
           className="flex items-center gap-2 px-4 py-2.5 bg-[#C59B27] hover:bg-[#b58c1e] text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
         >
-          <Plus className="w-4 h-4" /> Book Studio Bay
+          <Plus className="w-4 h-4" /> Book Studio Rental
         </button>
       </div>
 
@@ -228,7 +228,7 @@ export default function FashionBookingsPage() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingBooking ? 'Edit Studio Bay Booking' : 'Book Studio Bay Slot'}
+        title={editingBooking ? 'Edit Studio Rental Booking' : 'Book Studio Rental (For Rent)'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -276,13 +276,13 @@ export default function FashionBookingsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Associated Fashion Project</label>
+              <label className="block text-xs font-semibold text-gray-900 mb-1">Project Name (Select Shoot / Project)</label>
               <select
                 value={form.projectId}
                 onChange={(e) => setForm({ ...form, projectId: e.target.value })}
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
               >
-                <option value="">-- Standalone Booking / No Project --</option>
+                <option value="">-- Standalone Rental / No Project --</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}

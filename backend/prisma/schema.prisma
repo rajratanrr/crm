@@ -258,6 +258,7 @@ model Customer {
   fashionGarmentReqs      FashionGarmentRequirement[]
   fashionProjectModels    FashionProjectModel[]
   fashionClientModels     FashionClientModel[]         // client-model default rates
+  sharedPackages          SharedPackage[]
 
   @@index([customerCode])
   @@index([phone])
@@ -340,6 +341,7 @@ model Project {
   studioBookings      StudioBooking[]
   garmentRequirements FashionGarmentRequirement[]
   modelAssignments    FashionProjectModel[]
+  sharedPackages      SharedPackage[]
 
   @@index([customerId])
   @@index([projectType])
@@ -407,8 +409,9 @@ model Package {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  services  PackageService[]
-  contracts Contract[]
+  services       PackageService[]
+  contracts      Contract[]
+  sharedPackages SharedPackage[]
 
   @@map("packages")
 }
@@ -423,6 +426,28 @@ model PackageService {
   package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
 
   @@map("package_services")
+}
+
+model SharedPackage {
+  id         String    @id @default(uuid())
+  packageId  String
+  customerId String?
+  projectId  String?
+  sharedAt   DateTime  @default(now())
+  sharedBy   String?   @db.VarChar(150)
+  status     String    @default("SHARED") @db.VarChar(50)
+  notes      String?   @db.Text
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  package  Package   @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  project  Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([packageId])
+  @@index([customerId])
+  @@index([projectId])
+  @@map("shared_packages")
 }
 
 model Contract {

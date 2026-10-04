@@ -121,6 +121,14 @@ export const getModel = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
+function normalizeModelGender(val: any): string | null {
+  if (!val) return 'F';
+  const str = String(val).trim().toUpperCase();
+  if (str === 'M' || str === 'MALE') return 'M';
+  if (str === 'F' || str === 'FEMALE') return 'F';
+  throw new ApiError(400, 'Invalid gender value. Allowed options are M or F only.');
+}
+
 export const createModel = asyncHandler(async (req: Request, res: Response) => {
   const { name, agency, phone, email, instagram, gender, height, measurements, notes } = req.body;
   if (!name) throw new ApiError(400, 'Model name is required');
@@ -137,7 +145,7 @@ export const createModel = asyncHandler(async (req: Request, res: Response) => {
       phone: cleanPhone,
       email: email || null,
       instagram: instagram || null,
-      gender: gender || null,
+      gender: normalizeModelGender(gender),
       height: height || null,
       measurements: measurements || null,
       notes: notes || null,
@@ -168,7 +176,7 @@ export const updateModel = asyncHandler(async (req: Request, res: Response) => {
   }
   if (email !== undefined) data.email = email || null;
   if (instagram !== undefined) data.instagram = instagram || null;
-  if (gender !== undefined) data.gender = gender || null;
+  if (gender !== undefined) data.gender = normalizeModelGender(gender);
   if (height !== undefined) data.height = height || null;
   if (measurements !== undefined) data.measurements = measurements || null;
   if (notes !== undefined) data.notes = notes || null;

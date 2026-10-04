@@ -9,13 +9,13 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 import Modal from '../../components/ui/Modal';
 import toast from 'react-hot-toast';
 
-const GENDER_OPTIONS = ['Female', 'Male', 'Non-Binary', 'Other'];
+const GENDER_OPTIONS = ['F', 'M'];
 const PAYMENT_METHODS = ['UPI', 'CASH', 'BANK_TRANSFER', 'CHEQUE', 'CARD', 'OTHER'];
 
 function defaultForm() {
   return {
     name: '', agency: '', phone: '', email: '',
-    instagram: '', gender: 'Female', height: '', measurements: '', notes: '',
+    instagram: '', gender: 'F', height: '', measurements: '', notes: '',
   };
 }
 
@@ -90,7 +90,7 @@ export default function FashionModelsPage() {
       phone: (m.phone || '').replace(/\D/g, '').slice(0, 10),
       email: m.email || '',
       instagram: m.instagram || '',
-      gender: m.gender || 'Female',
+      gender: m.gender === 'M' || m.gender === 'Male' ? 'M' : 'F',
       height: m.height || '',
       measurements: m.measurements || '',
       notes: m.notes || '',
@@ -246,7 +246,9 @@ export default function FashionModelsPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-sm text-gray-900 truncate">{m.name}</div>
-                        <div className="text-xs text-gray-500 truncate">{m.agency || m.gender || 'Independent'}</div>
+                        <div className="text-xs text-gray-500 truncate">
+                          {m.agency || 'Independent'} {m.gender ? `· ${m.gender === 'M' || m.gender === 'Male' ? 'M' : 'F'}` : ''}
+                        </div>
                         {/* Financial summary tag */}
                         {earned > 0 && (
                           <div className="mt-1 flex items-center gap-1.5 flex-wrap">
@@ -307,8 +309,8 @@ export default function FashionModelsPage() {
                         </div>
                       )}
                       {modelDetail.gender && (
-                        <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                          {modelDetail.gender}
+                        <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                          {modelDetail.gender === 'M' || modelDetail.gender === 'Male' ? 'M' : 'F'}
                         </span>
                       )}
                     </div>

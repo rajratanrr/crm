@@ -75,6 +75,9 @@ export const packageApi = {
   create: (data: any) => api.post('/packages', data),
   update: (id: string, data: any) => api.put(`/packages/${id}`, data),
   delete: (id: string) => api.delete(`/packages/${id}`),
+  share: (id: string, data: { customerId?: string; projectId?: string; notes?: string; sharedBy?: string }) =>
+    api.post(`/packages/${id}/share`, data),
+  getShares: (id: string) => api.get(`/packages/${id}/shares`),
 };
 
 // Contracts
@@ -92,6 +95,7 @@ export const contractApi = {
 // Payments
 export const paymentApi = {
   getAll: (params?: any) => api.get('/payments', { params }),
+  getByClient: (params?: any) => api.get('/payments/by-client', { params }),
   getOne: (id: string) => api.get(`/payments/${id}`),
   getFinanceSummary: (params?: any) => api.get('/payments/finance-summary', { params }),
   getStats: () => api.get('/payments/stats'),

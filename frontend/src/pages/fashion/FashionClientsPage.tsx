@@ -52,14 +52,7 @@ const PAY_STATUS_COLORS: Record<string, string> = {
   DONE: 'bg-emerald-50 text-emerald-700',
 };
 
-type DetailTab = 'summary' | 'projects' | 'models' | 'garments' | 'payments';
-
-interface ClientModelRow {
-  modelId: string;
-  defaultRate: number | string;
-  notes?: string;
-  model?: any;
-}
+type DetailTab = 'summary' | 'projects' | 'garments' | 'payments';
 
 function defaultForm() {
   return {
@@ -93,8 +86,6 @@ export default function FashionClientsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<any>(null);
   const [form, setForm] = useState(defaultForm());
-  const [allModels, setAllModels] = useState<any[]>([]);
-  const [clientModels, setClientModels] = useState<ClientModelRow[]>([]);
   const [saving, setSaving] = useState(false);
 
   const loadClients = useCallback(async () => {
@@ -107,13 +98,6 @@ export default function FashionClientsPage() {
       setLoading(false);
     }
   }, [search]);
-
-  const loadAllModels = useCallback(async () => {
-    try {
-      const { data } = await modelApi.getAll();
-      setAllModels(data.data || []);
-    } catch {}
-  }, []);
 
   const loadDetail = async (client: any) => {
     setSelectedClient(client);
@@ -131,8 +115,7 @@ export default function FashionClientsPage() {
   useEffect(() => {
     setLoading(true);
     loadClients();
-    loadAllModels();
-  }, [loadClients, loadAllModels]);
+  }, [loadClients]);
 
   // Real-time cross-employee auto-sync every 8s + on tab focus
   useAutoSync(loadClients, 8000);
@@ -140,7 +123,6 @@ export default function FashionClientsPage() {
   const openCreate = () => {
     setEditingClient(null);
     setForm(defaultForm());
-    setClientModels([]);
     setIsModalOpen(true);
   };
 
@@ -166,30 +148,6 @@ export default function FashionClientsPage() {
       clientType: 'FASHION',
     });
 
-    if (c.fashionClientModels && c.fashionClientModels.length > 0) {
-      setClientModels(
-        c.fashionClientModels.map((cm: any) => ({
-          modelId: cm.modelId,
-          defaultRate: cm.defaultRate || 0,
-          notes: cm.notes || '',
-          model: cm.model,
-        }))
-      );
-    } else {
-      try {
-        const { data } = await customerApi.getClientModels(c.id);
-        setClientModels(
-          (data.data || []).map((cm: any) => ({
-            modelId: cm.modelId,
-            defaultRate: cm.defaultRate || 0,
-            notes: cm.notes || '',
-            model: cm.model,
-          }))
-        );
-      } catch {
-        setClientModels([]);
-      }
-    }
     setIsModalOpen(true);
   };
 
@@ -215,47 +173,6 @@ export default function FashionClientsPage() {
     setForm((prev) => ({ ...prev, productType: updated.join(', ') }));
   };
 
-  const toggleModel = (modelId: string) => {
-    if (clientModels.some((cm) => cm.modelId === modelId)) {
-      setClientModels((prev) => prev.filter((cm) => cm.modelId !== modelId));
-    } else {
-      const found = allModels.find((m) => m.id === modelId);
-      setClientModels((prev) => [
-        ...prev,
-        { modelId, defaultRate: 0, notes: '', model: found },
-      ]);
-    }
-  };
-
-  const addModelToClient = (modelId: string) => {
-    if (!modelId) return;
-    if (clientModels.some((cm) => cm.modelId === modelId)) {
-      toast.error('Model already assigned to this client');
-      return;
-    }
-    const found = allModels.find((m) => m.id === modelId);
-    setClientModels((prev) => [
-      ...prev,
-      { modelId, defaultRate: 0, notes: '', model: found },
-    ]);
-  };
-
-  const updateClientModelRate = (idx: number, rate: any) => {
-    setClientModels((prev) =>
-      prev.map((cm, i) => (i === idx ? { ...cm, defaultRate: rate } : cm))
-    );
-  };
-
-  const updateClientModelNotes = (idx: number, notes: string) => {
-    setClientModels((prev) =>
-      prev.map((cm, i) => (i === idx ? { ...cm, notes } : cm))
-    );
-  };
-
-  const removeClientModel = (idx: number) => {
-    setClientModels((prev) => prev.filter((_, i) => i !== idx));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.fullName.trim()) {
@@ -267,6 +184,7 @@ export default function FashionClientsPage() {
       toast.error('Phone number is mandatory and must be exactly 10 digits');
       return;
     }
+
     setSaving(true);
     try {
       const payload = {
@@ -281,13 +199,6 @@ export default function FashionClientsPage() {
         driveLink: form.driveLink || null,
         shootType: form.shootType || null,
         productType: form.productType || null,
-        clientModels: clientModels
-          .filter((cm) => cm.modelId)
-          .map((cm) => ({
-            modelId: cm.modelId,
-            defaultRate: Number(cm.defaultRate) || 0,
-            notes: cm.notes || null,
-          })),
       };
 
       if (editingClient) {
@@ -373,7 +284,6 @@ export default function FashionClientsPage() {
             <div className="divide-y divide-gray-50">
               {clients.map((c) => {
                 const isSelected = selectedClient?.id === c.id;
-                const modelsCount = c.fashionClientModels?.length || 0;
                 return (
                   <div
                     key={c.id}
@@ -388,11 +298,6 @@ export default function FashionClientsPage() {
                         <div className="font-semibold text-sm text-gray-900 truncate">{c.fullName}</div>
                         <div className="text-xs text-gray-500 truncate">{c.companyName || c.phone || 'No contact info'}</div>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          {modelsCount > 0 && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 font-medium">
-                              {modelsCount} model{modelsCount !== 1 ? 's' : ''}
-                            </span>
-                          )}
                           {c.city && <span className="text-[10px] text-gray-400">{c.city}</span>}
                         </div>
                       </div>
@@ -400,7 +305,7 @@ export default function FashionClientsPage() {
                         <button
                           onClick={(e) => openEdit(c, e)}
                           className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
-                          title="Edit Client & Model Rates"
+                          title="Edit Client"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
@@ -523,147 +428,6 @@ export default function FashionClientsPage() {
               />
             </div>
 
-            {/* ─── Assigned Models & Model Rate For This Client (with Checkbox Quick-Tick) ─── */}
-            <div className="md:col-span-2 pt-3 border-t border-gray-100">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                <div>
-                  <label className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
-                    <UserCircle className="w-4 h-4 text-[#C59B27]" />
-                    Assign Models & Set Agreed Client Rates
-                  </label>
-                  <p className="text-[11px] text-gray-400">
-                    Tick checkboxes below or use the dropdown to assign models and specify client rates.
-                  </p>
-                </div>
-                {/* Dropdown of model list */}
-                <div className="flex-shrink-0">
-                  <select
-                    defaultValue=""
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        addModelToClient(e.target.value);
-                        e.target.value = '';
-                      }
-                    }}
-                    className="px-2.5 py-1.5 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] font-medium text-gray-700"
-                  >
-                    <option value="">+ Assign Model from List...</option>
-                    {allModels
-                      .filter((m) => !clientModels.some((cm) => cm.modelId === m.id))
-                      .map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name} {m.gender ? `(${m.gender})` : ''} {m.agency ? `· ${m.agency}` : ''}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Model Checklist: checkboxes to tick! */}
-              {allModels.length > 0 && (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-2.5 mb-2.5">
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Quick-Tick Models from Roster:
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {allModels.map((m) => {
-                      const isAssigned = clientModels.some((cm) => cm.modelId === m.id);
-                      return (
-                        <button
-                          type="button"
-                          key={m.id}
-                          onClick={() => toggleModel(m.id)}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
-                            isAssigned
-                              ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                              : 'bg-white text-gray-700 border-gray-200 hover:border-purple-300'
-                          }`}
-                        >
-                          <span
-                            className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[10px] font-bold ${
-                              isAssigned ? 'bg-white text-purple-700' : 'border border-gray-300'
-                            }`}
-                          >
-                            {isAssigned ? '✓' : ''}
-                          </span>
-                          <span>{m.name}</span>
-                          {m.gender && <span className="text-[10px] opacity-80">({m.gender})</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {clientModels.length === 0 ? (
-                <div className="p-4 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-center">
-                  <p className="text-xs text-gray-500 font-medium">No models assigned to this client yet</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">
-                    Use the dropdown above to choose models from your model list and enter their rates for this client.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2 mt-2">
-                  <div className="grid grid-cols-[2fr_1.5fr_1.5fr_32px] gap-2 px-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                    <span>Model</span>
-                    <span>Model Rate for Client (₹) *</span>
-                    <span>Notes</span>
-                    <span />
-                  </div>
-                  {clientModels.map((cm, idx) => {
-                    const modelObj = cm.model || allModels.find((m) => m.id === cm.modelId);
-                    return (
-                      <div
-                        key={cm.modelId || idx}
-                        className="grid grid-cols-[2fr_1.5fr_1.5fr_32px] gap-2 items-center bg-gray-50 p-2.5 rounded-xl border border-gray-100"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-gray-900 truncate">
-                            {modelObj?.name || 'Assigned Model'}
-                          </p>
-                          <p className="text-[10px] text-gray-400 truncate">
-                            {modelObj?.gender || ''} {modelObj?.agency ? `· ${modelObj.agency}` : ''}
-                          </p>
-                        </div>
-                        <div>
-                          <div className="relative">
-                            <span className="absolute left-2.5 top-2 text-xs text-gray-400 font-medium">₹</span>
-                            <input
-                              type="number"
-                              min={0}
-                              required
-                              placeholder="e.g. 15000"
-                              value={cm.defaultRate}
-                              onChange={(e) => updateClientModelRate(idx, e.target.value)}
-                              className="w-full pl-6 pr-2 py-1.5 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold text-gray-800"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <input
-                            type="text"
-                            placeholder="e.g. per day shoot"
-                            value={cm.notes || ''}
-                            onChange={(e) => updateClientModelNotes(idx, e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-                          />
-                        </div>
-                        <div className="flex justify-center">
-                          <button
-                            type="button"
-                            onClick={() => removeClientModel(idx)}
-                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                            title="Remove model"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
@@ -717,8 +481,7 @@ function ClientDetail({
 
   const tabs: { key: DetailTab; label: string; icon: any; count?: number }[] = [
     { key: 'summary', label: 'Overview', icon: TrendingUp },
-    { key: 'projects', label: 'Projects', icon: Briefcase, count: projects.length },
-    { key: 'models', label: 'Models & Pricing', icon: UserCircle, count: (clientModels.length || modelAssignments.length) },
+    { key: 'projects', label: 'Shoots', icon: Briefcase, count: projects.length },
     { key: 'garments', label: 'Garments', icon: Shirt, count: garments.length },
     { key: 'payments', label: 'Payments', icon: IndianRupee, count: payments.length },
   ];
@@ -900,88 +663,6 @@ function ClientDetail({
                   </div>
                 </div>
               ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {activeTab === 'models' && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-6">
-          {/* 1. Client-level agreed model rates */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                  <UserCircle className="w-4 h-4 text-[#C59B27]" />
-                  Agreed Client Model Rates ({clientModels.length})
-                </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Pre-agreed rates for models given to this client. Auto-inherited on new projects.
-                </p>
-              </div>
-              <button
-                onClick={onEdit}
-                className="px-3 py-1 text-xs font-semibold text-[#C59B27] bg-[#C59B27]/10 hover:bg-[#C59B27]/20 rounded-lg transition-all"
-              >
-                Manage Rates
-              </button>
-            </div>
-
-            {clientModels.length === 0 ? (
-              <p className="text-xs text-gray-400 py-4 text-center bg-gray-50 rounded-xl">
-                No model rates configured for this client. Click &quot;Manage Rates&quot; to assign models.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                <div className="grid grid-cols-[2fr_1.5fr_1.5fr_100px] gap-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 mb-1">
-                  <span>Model</span>
-                  <span>Agency / Gender</span>
-                  <span>Notes</span>
-                  <span className="text-right">Agreed Rate</span>
-                </div>
-                {clientModels.map((cm: any) => (
-                  <div
-                    key={cm.id || cm.modelId}
-                    className="grid grid-cols-[2fr_1.5fr_1.5fr_100px] gap-3 items-center py-2.5 px-3 bg-gray-50 rounded-xl text-xs"
-                  >
-                    <div>
-                      <p className="font-semibold text-gray-900">{cm.model?.name || 'Model'}</p>
-                      {cm.model?.phone && <p className="text-[10px] text-gray-400">{cm.model.phone}</p>}
-                    </div>
-                    <p className="text-gray-500">
-                      {cm.model?.agency || 'Independent'} {cm.model?.gender ? `· ${cm.model.gender}` : ''}
-                    </p>
-                    <p className="text-gray-400 italic truncate">{cm.notes || '—'}</p>
-                    <p className="text-right font-bold text-[#C59B27]">{formatCurrency(cm.defaultRate)}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* 2. Project shoot assignments */}
-          {modelAssignments.length > 0 && (
-            <div className="pt-4 border-t border-gray-100">
-              <h3 className="font-bold text-gray-900 mb-3">Project Shoot History ({modelAssignments.length})</h3>
-              <div className="space-y-2">
-                <div className="grid grid-cols-[2fr_1fr_1fr_80px] gap-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 mb-1">
-                  <span>Model</span>
-                  <span>Project</span>
-                  <span>Shoot Date</span>
-                  <span className="text-right">Rate</span>
-                </div>
-                {modelAssignments.map((a: any) => (
-                  <div key={a.id} className="grid grid-cols-[2fr_1fr_1fr_80px] gap-3 items-center py-2.5 px-3 bg-gray-50 rounded-xl text-xs">
-                    <div>
-                      <p className="font-semibold text-gray-900">{a.model?.name || '—'}</p>
-                      <p className="text-gray-400 text-[10px]">{a.model?.gender}</p>
-                    </div>
-                    <p className="text-gray-500 truncate">{a.project?.name || '—'}</p>
-                    <p className="text-gray-500">{a.project?.shootDate ? formatDate(a.project.shootDate) : '—'}</p>
-                    <p className="text-right font-bold text-[#C59B27]">{formatCurrency(a.modelRate)}</p>
-                  </div>
-                ))}
-              </div>
             </div>
           )}
         </div>

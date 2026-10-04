@@ -93,9 +93,9 @@ export default function App() {
               <Route path="/wedding" element={<Navigate to="/wedding/projects" replace />} />
               <Route path="/wedding/dashboard" element={<Navigate to="/dashboard" replace />} />
               <Route path="/wedding/projects" element={<WeddingProjectsPage />} />
-              <Route path="/wedding/clients" element={<Navigate to="/wedding/projects" replace />} />
+              <Route path="/wedding/clients" element={<Navigate to="/clients" replace />} />
               <Route path="/wedding/packages" element={<WeddingPackagesPage />} />
-              <Route path="/wedding/contracts" element={<Navigate to="/wedding/projects" replace />} />
+              <Route path="/wedding/contracts" element={<Navigate to="/wedding/payments" replace />} />
               <Route path="/wedding/payments" element={<WeddingPaymentsPage />} />
               <Route path="/wedding/deliverables" element={<WeddingDeliverablesPage />} />
               <Route path="/wedding/calendar" element={<WeddingCalendarPage />} />
@@ -112,7 +112,7 @@ export default function App() {
               <Route path="/fashion/garments" element={<FashionGarmentsPage />} />
               <Route path="/fashion/bookings" element={<FashionBookingsPage />} />
               <Route path="/fashion/payments" element={<FashionPaymentsPage />} />
-              <Route path="/fashion/deliverables" element={<FashionDeliverablesPage />} />
+              <Route path="/fashion/deliverables" element={<Navigate to="/fashion/projects" replace />} />
 
               {/* Team & Operations */}
               <Route path="/team" element={<TeamPage />} />
@@ -128,8 +128,8 @@ export default function App() {
 
               {/* Preserved Studio Features */}
               <Route path="/packages" element={<PackagesPage />} />
-              <Route path="/contracts" element={<ContractsPage />} />
-              <Route path="/contracts/:id" element={<ContractsPage />} />
+              <Route path="/contracts" element={<Navigate to="/finance/payments" replace />} />
+              <Route path="/contracts/:id" element={<Navigate to="/finance/payments" replace />} />
               <Route path="/deliverables" element={<DeliverablesPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />

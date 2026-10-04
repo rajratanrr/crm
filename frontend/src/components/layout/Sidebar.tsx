@@ -58,11 +58,11 @@ const navigationSections = [
     section: 'STUDIO FASHION',
     badge: 'FASHION',
     items: [
-      { label: 'Fashion Projects', route: '/fashion/projects', icon: Shirt },
+      { label: 'Fashion Shoots', route: '/fashion/projects', icon: Shirt },
       { label: 'Fashion Clients', route: '/fashion/clients', icon: Users },
       { label: 'Models', route: '/fashion/models', icon: UserCircle },
+      { label: 'Studio Calendar (For Rent)', route: '/fashion/bookings', icon: CalendarDays },
       { label: 'Payments', route: '/fashion/payments', icon: CreditCard },
-      { label: 'Deliverables', route: '/fashion/deliverables', icon: Image },
     ],
   },
   {

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   getPayments,
+  getPaymentsByClient,
   getFinanceSummary,
   getPayment,
   createPayment,
@@ -14,6 +15,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/finance-summary', getFinanceSummary);
+router.get('/by-client', getPaymentsByClient);
 router.get('/', getPayments);
 router.get('/:id', getPayment);
 router.post('/', createPayment);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Package as PackageIcon, Search, Edit2, Trash2, CheckCircle2, Clock, FileText, Sparkles, X, Share2, Copy, MessageCircle, Check, Send } from 'lucide-react';
-import { packageApi } from '../../services/api';
+import { packageApi, customerApi, projectApi, formatDate } from '../../services/api';
 import { formatCurrency } from '../../lib/utils';
 import Modal from '../../components/ui/Modal';
 import toast from 'react-hot-toast';
@@ -26,6 +26,13 @@ export default function PackagesPage({ defaultDomain }: { defaultDomain?: 'WEDDI
   const [sharingPackage, setSharingPackage] = useState<any>(null);
   const [shareClientName, setShareClientName] = useState('');
   const [shareClientPhone, setShareClientPhone] = useState('');
+  const [clients, setClients] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [shareNotes, setShareNotes] = useState('');
+  const [isSavingShare, setIsSavingShare] = useState(false);
+  const [existingShares, setExistingShares] = useState<any[]>([]);
   const [copied, setCopied] = useState(false);
 
   // Form State
@@ -164,6 +171,57 @@ export default function PackagesPage({ defaultDomain }: { defaultDomain?: 'WEDDI
     setCopied(true);
     toast.success('Package proposal copied to clipboard!');
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const openShareModal = async (pkg: any) => {
+    setSharingPackage(pkg);
+    setShareClientName('');
+    setShareClientPhone('');
+    setSelectedCustomerId('');
+    setSelectedProjectId('');
+    setShareNotes('');
+    setCopied(false);
+    setExistingShares([]);
+
+    try {
+      const [custRes, prjRes, sharesRes] = await Promise.all([
+        customerApi.getAll(),
+        projectApi.getAll({ type: pkg.domain }),
+        packageApi.getShares(pkg.id),
+      ]);
+      setClients(custRes.data.data || []);
+      setProjects(prjRes.data.data || []);
+      setExistingShares(sharesRes.data.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleSaveShare = async () => {
+    if (!selectedCustomerId) {
+      toast.error('Please select a client to share with');
+      return;
+    }
+    setIsSavingShare(true);
+    try {
+      await packageApi.share(sharingPackage.id, {
+        customerId: selectedCustomerId,
+        projectId: selectedProjectId || undefined,
+        notes: shareNotes || undefined,
+      });
+      toast.success('Package shared with client successfully!');
+      const sharesRes = await packageApi.getShares(sharingPackage.id);
+      setExistingShares(sharesRes.data.data || []);
+      const selectedClient = clients.find((c) => c.id === selectedCustomerId);
+      if (selectedClient) {
+        if (selectedClient.fullName) setShareClientName(selectedClient.fullName);
+        if (selectedClient.phone) setShareClientPhone(selectedClient.phone);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to share package');
+    } finally {
+      setIsSavingShare(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -346,17 +404,12 @@ export default function PackagesPage({ defaultDomain }: { defaultDomain?: 'WEDDI
               <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-xs">
                 <button
                   type="button"
-                  onClick={() => {
-                    setSharingPackage(pkg);
-                    setShareClientName('');
-                    setShareClientPhone('');
-                    setCopied(false);
-                  }}
+                  onClick={() => openShareModal(pkg)}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg border border-emerald-200/70 transition-all cursor-pointer shadow-xs"
                   title="Share package with client"
                 >
                   <Share2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Share Package</span>
+                  <span>Share with Client</span>
                 </button>
                 <div className="flex items-center gap-1">
                   <button
@@ -569,19 +622,120 @@ export default function PackagesPage({ defaultDomain }: { defaultDomain?: 'WEDDI
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* DB-Backed Share with Client Form */}
+            <div className="bg-gray-50/80 border border-gray-200 rounded-xl p-3.5 space-y-3">
+              <h5 className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Share2 className="w-3.5 h-3.5 text-[#C59B27]" />
+                Share with Client & Project (Save to CRM)
+              </h5>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Select Client *</label>
+                  <select
+                    value={selectedCustomerId}
+                    onChange={(e) => {
+                      const cId = e.target.value;
+                      setSelectedCustomerId(cId);
+                      const c = clients.find((item) => item.id === cId);
+                      if (c) {
+                        setShareClientName(c.fullName || '');
+                        setShareClientPhone(c.phone || '');
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+                  >
+                    <option value="">-- Choose Client --</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.fullName} {c.phone ? `(${c.phone})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Select Project (Optional)</label>
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+                  >
+                    <option value="">-- Direct Client / No Project --</option>
+                    {projects
+                      .filter((p) => !selectedCustomerId || p.customerId === selectedCustomerId)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Client Name (Optional)</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Notes / Terms (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Valid until next Sunday, includes 10% advance discount"
+                  value={shareNotes}
+                  onChange={(e) => setShareNotes(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+                />
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  disabled={!selectedCustomerId || isSavingShare}
+                  onClick={handleSaveShare}
+                  className="px-4 py-2 bg-[#C59B27] hover:bg-[#b58c1e] text-white text-xs font-semibold rounded-lg shadow-xs transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{isSavingShare ? 'Saving Relationship...' : 'Save & Share with Client'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Currently Shared Clients List */}
+            {existingShares.length > 0 && (
+              <div className="border border-gray-200 rounded-xl p-3 bg-white space-y-2">
+                <p className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Currently Shared With ({existingShares.length} Clients)
+                </p>
+                <div className="divide-y divide-gray-100 max-h-36 overflow-y-auto">
+                  {existingShares.map((sh) => (
+                    <div key={sh.id} className="py-2 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-semibold text-gray-900">{sh.customer?.fullName || 'Client'}</span>
+                        {sh.project?.name && (
+                          <span className="text-gray-500 ml-2 font-medium">({sh.project.name})</span>
+                        )}
+                        <span className="text-[10px] text-gray-400 ml-2">Shared on {formatDate(sh.sharedAt)}</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase">
+                        {sh.status || 'SHARED'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* WhatsApp / Quick Copy details */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-gray-100">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Recipient Name</label>
                 <input
                   type="text"
                   placeholder="e.g. Aditi & Rahul"
                   value={shareClientName}
                   onChange={(e) => setShareClientName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] focus:ring-1 focus:ring-[#C59B27]"
+                  className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">WhatsApp Number (Optional)</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">WhatsApp Number</label>
                 <div className="flex">
                   <span className="inline-flex items-center px-2.5 text-xs bg-gray-50 border border-r-0 border-gray-200 rounded-l-lg text-gray-500 font-medium">
                     +91
@@ -591,7 +745,7 @@ export default function PackagesPage({ defaultDomain }: { defaultDomain?: 'WEDDI
                     placeholder="10-digit phone"
                     value={shareClientPhone}
                     onChange={(e) => setShareClientPhone(e.target.value)}
-                    className="flex-1 px-3 py-2 text-xs bg-white border border-gray-200 rounded-r-lg outline-none focus:border-[#C59B27] focus:ring-1 focus:ring-[#C59B27]"
+                    className="flex-1 px-3 py-2 text-xs bg-white border border-gray-200 rounded-r-lg outline-none focus:border-[#C59B27]"
                   />
                 </div>
               </div>
@@ -609,7 +763,7 @@ export default function PackagesPage({ defaultDomain }: { defaultDomain?: 'WEDDI
                   <span>{copied ? 'Copied!' : 'Copy Preview'}</span>
                 </button>
               </div>
-              <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 whitespace-pre-line font-mono max-h-48 overflow-y-auto leading-relaxed custom-scrollbar">
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 whitespace-pre-line font-mono max-h-36 overflow-y-auto leading-relaxed custom-scrollbar">
                 {generateShareText(sharingPackage, shareClientName)}
               </div>
             </div>
