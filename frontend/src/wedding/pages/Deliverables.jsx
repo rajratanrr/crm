@@ -142,9 +142,11 @@ export default function Deliverables() {
   const openEditModal = (project, deliverable) => {
     setEditingDeliverable({ projectId: project.id, id: deliverable.id })
     const parsed = parseAssigned(deliverable.notes) || parseAssigned(deliverable.name)
+    const rawName = parsed ? parsed.cleanNotes : (deliverable.name || '')
+    const cleanDeliverableName = rawName.replace(/\[Assigned:[^\]]+\]\s*/i, '').trim()
     setForm({
       projectId: project.id,
-      name: parsed ? parsed.cleanNotes : deliverable.name || '',
+      name: cleanDeliverableName || deliverable.type || 'Deliverable',
       dueDate: deliverable.dueDate || '',
       status: deliverable.status || 'PENDING',
       type: deliverable.type || 'Included',
@@ -166,7 +168,7 @@ export default function Deliverables() {
     setSaving(true)
     setError('')
 
-    const cleanName = form.name.trim()
+    const cleanName = form.name.replace(/\[Assigned:[^\]]+\]\s*/i, '').trim()
     const assignedTag = form.assignedEmployee
       ? `[Assigned: ${form.assignedEmployee} | Role: ${form.assignedRole || 'Traditional Photo Editor'}] `
       : ''
@@ -356,7 +358,9 @@ export default function Deliverables() {
                               <div className="flex items-center gap-4 flex-1 min-w-0">
                                 <StatusIcon size={20} className={`shrink-0 ${(statusColors[d.status]?.split(' ')[1]) || 'text-gray-400'}`} />
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-medium text-gray-900 truncate">{d.name}</p>
+                                  <p className="font-medium text-gray-900 truncate">
+                                    {(d.name || d.type || 'Deliverable').replace(/\[Assigned:[^\]]+\]\s*/i, '').trim()}
+                                  </p>
                                   <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-500">
                                     <span className={`px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[d.status] || 'bg-gray-100 text-gray-700'}`}>
                                       {formatStatus(d.status)}

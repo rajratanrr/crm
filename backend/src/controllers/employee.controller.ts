@@ -13,28 +13,83 @@ export const getEmployees = asyncHandler(async (req: Request, res: Response) => 
     where.domain = domain.toUpperCase();
   }
 
-  const employees = await prisma.employee.findMany({
-    where,
-    orderBy: { name: 'asc' },
-    include: {
-      _count: { select: { assignments: true, tasks: true } },
-      assignments: {
-        include: {
-          event: {
-            select: {
-              id: true,
-              eventName: true,
-              startDate: true,
-              venue: true,
-              customer: { select: { id: true, fullName: true } },
-              project: { select: { id: true, name: true } },
+  const [employees, deliverables] = await Promise.all([
+    prisma.employee.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      include: {
+        _count: { select: { assignments: true, tasks: true } },
+        assignments: {
+          include: {
+            event: {
+              select: {
+                id: true,
+                eventName: true,
+                startDate: true,
+                venue: true,
+                customer: { select: { id: true, fullName: true } },
+                project: { select: { id: true, name: true } },
+              },
             },
           },
         },
       },
-    },
+    }),
+    prisma.deliverable.findMany({
+      where: {
+        notes: { contains: '[Assigned:' },
+      },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            customer: { select: { id: true, fullName: true } },
+          },
+        },
+        event: {
+          select: {
+            id: true,
+            eventName: true,
+            startDate: true,
+            customer: { select: { id: true, fullName: true } },
+          },
+        },
+      },
+      orderBy: { dueDate: 'asc' },
+    }),
+  ]);
+
+  const employeesWithDeliverables = employees.map((emp) => {
+    const empNameLower = emp.name.toLowerCase().trim();
+    const assignedDeliverables = deliverables
+      .filter((d) => {
+        if (!d.notes) return false;
+        const match = d.notes.match(/\[Assigned:\s*([^|\]]+)(?:\s*\|\s*Role:\s*([^\]]+))?\]/i);
+        return match && match[1].toLowerCase().trim() === empNameLower;
+      })
+      .map((d) => {
+        const match = d.notes?.match(/\[Assigned:\s*([^|\]]+)(?:\s*\|\s*Role:\s*([^\]]+))?\]/i);
+        const cleanTitle = match ? d.notes!.replace(match[0], '').trim() : (d.notes || d.type);
+        return {
+          id: d.id,
+          name: cleanTitle || d.type,
+          role: match ? match[2]?.trim() : 'Editor',
+          dueDate: d.dueDate,
+          status: d.status,
+          type: d.type,
+          projectName: d.project?.name || d.project?.customer?.fullName || 'Project',
+          projectId: d.projectId,
+        };
+      });
+
+    return {
+      ...emp,
+      deliverables: assignedDeliverables,
+    };
   });
-  res.json({ success: true, data: employees });
+
+  res.json({ success: true, data: employeesWithDeliverables });
 });
 
 export const getEmployee = asyncHandler(async (req: Request, res: Response) => {
@@ -46,7 +101,36 @@ export const getEmployee = asyncHandler(async (req: Request, res: Response) => {
     },
   });
   if (!employee) throw ApiError.notFound('Employee not found');
-  res.json({ success: true, data: employee });
+
+  const deliverables = await prisma.deliverable.findMany({
+    where: { notes: { contains: '[Assigned:' } },
+    include: {
+      project: { select: { id: true, name: true, customer: { select: { fullName: true } } } },
+    },
+  });
+  const empNameLower = employee.name.toLowerCase().trim();
+  const assignedDeliverables = deliverables
+    .filter((d) => {
+      if (!d.notes) return false;
+      const match = d.notes.match(/\[Assigned:\s*([^|\]]+)(?:\s*\|\s*Role:\s*([^\]]+))?\]/i);
+      return match && match[1].toLowerCase().trim() === empNameLower;
+    })
+    .map((d) => {
+      const match = d.notes?.match(/\[Assigned:\s*([^|\]]+)(?:\s*\|\s*Role:\s*([^\]]+))?\]/i);
+      const cleanTitle = match ? d.notes!.replace(match[0], '').trim() : (d.notes || d.type);
+      return {
+        id: d.id,
+        name: cleanTitle || d.type,
+        role: match ? match[2]?.trim() : 'Editor',
+        dueDate: d.dueDate,
+        status: d.status,
+        type: d.type,
+        projectName: d.project?.name || d.project?.customer?.fullName || 'Project',
+        projectId: d.projectId,
+      };
+    });
+
+  res.json({ success: true, data: { ...employee, deliverables: assignedDeliverables } });
 });
 
 const normalizeRole = (role?: string) => {

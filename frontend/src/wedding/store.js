@@ -48,10 +48,12 @@ const mapDbProjectToProject = (p, existing) => {
     ? p.deliverables.map((d) => {
         const rawNotes = d.notes || d.type || 'Deliverable';
         const match = typeof rawNotes === 'string' ? rawNotes.match(/\[Assigned:\s*([^|\]]+)(?:\s*\|\s*Role:\s*([^\]]+))?\]/i) : null;
-        const cleanName = match ? rawNotes.replace(match[0], '').trim() : rawNotes;
+        let cleanName = match ? rawNotes.replace(match[0], '').trim() : rawNotes;
+        cleanName = cleanName.replace(/\[Assigned:[^\]]+\]\s*/i, '').trim();
+        const rawNameClean = (d.name || cleanName).replace(/\[Assigned:[^\]]+\]\s*/i, '').trim();
         return {
           id: d.id,
-          name: cleanName || 'Deliverable',
+          name: rawNameClean || cleanName || 'Deliverable',
           status: d.status || 'PENDING',
           dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : '',
           type: d.type || '',

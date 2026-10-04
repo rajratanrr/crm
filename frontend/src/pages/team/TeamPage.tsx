@@ -395,12 +395,12 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
                   )}
                 </div>
 
-                {/* Assigned Work & Shoots */}
+                {/* Assigned Work & Shoots / Deliverables */}
                 <div className="mt-3 pt-3 border-t border-gray-100">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1.5 uppercase tracking-wider">
                       <Briefcase className="w-3.5 h-3.5 text-[#C59B27]" />
-                      Assigned Work ({e.assignments?.length || 0})
+                      Assigned Work ({(e.assignments?.length || 0) + (e.deliverables?.length || 0)})
                     </span>
                     <button
                       onClick={() => openAssignModal(e)}
@@ -410,9 +410,10 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
                     </button>
                   </div>
 
-                  {e.assignments && e.assignments.length > 0 ? (
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                      {e.assignments.map((asg: any) => {
+                  {((e.assignments && e.assignments.length > 0) || (e.deliverables && e.deliverables.length > 0)) ? (
+                    <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
+                      {/* Shoot Assignments */}
+                      {e.assignments?.map((asg: any) => {
                         const evt = asg.event;
                         const projName = evt?.project?.name || evt?.customer?.fullName || 'Project';
                         const shootName = evt?.eventName || 'Shoot';
@@ -422,8 +423,8 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
                             className="p-2 rounded-xl bg-amber-50/60 border border-amber-200/60 text-xs text-gray-800"
                           >
                             <div className="font-semibold text-gray-900 flex items-center justify-between">
-                              <span>
-                                {shootName} <span className="text-gray-400">→</span>{' '}
+                              <span className="truncate">
+                                📷 {shootName} <span className="text-gray-400">→</span>{' '}
                                 <span className="text-[#9A7318]">{projName}</span>
                               </span>
                             </div>
@@ -438,10 +439,36 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
                           </div>
                         );
                       })}
+
+                      {/* Deliverable / Editing Assignments */}
+                      {e.deliverables?.map((del: any) => (
+                        <div
+                          key={del.id}
+                          className="p-2 rounded-xl bg-indigo-50/60 border border-indigo-200/60 text-xs text-gray-800"
+                        >
+                          <div className="font-semibold text-gray-900 flex items-center justify-between">
+                            <span className="truncate">
+                              📦 {del.name} <span className="text-gray-400">→</span>{' '}
+                              <span className="text-indigo-700">{del.projectName}</span>
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-1">
+                            <span className="bg-white/80 border border-indigo-200 px-1.5 py-0.5 rounded text-indigo-700 font-medium">
+                              {del.role ? del.role.replace(/_/g, ' ') : 'Deliverable'}
+                            </span>
+                            {del.dueDate && (
+                              <span>📅 Due: {new Date(del.dueDate).toLocaleDateString('en-IN')}</span>
+                            )}
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-700 font-bold uppercase">
+                              {del.status?.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <p className="text-[11px] text-gray-400 italic bg-gray-50/70 p-2 rounded-lg border border-dashed border-gray-200">
-                      No shoots assigned currently. Click "+ Assign Work" to assign him to a shoot.
+                      No shoots or deliverables assigned currently. Click "+ Assign Work" to assign him to a shoot.
                     </p>
                   )}
                 </div>
