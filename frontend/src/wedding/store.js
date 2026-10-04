@@ -45,16 +45,22 @@ const mapDbProjectToProject = (p, existing) => {
   const amountPaid = paymentsList.reduce((sum, pay) => sum + Number(pay.amount || 0), 0) || Number(p.totalPaid || 0);
 
   const deliverables = (p.deliverables && p.deliverables.length > 0)
-    ? p.deliverables.map((d) => ({
-        id: d.id,
-        name: d.notes || d.type || 'Deliverable',
-        status: d.status || 'PENDING',
-        dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : '',
-        type: d.type || '',
-        deliveryLink: d.deliveryLink || '',
-        notes: d.notes || '',
-        dbDeliverable: d, // Keep reference to original DB record
-      }))
+    ? p.deliverables.map((d) => {
+        const rawNotes = d.notes || d.type || 'Deliverable';
+        const match = typeof rawNotes === 'string' ? rawNotes.match(/\[Assigned:\s*([^|\]]+)(?:\s*\|\s*Role:\s*([^\]]+))?\]/i) : null;
+        const cleanName = match ? rawNotes.replace(match[0], '').trim() : rawNotes;
+        return {
+          id: d.id,
+          name: cleanName || 'Deliverable',
+          status: d.status || 'PENDING',
+          dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : '',
+          type: d.type || '',
+          deliveryLink: d.deliveryLink || '',
+          notes: d.notes || '',
+          assigned: match ? { name: match[1].trim(), role: (match[2] || 'Traditional Photo Editor').trim() } : null,
+          dbDeliverable: d, // Keep reference to original DB record
+        };
+      })
     : (existing?.deliverables || []);
 
   const events = (p.events && p.events.length > 0)
@@ -574,7 +580,7 @@ export const useStore = create((set, get) => ({
         projectId: deliverable.projectId || undefined,
         domain: 'WEDDING',
         type: deliverable.dbType || 'EDITED_PHOTOS',
-        notes: deliverable.name?.trim() || deliverable.notes?.trim() || 'Deliverable',
+        notes: deliverable.notes?.trim() || deliverable.name?.trim() || 'Deliverable',
         status: deliverable.status || 'PENDING',
         dueDate: deliverable.dueDate || undefined,
         deliveryLink: deliverable.deliveryLink || undefined,
@@ -596,8 +602,8 @@ export const useStore = create((set, get) => ({
   updateDeliverable: async (id, patch) => {
     try {
       const payload = {};
-      if (patch.name !== undefined) payload.notes = patch.name;
       if (patch.notes !== undefined) payload.notes = patch.notes;
+      else if (patch.name !== undefined) payload.notes = patch.name;
       if (patch.status !== undefined) {
         // Map frontend statuses to valid backend DeliverableStatus enum
         const statusMap = {

@@ -41,11 +41,11 @@ export const DELIVERABLE_ROLES = [
 
 export const parseAssigned = (notesStr) => {
   if (!notesStr || typeof notesStr !== 'string') return null
-  const match = notesStr.match(/\[Assigned:\s*([^|]+)\s*\|\s*Role:\s*([^\]]+)\]/)
+  const match = notesStr.match(/\[Assigned:\s*([^|\]]+)(?:\s*\|\s*Role:\s*([^\]]+))?\]/i)
   if (match) {
     return {
       name: match[1].trim(),
-      role: match[2].trim(),
+      role: (match[2] || 'Traditional Photo Editor').trim(),
       cleanNotes: notesStr.replace(match[0], '').trim(),
     }
   }
@@ -66,7 +66,7 @@ const emptyForm = {
 const formatStatus = (status) => (status || '').replaceAll('_', ' ')
 
 export default function Deliverables() {
-  const { projects, addDeliverable, updateDeliverable, deleteDeliverable, importDeliverables, bundles = [], addBundle, updateBundle, deleteBundle } = useStore()
+  const { projects, addDeliverable, updateDeliverable, deleteDeliverable, importDeliverables, bundles = [], addBundle, updateBundle, deleteBundle, team = [] } = useStore()
   const addToast = useToastStore((state) => state.addToast)
   const [open, setOpen] = useState(false)
   const [editingDeliverable, setEditingDeliverable] = useState(null)
@@ -85,6 +85,15 @@ export default function Deliverables() {
       setEmployees(res?.data?.data || [])
     }).catch(() => {})
   }, [])
+
+  const allTeamMembers = Array.from(
+    new Map(
+      [
+        ...employees.map((e) => ({ id: e.id, name: e.name, role: e.role })),
+        ...team.map((t) => ({ id: t.id, name: t.name, role: t.role || t.type })),
+      ].filter((m) => m && m.name).map((m) => [m.name, m])
+    ).values()
+  )
 
   const weddingProjects = projects.filter((p) => p.projectType === 'WEDDING' || (!p.projectType && !p.name?.toLowerCase().includes('shoot')));
   const groupedByProject = weddingProjects.map((p) => ({ project: p, deliverables: p.deliverables || [] }))
@@ -132,16 +141,16 @@ export default function Deliverables() {
 
   const openEditModal = (project, deliverable) => {
     setEditingDeliverable({ projectId: project.id, id: deliverable.id })
-    const parsed = parseAssigned(deliverable.notes)
+    const parsed = parseAssigned(deliverable.notes) || parseAssigned(deliverable.name)
     setForm({
       projectId: project.id,
-      name: deliverable.name || (parsed ? parsed.cleanNotes : deliverable.notes) || '',
+      name: parsed ? parsed.cleanNotes : deliverable.name || '',
       dueDate: deliverable.dueDate || '',
       status: deliverable.status || 'PENDING',
       type: deliverable.type || 'Included',
       notes: parsed ? parsed.cleanNotes : (deliverable.notes || ''),
-      assignedEmployee: parsed?.name || '',
-      assignedRole: parsed?.role || 'Traditional Photo Editor',
+      assignedEmployee: parsed?.name || deliverable.assigned?.name || '',
+      assignedRole: parsed?.role || deliverable.assigned?.role || 'Traditional Photo Editor',
     })
     setError('')
     setOpen(true)
@@ -157,17 +166,17 @@ export default function Deliverables() {
     setSaving(true)
     setError('')
 
+    const cleanName = form.name.trim()
     const assignedTag = form.assignedEmployee
-      ? `[Assigned: ${form.assignedEmployee} | Role: ${form.assignedRole}] `
+      ? `[Assigned: ${form.assignedEmployee} | Role: ${form.assignedRole || 'Traditional Photo Editor'}] `
       : ''
-    const cleanNoteText = form.notes || form.name.trim()
-    const finalNotes = `${assignedTag}${cleanNoteText}`.trim()
+    const finalNotes = `${assignedTag}${cleanName}`.trim()
 
     try {
       if (editingDeliverable) {
         // UPDATE existing deliverable via backend API
         await updateDeliverable(editingDeliverable.id, {
-          name: form.name.trim(),
+          name: cleanName,
           notes: finalNotes,
           dueDate: form.dueDate || null,
           status: form.status,
@@ -178,7 +187,7 @@ export default function Deliverables() {
         // CREATE new deliverable via backend API
         await addDeliverable({
           projectId: form.projectId,
-          name: form.name.trim(),
+          name: cleanName,
           notes: finalNotes,
           dueDate: form.dueDate || undefined,
           status: form.status || 'PENDING',
@@ -356,22 +365,36 @@ export default function Deliverables() {
                                     {d.dueDate && <span className="whitespace-nowrap">Due: {new Date(d.dueDate).toLocaleDateString('en-IN')}</span>}
                                   </div>
                                   {(() => {
-                                    const assignedInfo = parseAssigned(d.notes);
-                                    const noteClean = assignedInfo ? assignedInfo.cleanNotes : d.notes;
+                                    const assignedInfo = parseAssigned(d.notes) || parseAssigned(d.name) || d.assigned;
+                                    const noteClean = parseAssigned(d.notes)?.cleanNotes || (d.notes && !d.notes.includes('[Assigned:') ? d.notes : '');
                                     return (
-                                      <>
-                                        {assignedInfo && (
-                                          <div className="flex items-center gap-1.5 mt-2 bg-indigo-50 border border-indigo-200/80 text-indigo-800 px-2.5 py-1 rounded-lg w-fit text-xs font-medium">
+                                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                                        {assignedInfo ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => openEditModal(group.project, d)}
+                                            className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 text-indigo-800 px-2.5 py-1 rounded-lg w-fit text-xs font-medium transition-colors cursor-pointer text-left"
+                                            title="Click to edit assignment"
+                                          >
                                             <User className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                                             <span className="font-semibold text-gray-900">{assignedInfo.name}</span>
                                             <span className="text-indigo-400">·</span>
-                                            <span className="text-indigo-700 font-medium">{assignedInfo.role}</span>
-                                          </div>
+                                            <span className="text-indigo-700 font-medium">{assignedInfo.role || 'Editor'}</span>
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => openEditModal(group.project, d)}
+                                            className="flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 border border-dashed border-brand-300 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
+                                            title="Assign team member"
+                                          >
+                                            <Plus size={12} /> Assign Person
+                                          </button>
                                         )}
                                         {noteClean && noteClean !== d.name && (
-                                          <p className="text-xs text-gray-500 mt-1 line-clamp-2 break-words">{noteClean}</p>
+                                          <span className="text-xs text-gray-500 line-clamp-1 break-words">{noteClean}</span>
                                         )}
-                                      </>
+                                      </div>
                                     );
                                   })()}
                                 </div>
@@ -501,7 +524,7 @@ export default function Deliverables() {
                         value={form.assignedEmployee}
                         onChange={(e) => {
                           const empName = e.target.value;
-                          const empObj = employees.find((em) => em.name === empName);
+                          const empObj = allTeamMembers.find((em) => em.name === empName);
                           setForm({
                             ...form,
                             assignedEmployee: empName,
@@ -509,9 +532,9 @@ export default function Deliverables() {
                           });
                         }}
                       >
-                        <option value="">— Select Employee —</option>
-                        {employees.map((emp) => (
-                          <option key={emp.id} value={emp.name}>
+                        <option value="">— Select Team Member / Editor —</option>
+                        {allTeamMembers.map((emp) => (
+                          <option key={emp.id || emp.name} value={emp.name}>
                             {emp.name} {emp.role ? `(${emp.role.replace(/_/g, ' ')})` : ''}
                           </option>
                         ))}
