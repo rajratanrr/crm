@@ -76,21 +76,13 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
   };
 
   const openCreateForCustomer = async (customerId: string, defaultProjectId?: string) => {
-    await openCreateModal();
-    setForm(prev => ({
-      ...prev,
-      customerId,
-      projectId: defaultProjectId || prev.projectId,
-    }));
-  };
-
-  const openCreateModal = async () => {
+    const targetDomain = domainFilter || (activeTab === 'FASHION' ? 'FASHION' : 'WEDDING');
     setEditingPayment(null);
     setForm({
-      customerId: '',
-      projectId: '',
+      customerId,
+      projectId: defaultProjectId || '',
       contractId: '',
-      domain: domainFilter || (activeTab === 'FASHION' ? 'FASHION' : 'WEDDING'),
+      domain: targetDomain,
       amount: '',
       paymentMethod: 'UPI',
       paymentStatus: 'ADVANCE',
@@ -101,28 +93,119 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
 
     try {
       const [cRes, prjRes, conRes] = await Promise.all([
-        customerApi.getAll(),
-        projectApi.getAll({ type: domainFilter || undefined }),
+        customerApi.getAll({ clientType: targetDomain, limit: 100 }),
+        projectApi.getAll({ type: targetDomain, limit: 100 }),
         contractApi.getAll(),
       ]);
-      setCustomers(cRes.data.data);
-      setProjects(prjRes.data.data);
-      setContracts(conRes.data.data);
-      if (cRes.data.data.length > 0) {
-        setForm((f) => ({ ...f, customerId: cRes.data.data[0].id }));
+      const custs = cRes.data.data || [];
+      const prjs = prjRes.data.data || [];
+      setCustomers(custs);
+      setProjects(prjs);
+      setContracts(conRes.data.data || []);
+
+      if (!defaultProjectId) {
+        const clientProjects = prjs.filter((p: any) => p.customerId === customerId);
+        if (clientProjects.length === 1) {
+          setForm((prev) => ({ ...prev, projectId: clientProjects[0].id }));
+        }
       }
     } catch {}
 
     setIsModalOpen(true);
   };
 
+  const openCreateModal = async () => {
+    setEditingPayment(null);
+    const targetDomain = domainFilter || (activeTab === 'FASHION' ? 'FASHION' : 'WEDDING');
+    setForm({
+      customerId: '',
+      projectId: '',
+      contractId: '',
+      domain: targetDomain,
+      amount: '',
+      paymentMethod: 'UPI',
+      paymentStatus: 'ADVANCE',
+      paymentDate: new Date().toISOString().split('T')[0],
+      transactionId: '',
+      notes: '',
+    });
+
+    try {
+      const [cRes, prjRes, conRes] = await Promise.all([
+        customerApi.getAll({ clientType: targetDomain, limit: 100 }),
+        projectApi.getAll({ type: targetDomain, limit: 100 }),
+        contractApi.getAll(),
+      ]);
+      const custs = cRes.data.data || [];
+      const prjs = prjRes.data.data || [];
+      setCustomers(custs);
+      setProjects(prjs);
+      setContracts(conRes.data.data || []);
+      if (custs.length > 0) {
+        const firstCust = custs[0];
+        const clientProjects = prjs.filter((p: any) => p.customerId === firstCust.id);
+        setForm((f) => ({
+          ...f,
+          customerId: firstCust.id,
+          projectId: clientProjects.length === 1 ? clientProjects[0].id : '',
+        }));
+      }
+    } catch {}
+
+    setIsModalOpen(true);
+  };
+
+  const handleDomainChange = async (newDomain: 'WEDDING' | 'FASHION') => {
+    try {
+      const [cRes, prjRes] = await Promise.all([
+        customerApi.getAll({ clientType: newDomain, limit: 100 }),
+        projectApi.getAll({ type: newDomain, limit: 100 }),
+      ]);
+      const custs = cRes.data.data || [];
+      const prjs = prjRes.data.data || [];
+      setCustomers(custs);
+      setProjects(prjs);
+      const firstCust = custs[0];
+      const clientProjects = firstCust ? prjs.filter((p: any) => p.customerId === firstCust.id) : [];
+      setForm((prev) => ({
+        ...prev,
+        domain: newDomain,
+        customerId: firstCust?.id || '',
+        projectId: clientProjects.length === 1 ? clientProjects[0].id : '',
+      }));
+    } catch {
+      setForm((prev) => ({ ...prev, domain: newDomain }));
+    }
+  };
+
+  const handleClientChange = (newCustomerId: string) => {
+    const clientProjects = projects.filter(
+      (p) => p.customerId === newCustomerId && (!form.domain || p.projectType === form.domain)
+    );
+    setForm((prev) => ({
+      ...prev,
+      customerId: newCustomerId,
+      projectId: clientProjects.length === 1 ? clientProjects[0].id : '',
+    }));
+  };
+
+  const handleProjectChange = (newProjectId: string) => {
+    const selectedPrj = projects.find((p) => p.id === newProjectId);
+    setForm((prev) => ({
+      ...prev,
+      projectId: newProjectId,
+      ...(selectedPrj?.customerId && { customerId: selectedPrj.customerId }),
+    }));
+  };
+
   const openEditModal = async (payment: any) => {
     setEditingPayment(payment);
+    const domain = payment.domain || domainFilter || 'WEDDING';
     setForm({
       customerId: payment.customerId,
       projectId: payment.projectId || '',
       contractId: payment.contractId || '',
-      domain: payment.domain,
+      domain,
       amount: String(payment.amount),
       paymentMethod: payment.paymentMethod,
       paymentStatus: payment.paymentStatus || 'ADVANCE',
@@ -133,13 +216,13 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
 
     try {
       const [cRes, prjRes, conRes] = await Promise.all([
-        customerApi.getAll(),
-        projectApi.getAll(),
+        customerApi.getAll({ clientType: domain, limit: 100 }),
+        projectApi.getAll({ type: domain, limit: 100 }),
         contractApi.getAll(),
       ]);
-      setCustomers(cRes.data.data);
-      setProjects(prjRes.data.data);
-      setContracts(conRes.data.data);
+      setCustomers(cRes.data.data || []);
+      setProjects(prjRes.data.data || []);
+      setContracts(conRes.data.data || []);
     } catch {}
 
     setIsModalOpen(true);
@@ -666,43 +749,88 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Business Domain *</label>
-              <select
-                value={form.domain}
-                onChange={(e) => setForm({ ...form, domain: e.target.value as any })}
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
-              >
-                <option value="WEDDING">Wedding Shoot</option>
-                <option value="FASHION">Studio Fashion</option>
-              </select>
+              {domainFilter ? (
+                <div className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-50 text-gray-700 font-medium flex items-center gap-1.5 cursor-not-allowed">
+                  {form.domain === 'FASHION' ? (
+                    <>
+                      <Shirt className="w-3.5 h-3.5 text-purple-600" />
+                      <span>Studio Fashion</span>
+                    </>
+                  ) : (
+                    <>
+                      <Heart className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Wedding Shoot</span>
+                    </>
+                  )}
+                  <span className="text-[10px] text-gray-400 font-normal ml-auto">(Fixed)</span>
+                </div>
+              ) : (
+                <select
+                  value={form.domain}
+                  onChange={(e) => handleDomainChange(e.target.value as any)}
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
+                >
+                  <option value="WEDDING">Wedding Shoot</option>
+                  <option value="FASHION">Studio Fashion</option>
+                </select>
+              )}
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Client *</label>
-              <select
-                required
-                value={form.customerId}
-                onChange={(e) => setForm({ ...form, customerId: e.target.value })}
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
-              >
-                <option value="">-- Select Client --</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.fullName} ({c.phone || c.clientType})
-                  </option>
-                ))}
-              </select>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Client {editingPayment ? <span className="text-gray-400 font-normal">(Fixed)</span> : '*'}
+              </label>
+              {editingPayment ? (
+                <div className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-gray-100 text-gray-800 font-semibold flex items-center justify-between cursor-not-allowed">
+                  <span>
+                    {customers.find((c) => c.id === form.customerId)?.fullName ||
+                      editingPayment?.customer?.fullName ||
+                      'Selected Client'}
+                    {(customers.find((c) => c.id === form.customerId)?.phone ||
+                      editingPayment?.customer?.phone) && (
+                      <span className="text-gray-500 font-normal ml-1">
+                        (
+                        {customers.find((c) => c.id === form.customerId)?.phone ||
+                          editingPayment?.customer?.phone}
+                        )
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[10px] uppercase font-bold text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded">
+                    Locked
+                  </span>
+                </div>
+              ) : (
+                <select
+                  required
+                  value={form.customerId}
+                  onChange={(e) => handleClientChange(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
+                >
+                  <option value="">-- Select Client --</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.fullName} {c.phone ? `(${c.phone})` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Associated Project</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Associated Project / Shoot</label>
               <select
                 value={form.projectId}
-                onChange={(e) => setForm({ ...form, projectId: e.target.value })}
+                onChange={(e) => handleProjectChange(e.target.value)}
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
               >
                 <option value="">-- Direct Payment / No Project --</option>
                 {projects
-                  .filter((p) => p.projectType === form.domain)
+                  .filter(
+                    (p) =>
+                      (!form.domain || p.projectType === form.domain) &&
+                      (!form.customerId || p.customerId === form.customerId)
+                  )
                   .map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name} ({formatCurrency(p.budget)})

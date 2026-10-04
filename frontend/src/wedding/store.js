@@ -66,6 +66,13 @@ const mapDbProjectToProject = (p, existing) => {
         endTime: e.endDate ? String(e.endDate).slice(11, 16) : '18:00',
         venue: e.venue || '',
         team: (e.assignments || []).map((a) => a.employee?.name || a.employeeId),
+        assignments: (e.assignments || []).map((a) => ({
+          id: a.id,
+          employeeId: a.employeeId,
+          employeeName: a.employee?.name || a.employeeId,
+          role: a.role,
+        })),
+        rawEvent: e,
       }))
     : (existing?.events || []);
 
@@ -804,6 +811,28 @@ export const useStore = create((set, get) => ({
       await employeeApi.delete(id);
     } catch (err) {
       console.error('Failed to delete employee in DB:', err?.response?.data || err);
+    }
+  },
+
+  assignTeamMember: async (eventId, employeeId, role = 'PHOTOGRAPHER') => {
+    try {
+      await eventApi.addAssignment(eventId, { employeeId, role });
+      await get().fetchFromDb();
+      return true;
+    } catch (err) {
+      console.error('Failed to assign team member:', err?.response?.data || err);
+      throw err;
+    }
+  },
+
+  removeTeamAssignment: async (eventId, assignmentId) => {
+    try {
+      await eventApi.removeAssignment(eventId, assignmentId);
+      await get().fetchFromDb();
+      return true;
+    } catch (err) {
+      console.error('Failed to remove team assignment:', err?.response?.data || err);
+      throw err;
     }
   },
 }));
