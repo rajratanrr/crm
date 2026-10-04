@@ -650,10 +650,9 @@ export default function FashionProjectsPage() {
   const gstAmount = Math.round(budgetBaseForGst * gstRate);
   const budgetWithGst = budgetBaseForGst + gstAmount;
 
+  // contractAmount is returned by backend as Math.max(budget, baseBudget+modelCost)
   const effectiveTarget = selectedProject
-    ? Number(selectedProject.budget) > 0
-      ? Number(selectedProject.budget)
-      : ((Number(selectedProject.baseBudget) || Number(selectedProject.studioAmount) || 0) + (Number(selectedProject.totalModelCost) || 0))
+    ? (Number(selectedProject.contractAmount) || Number(selectedProject.budget) || ((Number(selectedProject.baseBudget) || Number(selectedProject.studioAmount) || 0) + (Number(selectedProject.totalModelCost) || 0)))
     : 0;
 
   const effectivePending = selectedProject
@@ -710,9 +709,8 @@ export default function FashionProjectsPage() {
             <div className="divide-y divide-gray-50">
               {projects.map((p) => {
                 const paid = Number(p.totalPaid) || 0;
-                const effectiveBgt = Number(p.budget) > 0 
-                  ? Number(p.budget) 
-                  : (Number(p.totalBudget) || ((Number(p.baseBudget) || Number(p.studioAmount) || 0) + (Number(p.totalModelCost) || 0)));
+                // Use contractAmount (backend-computed Math.max) for accurate pending
+                const effectiveBgt = Number(p.contractAmount) || Number(p.budget) || (Number(p.totalBudget) || ((Number(p.baseBudget) || Number(p.studioAmount) || 0) + (Number(p.totalModelCost) || 0)));
                 const pending = Math.max(0, effectiveBgt - paid);
                 const pct = effectiveBgt > 0 ? Math.min(100, Math.round((paid / effectiveBgt) * 100)) : 0;
                 const isSelected = selectedProject?.id === p.id;

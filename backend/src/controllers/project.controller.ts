@@ -60,8 +60,8 @@ export const getProjects = asyncHandler(async (req: Request, res: Response) => {
     const baseBudgetNum = Number(p.baseBudget) || Number(p.studioAmount) || 0;
     const totalModelCost = p.modelAssignments.reduce((s, ma) => s + Number(ma.modelRate), 0);
     const totalBudget = baseBudgetNum + totalModelCost;
-    // Effective billable/contract amount: if contractAmount > 0 use it, otherwise fall back to totalBudget (Base + Models)
-    const effectiveAmount = contractAmount > 0 ? contractAmount : totalBudget;
+    // Effective billable/contract amount: must include models (Base + Models) unless contractAmount is higher
+    const effectiveAmount = Math.max(contractAmount, totalBudget);
     const pendingAmount = Math.max(0, effectiveAmount - totalReceived);
     return {
       ...p,
@@ -110,7 +110,7 @@ export const getProject = asyncHandler(async (req: Request, res: Response) => {
   const baseBudgetNum = Number(project.baseBudget) || Number(project.studioAmount) || 0;
   const totalModelCost = (project.modelAssignments as any[]).reduce((s, ma) => s + Number(ma.modelRate), 0);
   const totalBudget = baseBudgetNum + totalModelCost;
-  const effectiveAmount = contractAmount > 0 ? contractAmount : totalBudget;
+  const effectiveAmount = Math.max(contractAmount, totalBudget);
   const pendingAmount = Math.max(0, effectiveAmount - totalReceived);
 
   res.json({
@@ -150,7 +150,7 @@ export const getProjectFinancialSummary = asyncHandler(async (req: Request, res:
   const baseBudgetNum = Number(project.baseBudget) || Number(project.studioAmount) || 0;
   const totalModelCost = project.modelAssignments.reduce((s, ma) => s + Number(ma.modelRate), 0);
   const totalBudget = baseBudgetNum + totalModelCost;
-  const effectiveAmount = contractAmount > 0 ? contractAmount : totalBudget;
+  const effectiveAmount = Math.max(contractAmount, totalBudget);
   const pendingAmount = Math.max(0, effectiveAmount - totalReceived);
 
   res.json({
