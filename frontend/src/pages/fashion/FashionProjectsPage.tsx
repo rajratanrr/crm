@@ -1593,19 +1593,19 @@ export default function FashionProjectsPage() {
 
             {/* Qty / Looks Count */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Qty / Looks Count <span className="text-gray-400 font-normal">— dresses</span>
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1">
+                <Shirt className="w-3.5 h-3.5 text-gray-500" />
+                <span>Qty / Looks Count</span>
+                <span className="text-gray-400 font-normal">— dresses</span>
               </label>
-              <div className="relative">
-                <Shirt className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <input
-                  type="number" min={0}
-                  value={projectForm.quantity}
-                  onChange={(e) => setProjectForm({ ...projectForm, quantity: e.target.value })}
-                  placeholder="e.g. 20"
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-                />
-              </div>
+              <input
+                type="number"
+                min={0}
+                value={projectForm.quantity}
+                onChange={(e) => setProjectForm({ ...projectForm, quantity: e.target.value })}
+                placeholder="e.g. 20"
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
             </div>
 
             {/* Status */}
@@ -1614,7 +1614,7 @@ export default function FashionProjectsPage() {
               <select
                 value={projectForm.status}
                 onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] cursor-pointer"
               >
                 {PROJECT_STATUS.map((s) => (
                   <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
@@ -1624,64 +1624,65 @@ export default function FashionProjectsPage() {
 
             {/* Shoot Date + Studio Bay/Location — same row */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Shoot Date</label>
-              <div className="relative">
-                <Calendar className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <input
-                  type="date"
-                  value={projectForm.shootDate}
-                  onChange={(e) => setProjectForm({ ...projectForm, shootDate: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-                />
-              </div>
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1">
+                <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                <span>Shoot Date</span>
+              </label>
+              <input
+                type="date"
+                value={projectForm.shootDate}
+                onChange={(e) => setProjectForm({ ...projectForm, shootDate: e.target.value })}
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Studio Bay / Location</label>
-              <div className="relative">
-                <MapPin className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
-                <select
-                  value={projectForm.studioLocation}
-                  onChange={(e) => setProjectForm({ ...projectForm, studioLocation: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]"
-                >
-                  <option value="">— Select Location —</option>
-                  {STUDIO_LOCATIONS.map((l) => (
-                    <option key={l} value={l}>{l}</option>
-                  ))}
-                </select>
-              </div>
+              <label className="flex items-center gap-1.5 text-xs font-medium text-gray-700 mb-1">
+                <MapPin className="w-3.5 h-3.5 text-[#C59B27]" />
+                <span>Studio Bay / Location</span>
+              </label>
+              <select
+                value={projectForm.studioLocation}
+                onChange={(e) => setProjectForm({ ...projectForm, studioLocation: e.target.value })}
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27] cursor-pointer"
+              >
+                <option value="">— Select Location —</option>
+                {STUDIO_LOCATIONS.map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+                {projectForm.studioLocation && !STUDIO_LOCATIONS.includes(projectForm.studioLocation) && (
+                  <option value={projectForm.studioLocation}>{projectForm.studioLocation}</option>
+                )}
+              </select>
             </div>
 
             {/* Cloth In & Out Dates — same row */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Cloth In Date <span className="text-gray-400 font-normal">— samples arrival</span>
+              <label className="flex items-center gap-1.5 text-xs font-medium text-indigo-900 mb-1">
+                <Clock className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Cloth In Date</span>
+                <span className="text-gray-400 font-normal">— arrival</span>
               </label>
-              <div className="relative">
-                <Clock className="w-4 h-4 text-indigo-500 absolute left-3 top-2.5" />
-                <input
-                  type="date"
-                  value={projectForm.clothInDate}
-                  onChange={(e) => setProjectForm({ ...projectForm, clothInDate: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-indigo-200 bg-indigo-50/20 rounded-lg outline-none focus:border-indigo-400"
-                />
-              </div>
+              <input
+                type="date"
+                value={projectForm.clothInDate}
+                onChange={(e) => setProjectForm({ ...projectForm, clothInDate: e.target.value })}
+                className="w-full px-3 py-2 text-xs border border-indigo-200 bg-indigo-50/20 rounded-lg outline-none focus:border-indigo-400"
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Cloth Out Date <span className="text-gray-400 font-normal">— returned/dispatched</span>
+              <label className="flex items-center gap-1.5 text-xs font-medium text-emerald-900 mb-1">
+                <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Cloth Out Date</span>
+                <span className="text-gray-400 font-normal">— dispatched</span>
               </label>
-              <div className="relative">
-                <Clock className="w-4 h-4 text-emerald-500 absolute left-3 top-2.5" />
-                <input
-                  type="date"
-                  value={projectForm.clothOutDate}
-                  onChange={(e) => setProjectForm({ ...projectForm, clothOutDate: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-emerald-200 bg-emerald-50/20 rounded-lg outline-none focus:border-emerald-400"
-                />
-              </div>
+              <input
+                type="date"
+                value={projectForm.clothOutDate}
+                onChange={(e) => setProjectForm({ ...projectForm, clothOutDate: e.target.value })}
+                className="w-full px-3 py-2 text-xs border border-emerald-200 bg-emerald-50/20 rounded-lg outline-none focus:border-emerald-400"
+              />
             </div>
 
             {/* Shoot / Contract Amount (client-facing billable amount) */}
