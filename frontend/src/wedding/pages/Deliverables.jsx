@@ -39,14 +39,30 @@ export const DELIVERABLE_ROLES = [
   'Colorist',
 ]
 
+export const parseAllAssigned = (notesStr) => {
+  if (!notesStr || typeof notesStr !== 'string') return { members: [], cleanNotes: notesStr || '' }
+  const regex = /\[Assigned:\s*([^|\]]+)(?:\s*\|\s*Role:\s*([^\]]+))?\]/gi
+  const members = []
+  let match
+  while ((match = regex.exec(notesStr)) !== null) {
+    const name = match[1].trim()
+    const role = (match[2] || 'Traditional Photo Editor').trim()
+    if (name && !members.some((m) => m.name.toLowerCase() === name.toLowerCase())) {
+      members.push({ name, role })
+    }
+  }
+  const cleanNotes = notesStr.replace(regex, '').trim()
+  return { members, cleanNotes }
+}
+
 export const parseAssigned = (notesStr) => {
-  if (!notesStr || typeof notesStr !== 'string') return null
-  const match = notesStr.match(/\[Assigned:\s*([^|\]]+)(?:\s*\|\s*Role:\s*([^\]]+))?\]/i)
-  if (match) {
+  const { members, cleanNotes } = parseAllAssigned(notesStr)
+  if (members.length > 0) {
     return {
-      name: match[1].trim(),
-      role: (match[2] || 'Traditional Photo Editor').trim(),
-      cleanNotes: notesStr.replace(match[0], '').trim(),
+      name: members[0].name,
+      role: members[0].role,
+      members,
+      cleanNotes,
     }
   }
   return null
@@ -59,8 +75,7 @@ const emptyForm = {
   status: 'PENDING',
   type: 'Included',
   notes: '',
-  assignedEmployee: '',
-  assignedRole: 'Traditional Photo Editor',
+  assignedMembers: [],
 }
 
 const formatStatus = (status) => (status || '').replaceAll('_', ' ')
@@ -141,18 +156,19 @@ export default function Deliverables() {
 
   const openEditModal = (project, deliverable) => {
     setEditingDeliverable({ projectId: project.id, id: deliverable.id })
-    const parsed = parseAssigned(deliverable.notes) || parseAssigned(deliverable.name)
-    const rawName = parsed ? parsed.cleanNotes : (deliverable.name || '')
-    const cleanDeliverableName = rawName.replace(/\[Assigned:[^\]]+\]\s*/i, '').trim()
+    const { members, cleanNotes } = parseAllAssigned(deliverable.notes || deliverable.name || '')
+    const fallbackMembers = members.length > 0
+      ? members
+      : (deliverable.assigned ? [deliverable.assigned] : (deliverable.assignedMembers || []))
+    const cleanDeliverableName = cleanNotes.replace(/\[Assigned:[^\]]+\]\s*/i, '').trim()
     setForm({
       projectId: project.id,
-      name: cleanDeliverableName || deliverable.type || 'Deliverable',
+      name: cleanDeliverableName || (deliverable.name ? deliverable.name.replace(/\[Assigned:[^\]]+\]\s*/i, '').trim() : '') || deliverable.type || 'Deliverable',
       dueDate: deliverable.dueDate || '',
       status: deliverable.status || 'PENDING',
       type: deliverable.type || 'Included',
-      notes: parsed ? parsed.cleanNotes : (deliverable.notes || ''),
-      assignedEmployee: parsed?.name || deliverable.assigned?.name || '',
-      assignedRole: parsed?.role || deliverable.assigned?.role || 'Traditional Photo Editor',
+      notes: cleanNotes,
+      assignedMembers: fallbackMembers,
     })
     setError('')
     setOpen(true)
@@ -169,10 +185,12 @@ export default function Deliverables() {
     setError('')
 
     const cleanName = form.name.replace(/\[Assigned:[^\]]+\]\s*/i, '').trim()
-    const assignedTag = form.assignedEmployee
-      ? `[Assigned: ${form.assignedEmployee} | Role: ${form.assignedRole || 'Traditional Photo Editor'}] `
-      : ''
-    const finalNotes = `${assignedTag}${cleanName}`.trim()
+    const assignedTags = (form.assignedMembers || [])
+      .filter((m) => m && m.name)
+      .map((m) => `[Assigned: ${m.name} | Role: ${m.role || 'Traditional Photo Editor'}]`)
+      .join(' ')
+    const prefix = assignedTags ? `${assignedTags} ` : ''
+    const finalNotes = `${prefix}${cleanName}`.trim()
 
     try {
       if (editingDeliverable) {
@@ -369,34 +387,38 @@ export default function Deliverables() {
                                     {d.dueDate && <span className="whitespace-nowrap">Due: {new Date(d.dueDate).toLocaleDateString('en-IN')}</span>}
                                   </div>
                                   {(() => {
-                                    const assignedInfo = parseAssigned(d.notes) || parseAssigned(d.name) || d.assigned;
-                                    const noteClean = parseAssigned(d.notes)?.cleanNotes || (d.notes && !d.notes.includes('[Assigned:') ? d.notes : '');
+                                    const { members } = parseAllAssigned(d.notes || d.name || '')
+                                    const assignedList = members.length > 0 ? members : (d.assigned ? [d.assigned] : (d.assignedMembers || []))
+                                    const noteClean = parseAllAssigned(d.notes)?.cleanNotes || (d.notes && !d.notes.includes('[Assigned:') ? d.notes : '')
                                     return (
-                                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                                        {assignedInfo ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => openEditModal(group.project, d)}
-                                            className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 text-indigo-800 px-2.5 py-1 rounded-lg w-fit text-xs font-medium transition-colors cursor-pointer text-left"
-                                            title="Click to edit assignment"
-                                          >
-                                            <User className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                                            <span className="font-semibold text-gray-900">{assignedInfo.name}</span>
-                                            <span className="text-indigo-400">·</span>
-                                            <span className="text-indigo-700 font-medium">{assignedInfo.role || 'Editor'}</span>
-                                          </button>
+                                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                        {assignedList.length > 0 ? (
+                                          assignedList.map((m, idx) => (
+                                            <button
+                                              key={idx}
+                                              type="button"
+                                              onClick={() => openEditModal(group.project, d)}
+                                              className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 text-indigo-800 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer text-left"
+                                              title="Click to edit assignment"
+                                            >
+                                              <User className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                              <span className="font-semibold text-gray-900">{m.name}</span>
+                                              <span className="text-indigo-400">·</span>
+                                              <span className="text-indigo-700 font-medium">{m.role || 'Editor'}</span>
+                                            </button>
+                                          ))
                                         ) : (
                                           <button
                                             type="button"
                                             onClick={() => openEditModal(group.project, d)}
                                             className="flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 border border-dashed border-brand-300 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
-                                            title="Assign team member"
+                                            title="Assign team member(s)"
                                           >
-                                            <Plus size={12} /> Assign Person
+                                            <Plus size={12} /> Assign Person(s)
                                           </button>
                                         )}
                                         {noteClean && noteClean !== d.name && (
-                                          <span className="text-xs text-gray-500 line-clamp-1 break-words">{noteClean}</span>
+                                          <span className="text-xs text-gray-500 line-clamp-1 break-words ml-1">{noteClean}</span>
                                         )}
                                       </div>
                                     );
@@ -511,55 +533,111 @@ export default function Deliverables() {
                   </div>
                 </div>
 
-                {/* Assigned Employee & Role */}
-                <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3.5 space-y-2.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
-                    <User size={14} className="text-indigo-600" />
-                    <span>Assign Team Member to Deliverable</span>
+                {/* Assigned Team Members & Roles (Multi-Select) */}
+                <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
+                      <User size={14} className="text-indigo-600" />
+                      <span>Assign Team Members ({form.assignedMembers?.length || 0})</span>
+                    </div>
+                    {form.assignedMembers?.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, assignedMembers: [] })}
+                        className="text-[11px] text-rose-600 hover:underline font-semibold"
+                      >
+                        Clear all
+                      </button>
+                    )}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[11px] font-semibold text-gray-700 block mb-1">
-                        Employee Name
-                      </label>
-                      <select
-                        className="input text-xs"
-                        value={form.assignedEmployee}
-                        onChange={(e) => {
-                          const empName = e.target.value;
-                          const empObj = allTeamMembers.find((em) => em.name === empName);
+                  {/* Add Member Dropdown */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-700 block mb-1">
+                      + Add Staff / Editor to this Deliverable
+                    </label>
+                    <select
+                      className="input text-xs"
+                      value=""
+                      onChange={(e) => {
+                        const empName = e.target.value;
+                        if (!empName) return;
+                        const empObj = allTeamMembers.find((em) => em.name === empName);
+                        const alreadyAdded = (form.assignedMembers || []).some(
+                          (m) => m.name.toLowerCase() === empName.toLowerCase()
+                        );
+                        if (!alreadyAdded) {
+                          const newMember = {
+                            name: empName,
+                            role: empObj?.role ? empObj.role.replace(/_/g, ' ') : 'Traditional Photo Editor',
+                          };
                           setForm({
                             ...form,
-                            assignedEmployee: empName,
-                            ...(empObj?.role && { assignedRole: empObj.role.replace(/_/g, ' ') }),
+                            assignedMembers: [...(form.assignedMembers || []), newMember],
                           });
-                        }}
-                      >
-                        <option value="">— Select Team Member / Editor —</option>
-                        {allTeamMembers.map((emp) => (
-                          <option key={emp.id || emp.name} value={emp.name}>
-                            {emp.name} {emp.role ? `(${emp.role.replace(/_/g, ' ')})` : ''}
+                        }
+                      }}
+                    >
+                      <option value="">— Select to Add Team Member / Editor —</option>
+                      {allTeamMembers.map((emp) => {
+                        const isAdded = (form.assignedMembers || []).some(
+                          (m) => m.name.toLowerCase() === emp.name.toLowerCase()
+                        );
+                        return (
+                          <option key={emp.id || emp.name} value={emp.name} disabled={isAdded}>
+                            {isAdded ? `✓ ${emp.name} (Added)` : `${emp.name} ${emp.role ? `(${emp.role.replace(/_/g, ' ')})` : ''}`}
                           </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-semibold text-gray-700 block mb-1">
-                        His Work / Role
-                      </label>
-                      <select
-                        className="input text-xs"
-                        value={form.assignedRole}
-                        onChange={(e) => setForm({ ...form, assignedRole: e.target.value })}
-                      >
-                        {DELIVERABLE_ROLES.map((r) => (
-                          <option key={r} value={r}>{r}</option>
-                        ))}
-                      </select>
-                    </div>
+                        );
+                      })}
+                    </select>
                   </div>
+
+                  {/* List of currently assigned members */}
+                  {form.assignedMembers && form.assignedMembers.length > 0 ? (
+                    <div className="space-y-2 pt-1">
+                      {form.assignedMembers.map((member, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2 p-2 bg-white rounded-lg border border-indigo-200/70 shadow-xs"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0">
+                            {member.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-semibold text-gray-900 text-xs truncate min-w-24">
+                            {member.name}
+                          </span>
+                          <select
+                            className="input text-xs py-1 px-2 flex-1"
+                            value={member.role || 'Traditional Photo Editor'}
+                            onChange={(e) => {
+                              const updated = [...form.assignedMembers];
+                              updated[idx] = { ...updated[idx], role: e.target.value };
+                              setForm({ ...form, assignedMembers: updated });
+                            }}
+                          >
+                            {DELIVERABLE_ROLES.map((r) => (
+                              <option key={r} value={r}>{r}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = form.assignedMembers.filter((_, i) => i !== idx);
+                              setForm({ ...form, assignedMembers: updated });
+                            }}
+                            className="p-1 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                            title="Remove assignment"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-indigo-600/70 italic bg-white/70 p-2 rounded-lg border border-dashed border-indigo-200">
+                      No team members assigned yet. Select one or more members above.
+                    </p>
+                  )}
                 </div>
 
                 <div>
