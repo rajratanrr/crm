@@ -358,8 +358,21 @@ export default function FashionBookingsPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Rental Cost (₹)</label>
-              <input type="number" value={form.cost} onChange={(e) => setForm({ ...form, cost: e.target.value })}
-                placeholder="35000" className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]" />
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={form.cost}
+                onKeyDown={(e) => {
+                  if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                }}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d*\.?\d*$/.test(val)) setForm({ ...form, cost: val });
+                }}
+                placeholder="35000"
+                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Booking Status</label>

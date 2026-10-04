@@ -467,9 +467,13 @@ export default function InvoicesPage() {
               <input
                 type="number"
                 min={0}
+                step="any"
                 required
-                value={form.subtotal}
-                onChange={(e) => setForm({ ...form, subtotal: +e.target.value })}
+                value={form.subtotal || ''}
+                onKeyDown={(e) => {
+                  if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                }}
+                onChange={(e) => setForm({ ...form, subtotal: Math.max(0, Number(e.target.value) || 0) })}
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
               />
             </div>
@@ -478,8 +482,12 @@ export default function InvoicesPage() {
               <input
                 type="number"
                 min={0}
-                value={form.discount}
-                onChange={(e) => setForm({ ...form, discount: +e.target.value })}
+                step="any"
+                value={form.discount || ''}
+                onKeyDown={(e) => {
+                  if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                }}
+                onChange={(e) => setForm({ ...form, discount: Math.max(0, Number(e.target.value) || 0) })}
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
               />
             </div>
@@ -488,8 +496,12 @@ export default function InvoicesPage() {
               <input
                 type="number"
                 min={0}
-                value={form.tax}
-                onChange={(e) => setForm({ ...form, tax: +e.target.value })}
+                step="any"
+                value={form.tax || ''}
+                onKeyDown={(e) => {
+                  if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                }}
+                onChange={(e) => setForm({ ...form, tax: Math.max(0, Number(e.target.value) || 0) })}
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
               />
             </div>

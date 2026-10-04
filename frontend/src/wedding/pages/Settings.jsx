@@ -179,8 +179,12 @@ export default function Settings() {
                   <label className={`block text-sm font-semibold mb-2 ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Phone</label>
                   <input
                     type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
+                    placeholder="10-digit phone"
                     value={studioForm.phone}
-                    onChange={(e) => setStudioForm({ ...studioForm, phone: e.target.value })}
+                    onChange={(e) => setStudioForm({ ...studioForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                     className={`w-full px-4 py-2 rounded-lg border transition-all ${
                       theme === 'dark'
                         ? 'bg-gray-800 border-gray-700 text-white focus:border-brand-500'

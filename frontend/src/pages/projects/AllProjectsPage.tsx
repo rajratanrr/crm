@@ -662,8 +662,16 @@ export default function AllProjectsPage({ defaultType }: { defaultType?: 'WEDDIN
               <label className="block text-xs font-medium text-gray-700 mb-1">Total Budget (₹)</label>
               <input
                 type="number"
+                min="0"
+                step="any"
                 value={budget}
-                onChange={(e) => setBudget(e.target.value)}
+                onKeyDown={(e) => {
+                  if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                }}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d*\.?\d*$/.test(val)) setBudget(val);
+                }}
                 placeholder="250000"
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg bg-white"
               />
@@ -751,7 +759,15 @@ export default function AllProjectsPage({ defaultType }: { defaultType?: 'WEDDIN
                   step="any"
                   placeholder="Enter amount received"
                   value={paymentForm.amount}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                      setPaymentForm({ ...paymentForm, amount: val });
+                    }
+                  }}
                   className="w-full pl-9 pr-3 py-2 text-sm font-bold text-gray-900 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-[#C59B27]"
                 />
               </div>

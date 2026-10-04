@@ -126,14 +126,20 @@ export const getCustomer = asyncHandler(async (req: Request, res: Response) => {
 
 function cleanCustomerData(rest: any) {
   const data = { ...rest };
+  if (data.phone) {
+    data.phone = String(data.phone).replace(/\D/g, '').slice(-10);
+  }
+  if (data.alternatePhone) {
+    data.alternatePhone = String(data.alternatePhone).replace(/\D/g, '').slice(-10) || null;
+  }
   if (data.garmentCount !== undefined) {
-    data.garmentCount = data.garmentCount !== '' && data.garmentCount !== null ? parseInt(String(data.garmentCount), 10) || 0 : null;
+    data.garmentCount = data.garmentCount !== '' && data.garmentCount !== null ? Math.max(0, parseInt(String(data.garmentCount), 10) || 0) : null;
   }
   if (data.projectAmount !== undefined) {
-    data.projectAmount = data.projectAmount !== '' && data.projectAmount !== null ? Number(data.projectAmount) || 0 : null;
+    data.projectAmount = data.projectAmount !== '' && data.projectAmount !== null ? Math.max(0, Number(data.projectAmount) || 0) : null;
   }
   if (data.studioAmount !== undefined) {
-    data.studioAmount = data.studioAmount !== '' && data.studioAmount !== null ? Number(data.studioAmount) || 0 : null;
+    data.studioAmount = data.studioAmount !== '' && data.studioAmount !== null ? Math.max(0, Number(data.studioAmount) || 0) : null;
   }
   if (data.shootDate !== undefined) {
     data.shootDate = data.shootDate ? new Date(data.shootDate) : null;

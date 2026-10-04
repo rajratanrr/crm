@@ -44,7 +44,12 @@ export default function Leads() {
   const openEdit = (lead) => {
     const standardSources = ['Instagram', 'Meta', 'Website', 'Referral', 'Wedding Wire', 'Walk-in', 'Custom']
     setEditing(lead)
-    setForm({ ...lead, source: standardSources.includes(lead.source) ? lead.source : 'Custom', budget: lead.budget || '' })
+    setForm({
+      ...lead,
+      phone: (lead.phone || '').replace(/\D/g, '').slice(-10),
+      source: standardSources.includes(lead.source) ? lead.source : 'Custom',
+      budget: lead.budget || '',
+    })
     setCustomSource(standardSources.includes(lead.source) ? '' : lead.source)
     setAssignedMembers(lead.assignedTo ? lead.assignedTo.split(',').map((name) => name.trim()).filter(Boolean) : [])
     setOpen(true)
@@ -57,8 +62,15 @@ export default function Leads() {
   }
 
   const handleSave = () => {
-    if (!form.name || !form.phone || (form.source === 'Custom' && !customSource.trim())) return
-    const payload = { ...form, source: form.source === 'Custom' ? customSource.trim() : form.source, budget: Number(form.budget) || 0, assignedTo: assignedMembers.join(', ') }
+    const cleanPhone = (form.phone || '').replace(/\D/g, '').slice(0, 10)
+    if (!form.name || !cleanPhone || cleanPhone.length !== 10 || (form.source === 'Custom' && !customSource.trim())) return
+    const payload = {
+      ...form,
+      phone: cleanPhone,
+      source: form.source === 'Custom' ? customSource.trim() : form.source,
+      budget: Math.max(0, Number(form.budget) || 0),
+      assignedTo: assignedMembers.join(', ')
+    }
     if (editing) updateLead(editing.id, payload)
     else addLead({ ...payload, status: 'NEW' })
     closeForm()
@@ -158,7 +170,19 @@ export default function Leads() {
               <div className="p-5 space-y-4">
                 <div><label className="label">Couple / Client Name *</label><input className="input" value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} placeholder="e.g., Ananya & Rohan" /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="label">Phone *</label><input className="input" value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} placeholder="+91 …" /></div>
+                  <div>
+                    <label className="label">Phone *</label>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={10}
+                      className="input"
+                      value={form.phone}
+                      onChange={(e) => setForm({...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})}
+                      placeholder="10-digit phone"
+                    />
+                  </div>
                   <div><label className="label">Wedding Date</label><input type="date" className="input" value={form.weddingDate} onChange={(e) => setForm({...form, weddingDate: e.target.value})} /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -166,7 +190,24 @@ export default function Leads() {
                   <div><label className="label">Source</label><div className="flex gap-2"><select className="input" value={form.source} onChange={(e) => setForm({...form, source: e.target.value})}>{['Instagram','Meta','Website','Referral','Wedding Wire','Walk-in','Custom'].map(s => <option key={s}>{s}</option>)}</select><button type="button" onClick={() => setForm({...form, source: 'Custom'})} className="btn-outline px-3 shrink-0" title="Type a custom source">Type</button></div>{form.source === 'Custom' && <input className="input mt-2" value={customSource} onChange={(e) => setCustomSource(e.target.value)} placeholder="Type lead source" autoFocus />}</div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="label">Expected Budget</label><input className="input" type="number" value={form.budget} onChange={(e) => setForm({...form, budget: e.target.value})} placeholder="₹" /></div>
+                  <div>
+                    <label className="label">Expected Budget</label>
+                    <input
+                      className="input"
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={form.budget}
+                      onKeyDown={(e) => {
+                        if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                      }}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '' || /^\d*\.?\d*$/.test(val)) setForm({...form, budget: val});
+                      }}
+                      placeholder="₹"
+                    />
+                  </div>
                   <div className="relative"><label className="label">Assigned To</label><button type="button" onClick={() => setAssignedOpen(!assignedOpen)} className="input flex items-center justify-between text-left"><span className={assignedMembers.length ? 'text-gray-700' : 'text-gray-400'}>{assignedMembers.length ? `${assignedMembers.length} member${assignedMembers.length === 1 ? '' : 's'} selected` : 'Select team members'}</span><ChevronDown size={16} className="text-gray-400" /></button>{assignedOpen && <div className="absolute left-0 right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-card p-2 max-h-44 overflow-y-auto">{team.map((member) => { const selected = assignedMembers.includes(member.name); return <label key={member.id} className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-brand-50 cursor-pointer text-sm text-gray-700"><input type="checkbox" checked={selected} onChange={() => toggleAssignedMember(member.name)} className="sr-only" /><span className={`w-4 h-4 rounded border flex items-center justify-center ${selected ? 'bg-brand-600 border-brand-600 text-white' : 'border-gray-300'}`}>{selected && <Check size={12} />}</span><span>{member.name}</span></label> })}</div>}{assignedMembers.length > 0 && <div className="flex flex-wrap gap-1.5 mt-2">{assignedMembers.map((member) => <span key={member} className="badge bg-brand-50 text-brand-700">{member}</span>)}</div>}</div>
                 </div>
               </div>

@@ -48,16 +48,17 @@ export const getLead = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const createLead = asyncHandler(async (req: Request, res: Response) => {
-  const { customerName, customerPhone, name, phone, eventDate, estimatedDate, ...leadData } = req.body;
+  const { customerName, customerPhone, name, phone, eventDate, estimatedDate, estimatedBudget, ...leadData } = req.body;
 
   const leadName = name || customerName || 'Prospective Client';
-  const leadPhone = phone || customerPhone || '9876543210';
+  const rawPhone = phone || customerPhone || '9876543210';
+  const leadPhone = String(rawPhone).replace(/\D/g, '').slice(-10);
   const targetDate = estimatedDate || eventDate ? new Date(estimatedDate || eventDate) : null;
 
   // If no customerId but has name/phone, create or link customer
   let customerId = leadData.customerId;
   if (!customerId && (customerName || name) && (customerPhone || phone)) {
-    const custPhone = customerPhone || phone;
+    const custPhone = String(customerPhone || phone).replace(/\D/g, '').slice(-10);
     let customer = await prisma.customer.findFirst({ where: { phone: custPhone } });
     if (!customer) {
       const code = await generateCustomerCode();
@@ -78,6 +79,7 @@ export const createLead = asyncHandler(async (req: Request, res: Response) => {
       phone: leadPhone,
       customerId: customerId || undefined,
       estimatedDate: targetDate,
+      estimatedBudget: estimatedBudget !== undefined && estimatedBudget !== null ? Math.max(0, Number(estimatedBudget) || 0) : undefined,
     },
     include: { customer: { select: { id: true, fullName: true, phone: true } }, assignedUser: { select: { id: true, name: true } } },
   });
@@ -89,18 +91,21 @@ export const updateLead = asyncHandler(async (req: Request, res: Response) => {
   const existing = await prisma.lead.findUnique({ where: { id: req.params.id } });
   if (!existing) throw ApiError.notFound('Lead not found');
 
-  const { eventDate, estimatedDate, customerName, customerPhone, ...rest } = req.body;
+  const { eventDate, estimatedDate, customerName, customerPhone, estimatedBudget, ...rest } = req.body;
   const targetDate = estimatedDate !== undefined
     ? (estimatedDate ? new Date(estimatedDate) : null)
     : (eventDate !== undefined ? (eventDate ? new Date(eventDate) : null) : undefined);
+
+  const cleanPhone = rest.phone || customerPhone ? String(rest.phone || customerPhone).replace(/\D/g, '').slice(-10) : undefined;
 
   const lead = await prisma.lead.update({
     where: { id: req.params.id },
     data: {
       ...rest,
       ...(targetDate !== undefined && { estimatedDate: targetDate }),
+      ...(estimatedBudget !== undefined && { estimatedBudget: Math.max(0, Number(estimatedBudget) || 0) }),
       ...(customerName && !rest.name && { name: customerName }),
-      ...(customerPhone && !rest.phone && { phone: customerPhone }),
+      ...(cleanPhone && { phone: cleanPhone }),
     },
     include: { customer: { select: { id: true, fullName: true, phone: true } }, assignedUser: { select: { id: true, name: true } } },
   });

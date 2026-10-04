@@ -314,8 +314,12 @@ export default function CreateProject({ onDone, project }) {
               <div className="flex max-w-md">
                 <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-200 bg-gray-50 text-sm">🇮🇳 +91</span>
                 <input
+                  type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={10}
                   value={clientPhone}
-                  onChange={(e) => setClientPhone(e.target.value)}
+                  onChange={(e) => setClientPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   placeholder="Enter 10-digit phone to match or add client"
                   className="flex-1 px-4 py-2.5 border border-gray-200 rounded-r-lg text-sm focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                 />
@@ -456,8 +460,16 @@ export default function CreateProject({ onDone, project }) {
                 <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-200 bg-gray-50 text-sm">₹</span>
                 <input
                   type="number"
+                  min="0"
+                  step="any"
                   value={packageCost}
-                  onChange={(e) => setPackageCost(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d*\.?\d*$/.test(val)) setPackageCost(val);
+                  }}
                   placeholder="Enter total package cost"
                   className="flex-1 px-4 py-2.5 border border-gray-200 rounded-r-lg text-sm focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                 />
@@ -470,9 +482,16 @@ export default function CreateProject({ onDone, project }) {
                 <input
                   type="number"
                   min="0"
+                  step="any"
                   max={packageCost || undefined}
                   value={receivedAmount}
-                  onChange={(e) => setReceivedAmount(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d*\.?\d*$/.test(val)) setReceivedAmount(val);
+                  }}
                   placeholder="Enter amount received"
                   className="flex-1 px-4 py-2.5 border border-gray-200 rounded-r-lg text-sm focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
                 />

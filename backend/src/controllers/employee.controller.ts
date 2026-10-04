@@ -67,6 +67,7 @@ const normalizeRole = (role?: string) => {
 
 export const createEmployee = asyncHandler(async (req: Request, res: Response) => {
   const data = { ...req.body };
+  if (data.phone) data.phone = String(data.phone).replace(/\D/g, '').slice(-10);
   if (data.joiningDate) data.joiningDate = new Date(data.joiningDate);
   if (data.role) data.role = normalizeRole(data.role);
   const employee = await prisma.employee.create({ data });
@@ -75,6 +76,7 @@ export const createEmployee = asyncHandler(async (req: Request, res: Response) =
 
 export const updateEmployee = asyncHandler(async (req: Request, res: Response) => {
   const data = { ...req.body };
+  if (data.phone) data.phone = String(data.phone).replace(/\D/g, '').slice(-10);
   if (data.joiningDate) data.joiningDate = new Date(data.joiningDate);
   if (data.role) data.role = normalizeRole(data.role);
   const employee = await prisma.employee.update({ where: { id: req.params.id }, data });

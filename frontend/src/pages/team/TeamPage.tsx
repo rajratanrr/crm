@@ -504,9 +504,12 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
               <label className="block text-xs font-semibold text-gray-700 mb-1">Phone Number</label>
               <input
                 type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={10}
                 placeholder="e.g. 9876543210"
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                 className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
               />
             </div>

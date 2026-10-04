@@ -742,9 +742,12 @@ export default function PackagesPage({ defaultDomain }: { defaultDomain?: 'WEDDI
                   </span>
                   <input
                     type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
                     placeholder="10-digit phone"
                     value={shareClientPhone}
-                    onChange={(e) => setShareClientPhone(e.target.value)}
+                    onChange={(e) => setShareClientPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                     className="flex-1 px-3 py-2 text-xs bg-white border border-gray-200 rounded-r-lg outline-none focus:border-[#C59B27]"
                   />
                 </div>

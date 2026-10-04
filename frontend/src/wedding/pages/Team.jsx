@@ -19,13 +19,27 @@ export default function Team() {
 
   const resetForm = () => setForm({ name: '', role: '', type: 'PHOTOGRAPHER', email: '', phone: '' })
   const openAdd = () => { setEditing(null); resetForm(); setOpen(true) }
-  const openEdit = (member) => { setEditing(member); setForm({ name: member.name || '', role: member.role || '', type: member.type || 'PHOTOGRAPHER', email: member.email || '', phone: member.phone || '' }); setOpen(true) }
+  const openEdit = (member) => {
+    setEditing(member)
+    setForm({
+      name: member.name || '',
+      role: member.role || '',
+      type: member.type || 'PHOTOGRAPHER',
+      email: member.email || '',
+      phone: (member.phone || '').replace(/\D/g, '').slice(-10)
+    })
+    setOpen(true)
+  }
   const closeForm = () => { setOpen(false); setEditing(null); resetForm() }
 
   const save = () => {
     if (!form.name) return
-    if (editing) updateTeam(editing.id, form)
-    else addTeam(form)
+    const payload = {
+      ...form,
+      phone: (form.phone || '').replace(/\D/g, '').slice(0, 10)
+    }
+    if (editing) updateTeam(editing.id, payload)
+    else addTeam(payload)
     closeForm()
   }
 
@@ -93,7 +107,19 @@ export default function Team() {
                   </div>
                 </div>
                 <div><label className="label">Email</label><input className="input" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} /></div>
-                <div><label className="label">Phone</label><input className="input" value={form.phone} onChange={(e) => setForm({...form, phone: e.target.value})} /></div>
+                <div>
+                  <label className="label">Phone</label>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
+                    placeholder="10-digit phone"
+                    className="input"
+                    value={form.phone}
+                    onChange={(e) => setForm({...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})}
+                  />
+                </div>
               </div>
               <div className="flex justify-end gap-2 p-5 border-t border-gray-100">
                 <button onClick={closeForm} className="btn-outline">Cancel</button>

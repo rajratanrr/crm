@@ -73,7 +73,22 @@ export default function PaymentsPage() {
                 {contracts.map(c => <option key={c.id} value={c.id}>{c.contractNumber} - {c.customer?.fullName}</option>)}
               </select></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹) *</label>
-              <input type="number" required min={1} value={form.amount} onChange={(e) => setForm({...form, amount: +e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" /></div>
+              <input
+                type="number"
+                required
+                min={1}
+                step="any"
+                value={form.amount || ''}
+                onKeyDown={(e) => {
+                  if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                }}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setForm({ ...form, amount: val === '' ? 0 : Math.max(0, Number(val) || 0) });
+                }}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Method *</label>
               <select value={form.paymentMethod} onChange={(e) => setForm({...form, paymentMethod: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 {['CASH','UPI','BANK_TRANSFER','CARD','CHEQUE'].map(m => <option key={m} value={m}>{m.replace(/_/g, ' ')}</option>)}

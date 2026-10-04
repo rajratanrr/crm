@@ -894,8 +894,19 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
                 type="number"
                 required
                 min={1}
+                step="any"
                 value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                onKeyDown={(e) => {
+                  if (['e', 'E', '+', '-'].includes(e.key)) {
+                    e.preventDefault();
+                  }
+                }}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                    setForm({ ...form, amount: val });
+                  }
+                }}
                 placeholder="50000"
                 className={`w-full px-3 py-2 text-xs border rounded-lg outline-none transition-colors ${
                   selectedClientSummary &&

@@ -1858,9 +1858,17 @@ export default function FashionProjectsPage() {
               <div className="relative">
                 <IndianRupee className="w-4 h-4 text-emerald-500 absolute left-3 top-2.5" />
                 <input
-                  type="number" min={0}
+                  type="number"
+                  min={0}
+                  step="any"
                   value={projectForm.budget}
-                  onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d*\.?\d*$/.test(val)) setProjectForm({ ...projectForm, budget: val });
+                  }}
                   placeholder="e.g. 75000"
                   className="w-full pl-9 pr-3 py-2 text-xs border border-emerald-300 bg-emerald-50/30 rounded-lg outline-none focus:border-emerald-500 font-bold text-gray-900"
                 />
@@ -1905,15 +1913,23 @@ export default function FashionProjectsPage() {
               <div className="relative">
                 <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
                 <input
-                  type="number" min={0}
+                  type="number"
+                  min={0}
+                  step="any"
                   value={projectForm.studioAmount}
-                  onChange={(e) =>
-                    setProjectForm({
-                      ...projectForm,
-                      studioAmount: e.target.value,
-                      baseBudget: e.target.value,
-                    })
-                  }
+                  onKeyDown={(e) => {
+                    if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                      setProjectForm({
+                        ...projectForm,
+                        studioAmount: val,
+                        baseBudget: val,
+                      });
+                    }
+                  }}
                   placeholder="e.g. 30000"
                   className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold"
                 />
@@ -1928,9 +1944,19 @@ export default function FashionProjectsPage() {
               <div className="relative">
                 <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
                 <input
-                  type="number" min={0}
+                  type="number"
+                  min={0}
+                  step="any"
                   value={(projectForm as any).advanceAmount || ''}
-                  onChange={(e) => setProjectForm({ ...projectForm, advanceAmount: e.target.value } as any)}
+                  onKeyDown={(e) => {
+                    if (['e', 'E', '+', '-'].includes(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                      setProjectForm({ ...projectForm, advanceAmount: val } as any);
+                    }
+                  }}
                   placeholder="e.g. 25000"
                   className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
                 />

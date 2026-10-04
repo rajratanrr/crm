@@ -497,11 +497,14 @@ export default function CustomersPage({ domainFilter }: { domainFilter?: 'WEDDIN
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number *</label>
               <input
-                type="text"
+                type="tel"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={10}
                 required
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="+91 98765 43210"
+                onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                placeholder="10-digit mobile number"
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
               />
             </div>
