@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle2, Circle, Clock, AlertCircle, Plus, X, Pencil, Trash2, Upload, Layers } from 'lucide-react'
+import { CheckCircle2, Circle, Clock, AlertCircle, Plus, X, Pencil, Trash2, Upload, Layers, ChevronDown, ChevronRight, ChevronsUpDown } from 'lucide-react'
 import { useStore } from '../store'
 import { useToastStore } from '../components/Toast'
 
@@ -41,10 +41,30 @@ export default function Deliverables() {
   const [bundleOpen, setBundleOpen] = useState(false)
   const [bundleEditing, setBundleEditing] = useState(null)
   const [bundleProjectId, setBundleProjectId] = useState('')
+  const [expandedProjects, setExpandedProjects] = useState({})
   const fileRef = useRef(null)
 
   const weddingProjects = projects.filter((p) => p.projectType === 'WEDDING' || (!p.projectType && !p.name?.toLowerCase().includes('shoot')));
   const groupedByProject = weddingProjects.map((p) => ({ project: p, deliverables: p.deliverables || [] }))
+
+  const toggleProject = (projectId) => {
+    setExpandedProjects((prev) => ({
+      ...prev,
+      [projectId]: !prev[projectId],
+    }))
+  }
+
+  const areAllExpanded = groupedByProject.length > 0 && groupedByProject.every((g) => expandedProjects[g.project.id])
+
+  const toggleAll = () => {
+    if (areAllExpanded) {
+      setExpandedProjects({})
+    } else {
+      const next = {}
+      groupedByProject.forEach((g) => { next[g.project.id] = true })
+      setExpandedProjects(next)
+    }
+  }
 
   const closeModal = () => {
     setOpen(false)
@@ -181,6 +201,12 @@ export default function Deliverables() {
           <p className="text-sm text-gray-500 mt-1">Track photo albums, videos, edits and other project deliverables.</p>
         </div>
         <div className="flex flex-wrap gap-2 shrink-0">
+          {groupedByProject.length > 0 && (
+            <button onClick={toggleAll} className="btn-outline text-xs flex items-center gap-1.5">
+              <ChevronsUpDown size={14} />
+              {areAllExpanded ? 'Collapse All' : 'Expand All'}
+            </button>
+          )}
           <button onClick={() => fileRef.current?.click()} className="btn-outline" disabled={weddingProjects.length === 0}><Upload size={15} /> Import</button>
           <button onClick={() => openBundle(weddingProjects[0]?.id)} className="btn-outline" disabled={weddingProjects.length === 0}><Layers size={15} /> Create Bundle</button>
           <button onClick={openAddModal} className="btn-primary" disabled={weddingProjects.length === 0}><Plus size={15} /> Add Deliverable</button>
@@ -188,63 +214,120 @@ export default function Deliverables() {
         </div>
       </div>
 
-      <div className="space-y-6">
-        {groupedByProject.map((group) => (
-          <motion.div key={group.project.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card p-6 overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 truncate min-w-0">{group.project.name}</h2>
-              <div className="flex gap-1 shrink-0 flex-wrap">
-                <label className="btn-ghost text-brand-600 hover:bg-brand-50 shrink-0 cursor-pointer">
-                  <Upload size={14} /> Import
-                  <input type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => handleImport(event, group.project.id)} />
-                </label>
-                <button onClick={() => openBundle(group.project.id)} className="btn-ghost text-brand-600 hover:bg-brand-50 shrink-0"><Layers size={14} /> Bundle</button>
-                <button onClick={() => openAddModalForProject(group.project.id)} className="btn-ghost text-brand-600 hover:bg-brand-50 shrink-0"><Plus size={14} /> Add</button>
+      <div className="space-y-4">
+        {groupedByProject.map((group) => {
+          const isExpanded = !!expandedProjects[group.project.id]
+          const delCount = group.deliverables.length
+
+          return (
+            <motion.div key={group.project.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card p-5 overflow-hidden transition-shadow hover:shadow-md">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Client / Project Name clickable toggle */}
+                <button
+                  type="button"
+                  onClick={() => toggleProject(group.project.id)}
+                  className="flex items-center gap-3 text-left min-w-0 flex-1 group cursor-pointer focus:outline-none"
+                  aria-expanded={isExpanded}
+                >
+                  <div className={`p-1.5 rounded-lg border transition-all ${isExpanded ? 'bg-brand-50 border-brand-200 text-brand-600' : 'bg-gray-50 border-gray-200 text-gray-500 group-hover:text-gray-800'}`}>
+                    {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-lg font-bold text-gray-900 group-hover:text-brand-600 transition-colors truncate">
+                        {group.project.name}
+                      </h2>
+                      <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-700 border border-gray-200/60">
+                        {delCount} {delCount === 1 ? 'Deliverable' : 'Deliverables'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {isExpanded ? 'Tap to collapse deliverables' : 'Tap dropdown to view deliverables'}
+                    </p>
+                  </div>
+                </button>
+
+                {/* Actions & Dropdown Toggle Button */}
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => toggleProject(group.project.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition-all ${
+                      isExpanded
+                        ? 'bg-brand-50 text-brand-700 border-brand-200 shadow-xs'
+                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    <span>{isExpanded ? 'Hide Deliverables' : 'View Deliverables'}</span>
+                  </button>
+
+                  <label className="btn-ghost text-brand-600 hover:bg-brand-50 shrink-0 cursor-pointer">
+                    <Upload size={14} /> Import
+                    <input type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => handleImport(event, group.project.id)} />
+                  </label>
+                  <button onClick={() => openBundle(group.project.id)} className="btn-ghost text-brand-600 hover:bg-brand-50 shrink-0"><Layers size={14} /> Bundle</button>
+                  <button onClick={() => openAddModalForProject(group.project.id)} className="btn-ghost text-brand-600 hover:bg-brand-50 shrink-0"><Plus size={14} /> Add</button>
+                </div>
               </div>
-            </div>
-            {group.deliverables.length > 0 ? (
-              <div className="space-y-3">
-                {group.deliverables.map((d) => {
-                  const StatusIcon = statusIcons[d.status] || Circle
-                  return (
-                    <motion.div
-                      key={d.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 10 }}
-                      className="flex items-center justify-between gap-3 p-4 bg-gray-50 rounded-lg border border-gray-100"
-                    >
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
-                        <StatusIcon size={20} className={`shrink-0 ${(statusColors[d.status]?.split(' ')[1]) || 'text-gray-400'}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">{d.name}</p>
-                          <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-500">
-                            <span className={`px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[d.status] || 'bg-gray-100 text-gray-700'}`}>
-                              {formatStatus(d.status)}
-                            </span>
-                            {d.type && <span className="whitespace-nowrap">{d.type}</span>}
-                            {d.dueDate && <span className="whitespace-nowrap">Due: {new Date(d.dueDate).toLocaleDateString('en-IN')}</span>}
-                          </div>
-                          {d.notes && d.notes !== d.name && <p className="text-xs text-gray-500 mt-1 line-clamp-2 break-words">{d.notes}</p>}
-                        </div>
+
+              {/* Deliverables Collapsible Content */}
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="mt-4 pt-4 border-t border-gray-100 overflow-hidden"
+                  >
+                    {group.deliverables.length > 0 ? (
+                      <div className="space-y-3">
+                        {group.deliverables.map((d) => {
+                          const StatusIcon = statusIcons[d.status] || Circle
+                          return (
+                            <motion.div
+                              key={d.id}
+                              initial={{ opacity: 0, y: -4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -4 }}
+                              className="flex items-center justify-between gap-3 p-4 bg-gray-50 rounded-xl border border-gray-100"
+                            >
+                              <div className="flex items-center gap-4 flex-1 min-w-0">
+                                <StatusIcon size={20} className={`shrink-0 ${(statusColors[d.status]?.split(' ')[1]) || 'text-gray-400'}`} />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-gray-900 truncate">{d.name}</p>
+                                  <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-500">
+                                    <span className={`px-2 py-0.5 rounded-full whitespace-nowrap ${statusColors[d.status] || 'bg-gray-100 text-gray-700'}`}>
+                                      {formatStatus(d.status)}
+                                    </span>
+                                    {d.type && <span className="whitespace-nowrap">{d.type}</span>}
+                                    {d.dueDate && <span className="whitespace-nowrap">Due: {new Date(d.dueDate).toLocaleDateString('en-IN')}</span>}
+                                  </div>
+                                  {d.notes && d.notes !== d.name && <p className="text-xs text-gray-500 mt-1 line-clamp-2 break-words">{d.notes}</p>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button onClick={() => openEditModal(group.project, d)} className="p-2 text-gray-400 hover:text-brand-600 transition-colors" aria-label={`Edit ${d.name}`} title="Edit deliverable">
+                                  <Pencil size={16} />
+                                </button>
+                                <button onClick={() => handleDelete(group.project.id, d.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors" aria-label={`Delete ${d.name}`} title="Delete deliverable">
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </motion.div>
+                          )
+                        })}
                       </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={() => openEditModal(group.project, d)} className="p-2 text-gray-400 hover:text-brand-600 transition-colors" aria-label={`Edit ${d.name}`} title="Edit deliverable">
-                          <Pencil size={16} />
-                        </button>
-                        <button onClick={() => handleDelete(group.project.id, d.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors" aria-label={`Delete ${d.name}`} title="Delete deliverable">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </motion.div>
-                  )
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">No deliverables yet</p>
-            )}
-          </motion.div>
-        ))}
+                    ) : (
+                      <p className="text-sm text-gray-500 py-3 italic">No deliverables yet for this project. Click "+ Add" to add deliverables.</p>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          )
+        })}
       </div>
 
       {bundles.length > 0 && (

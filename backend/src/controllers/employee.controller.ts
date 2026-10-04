@@ -26,9 +26,24 @@ export const getEmployee = asyncHandler(async (req: Request, res: Response) => {
   res.json({ success: true, data: employee });
 });
 
+const normalizeRole = (role?: string) => {
+  if (!role) return 'PHOTOGRAPHER';
+  const clean = role.toUpperCase().trim().replace(/[\s\/-]+/g, '_');
+  const valid = [
+    'PHOTOGRAPHER', 'VIDEOGRAPHER', 'DRONE_OPERATOR', 'EDITOR', 'ALBUM_DESIGNER',
+    'MANAGER', 'SALES_EXECUTIVE', 'ACCOUNTANT', 'STYLIST', 'MAKEUP_ARTIST',
+    'TRADITIONAL_PHOTOGRAPHER', 'TRADITIONAL_VIDEOGRAPHER', 'CANDID_PHOTOGRAPHER',
+    'CINEMATIC_VIDEOGRAPHER', 'DRONE', 'MOBILE_CONTENT_CREATOR',
+    'TRADITIONAL_PHOTO_EDITOR', 'TRADITIONAL_VIDEO_EDITOR', 'CANDID_PHOTO_EDITOR',
+    'CINEMATIC_VIDEO_EDITOR', 'DRONE_EDITOR', 'MOBILE_REEL_CONTENT_EDITOR', 'OTHER'
+  ];
+  return (valid.includes(clean) ? clean : 'OTHER') as any;
+};
+
 export const createEmployee = asyncHandler(async (req: Request, res: Response) => {
   const data = { ...req.body };
   if (data.joiningDate) data.joiningDate = new Date(data.joiningDate);
+  if (data.role) data.role = normalizeRole(data.role);
   const employee = await prisma.employee.create({ data });
   res.status(201).json({ success: true, data: employee });
 });
@@ -36,6 +51,7 @@ export const createEmployee = asyncHandler(async (req: Request, res: Response) =
 export const updateEmployee = asyncHandler(async (req: Request, res: Response) => {
   const data = { ...req.body };
   if (data.joiningDate) data.joiningDate = new Date(data.joiningDate);
+  if (data.role) data.role = normalizeRole(data.role);
   const employee = await prisma.employee.update({ where: { id: req.params.id }, data });
   res.json({ success: true, data: employee });
 });

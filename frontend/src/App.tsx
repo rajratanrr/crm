@@ -93,9 +93,9 @@ export default function App() {
               <Route path="/wedding" element={<Navigate to="/wedding/projects" replace />} />
               <Route path="/wedding/dashboard" element={<Navigate to="/dashboard" replace />} />
               <Route path="/wedding/projects" element={<WeddingProjectsPage />} />
-              <Route path="/wedding/clients" element={<WeddingClientsPage />} />
+              <Route path="/wedding/clients" element={<Navigate to="/wedding/projects" replace />} />
               <Route path="/wedding/packages" element={<WeddingPackagesPage />} />
-              <Route path="/wedding/contracts" element={<WeddingContractsPage />} />
+              <Route path="/wedding/contracts" element={<Navigate to="/wedding/projects" replace />} />
               <Route path="/wedding/payments" element={<WeddingPaymentsPage />} />
               <Route path="/wedding/deliverables" element={<WeddingDeliverablesPage />} />
               <Route path="/wedding/calendar" element={<WeddingCalendarPage />} />

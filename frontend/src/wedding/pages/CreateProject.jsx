@@ -8,11 +8,28 @@ const emptySchedule = () => ({ id: Math.random().toString(36).slice(2), name: ''
 
 export default function CreateProject({ onDone, project }) {
   const { clients, team: teamMembers, addProject, updateProject } = useStore()
+  
+  // Extract initial Bride & Groom name if editing
+  const [brideName, setBrideName] = useState(() => {
+    if (project?.brideName) return project.brideName
+    if (project?.name && project.name.includes('&')) {
+      const parts = project.name.split('&')
+      return parts[0]?.replace(/wedding/i, '').trim()
+    }
+    return ''
+  })
+
+  const [groomName, setGroomName] = useState(() => {
+    if (project?.groomName) return project.groomName
+    if (project?.name && project.name.includes('&')) {
+      const parts = project.name.split('&')
+      return parts[1]?.replace(/wedding/i, '').trim()
+    }
+    return ''
+  })
+
   const [name, setName] = useState(() => project?.name || '')
-  const [clientId, setClientId] = useState(() => project?.clientId || '')
-  const [clientPhone, setClientPhone] = useState('')
-  const [weddingDate, setWeddingDate] = useState(() => project?.weddingDate || '')
-  const [venue, setVenue] = useState(() => project?.venue || '')
+  const [clientPhone, setClientPhone] = useState(() => project?.clientPhone || project?.rawCustomer?.phone || '')
   const [packageCost, setPackageCost] = useState(() => String(project?.totalBudget || ''))
   const [receivedAmount, setReceivedAmount] = useState(() => String(project?.amountPaid || ''))
   const [deliverables, setDeliverables] = useState(() => project?.deliverables || [emptyDeliverable()])
@@ -20,6 +37,26 @@ export default function CreateProject({ onDone, project }) {
   const [openTeamSchedule, setOpenTeamSchedule] = useState(null)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const handleBrideChange = (val) => {
+    const prevBride = brideName
+    setBrideName(val)
+    if (!name || name === `${prevBride} & ${groomName} Wedding`.trim() || name === `${prevBride} Wedding`.trim()) {
+      const couple = [val.trim(), groomName.trim()].filter(Boolean).join(' & ')
+      setName(couple ? `${couple} Wedding` : '')
+    }
+    if (error) setError('')
+  }
+
+  const handleGroomChange = (val) => {
+    const prevGroom = groomName
+    setGroomName(val)
+    if (!name || name === `${brideName} & ${prevGroom} Wedding`.trim() || name === `${prevGroom} Wedding`.trim()) {
+      const couple = [brideName.trim(), val.trim()].filter(Boolean).join(' & ')
+      setName(couple ? `${couple} Wedding` : '')
+    }
+    if (error) setError('')
+  }
 
   const updateDel = (id, patch) => setDeliverables((d) => d.map((x) => (x.id === id ? { ...x, ...patch } : x)))
   const removeDel = (id) => setDeliverables((d) => d.filter((x) => x.id !== id))
@@ -39,8 +76,11 @@ export default function CreateProject({ onDone, project }) {
 
   const save = async () => {
     setError('')
-    if (!name.trim()) {
-      setError('Please enter a project name.')
+    const coupleText = [brideName.trim(), groomName.trim()].filter(Boolean).join(' & ')
+    const resolvedName = name.trim() || (coupleText ? `${coupleText} Wedding` : '')
+
+    if (!resolvedName) {
+      setError('Please enter Bride and Groom name or Project name.')
       return
     }
     if (!packageCost || Number(packageCost) < 0) {
@@ -50,16 +90,16 @@ export default function CreateProject({ onDone, project }) {
 
     setSaving(true)
     try {
-      const cid = clientId || matchedClient?.id || ''
+      const cid = project?.clientId || matchedClient?.id || ''
       const payload = {
-        name: name.trim(),
+        name: resolvedName,
+        brideName: brideName.trim(),
+        groomName: groomName.trim(),
         clientId: cid,
         clientPhone: cleanInputPhone.slice(-10),
         totalBudget: Number(packageCost) || 0,
         amountPaid: Number(receivedAmount) || 0,
         status: project?.status || 'CONFIRMED',
-        weddingDate: weddingDate || matchedClient?.weddingDate || '',
-        venue: venue || matchedClient?.venue || '',
         deliverables: deliverables.filter((d) => d.name?.trim()),
         events: schedules.filter((schedule) => schedule.name?.trim() && schedule.date).map(({ id, name: eventName, ...schedule }) => ({ id, name: eventName.trim(), ...schedule })),
       }
@@ -91,7 +131,9 @@ export default function CreateProject({ onDone, project }) {
       )}
 
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+        {/* Project & Client Details */}
         <div className="card p-6">
+          <label className="label text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Project Name *</label>
           <input
             value={name}
             onChange={(e) => {
@@ -103,73 +145,50 @@ export default function CreateProject({ onDone, project }) {
           />
 
           <div className="mt-6">
-            <h3 className="text-sm font-bold text-gray-900 mb-2">Client Details</h3>
-            <label className="label">Client Phone *</label>
-            <div className="flex max-w-md">
-              <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-200 bg-gray-50 text-sm">🇮🇳 +91</span>
-              <input
-                value={clientPhone}
-                onChange={(e) => setClientPhone(e.target.value)}
-                placeholder="Enter 10-digit phone to match or add client"
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-r-lg text-sm focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
-              />
+            <h3 className="text-sm font-bold text-gray-900 mb-3">Client Details</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="label">Bride Name</label>
+                <input
+                  value={brideName}
+                  onChange={(e) => handleBrideChange(e.target.value)}
+                  placeholder="Bride Name (e.g., Aditi)"
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="label">Groom Name</label>
+                <input
+                  value={groomName}
+                  onChange={(e) => handleGroomChange(e.target.value)}
+                  placeholder="Groom Name (e.g., Rahul)"
+                  className="input"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Client Phone *</label>
+              <div className="flex max-w-md">
+                <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-200 bg-gray-50 text-sm">🇮🇳 +91</span>
+                <input
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                  placeholder="Enter 10-digit phone to match or add client"
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-r-lg text-sm focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20"
+                />
+              </div>
             </div>
             {matchedClient && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 text-xs bg-emerald-50 text-emerald-700 px-3 py-2 rounded-lg inline-flex items-center gap-2">
                 ✓ Matched Client: <strong>{matchedClient.brideName} & {matchedClient.groomName}</strong>
               </motion.div>
             )}
-            {!matchedClient && clients.length > 0 && (
-              <div className="mt-3 max-w-md">
-                <label className="label">Or choose an existing client</label>
-                <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="input">
-                  <option value="">— Select client —</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.brideName} {c.groomName ? `& ${c.groomName}` : ''} ({c.phone || 'No phone'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-            <div>
-              <label className="label">Wedding Date</label>
-              <input type="date" value={weddingDate} onChange={(e) => setWeddingDate(e.target.value)} className="input" />
-            </div>
-            <div>
-              <label className="label">Venue / City</label>
-              <input value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Venue or Location" className="input" />
-            </div>
           </div>
         </div>
 
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Deliverables</h3>
-          </div>
-          <div className="space-y-2">
-            {deliverables.map((d) => (
-              <motion.div key={d.id} layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap gap-2 items-center">
-                <input value={d.name} onChange={(e) => updateDel(d.id, { name: e.target.value })} placeholder="e.g., Wedding Album, Cinematic Video" className="input flex-1 min-w-[200px]" />
-                <select value={d.status} onChange={(e) => updateDel(d.id, { status: e.target.value })} className="input w-44">
-                  <option value="PENDING">Included in Package</option>
-                  <option value="EXTRA">Extra Charge</option>
-                </select>
-                <input type="date" value={d.dueDate} onChange={(e) => updateDel(d.id, { dueDate: e.target.value })} className="input w-44" />
-                <button onClick={() => removeDel(d.id)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-50" title="Delete deliverable" aria-label="Delete deliverable">
-                  <Trash2 size={15}/>
-                </button>
-              </motion.div>
-            ))}
-          </div>
-          <button onClick={() => setDeliverables((d) => [...d, emptyDeliverable()])} className="mt-3 text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-1.5">
-            <Plus size={14}/> Add Deliverable
-          </button>
-        </div>
-
+        {/* Shoot Schedule (SWAPPED: Now First) */}
         <div className="card p-6">
           <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
             <div>
@@ -251,6 +270,32 @@ export default function CreateProject({ onDone, project }) {
           </div>
         </div>
 
+        {/* Deliverables (SWAPPED: Now Second) */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Deliverables</h3>
+          </div>
+          <div className="space-y-2">
+            {deliverables.map((d) => (
+              <motion.div key={d.id} layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="flex flex-wrap gap-2 items-center">
+                <input value={d.name} onChange={(e) => updateDel(d.id, { name: e.target.value })} placeholder="e.g., Wedding Album, Cinematic Video" className="input flex-1 min-w-[200px]" />
+                <select value={d.status} onChange={(e) => updateDel(d.id, { status: e.target.value })} className="input w-44">
+                  <option value="PENDING">Included in Package</option>
+                  <option value="EXTRA">Extra Charge</option>
+                </select>
+                <input type="date" value={d.dueDate} onChange={(e) => updateDel(d.id, { dueDate: e.target.value })} className="input w-44" />
+                <button onClick={() => removeDel(d.id)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-50" title="Delete deliverable" aria-label="Delete deliverable">
+                  <Trash2 size={15}/>
+                </button>
+              </motion.div>
+            ))}
+          </div>
+          <button onClick={() => setDeliverables((d) => [...d, emptyDeliverable()])} className="mt-3 text-brand-600 bg-brand-50 hover:bg-brand-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-1.5">
+            <Plus size={14}/> Add Deliverable
+          </button>
+        </div>
+
+        {/* Project Cost Details */}
         <div className="card p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Cost Details</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

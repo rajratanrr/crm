@@ -313,8 +313,9 @@ export const useStore = create((set, get) => ({
           }
         } else {
           // If no client exists at all, auto-create one from project details
+          const coupleName = [p.brideName, p.groomName].filter(Boolean).join(' & ');
           const newCust = await customerApi.create({
-            fullName: p.name || 'Wedding Client',
+            fullName: coupleName || p.name || 'Wedding Client',
             phone: cleanPhone(p.clientPhone),
             clientType: 'WEDDING',
             address: p.venue || undefined,

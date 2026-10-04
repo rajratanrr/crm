@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Package as PackageIcon, Search, Edit2, Trash2, CheckCircle2, Clock, FileText, Sparkles, X } from 'lucide-react';
+import { Plus, Package as PackageIcon, Search, Edit2, Trash2, CheckCircle2, Clock, FileText, Sparkles, X, Share2, Copy, MessageCircle, Check, Send } from 'lucide-react';
 import { packageApi } from '../../services/api';
 import { formatCurrency } from '../../lib/utils';
 import Modal from '../../components/ui/Modal';
@@ -21,6 +21,12 @@ export default function PackagesPage({ defaultDomain }: { defaultDomain?: 'WEDDI
   const [showModal, setShowModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Sharing State
+  const [sharingPackage, setSharingPackage] = useState<any>(null);
+  const [shareClientName, setShareClientName] = useState('');
+  const [shareClientPhone, setShareClientPhone] = useState('');
+  const [copied, setCopied] = useState(false);
 
   // Form State
   const [form, setForm] = useState({
@@ -118,6 +124,46 @@ export default function PackagesPage({ defaultDomain }: { defaultDomain?: 'WEDDI
       ...form,
       services: form.services.filter((_, i) => i !== index),
     });
+  };
+
+  const generateShareText = (pkg: any, cName?: string) => {
+    if (!pkg) return '';
+    const greeting = cName?.trim() ? `Hello ${cName.trim()},\n\n` : 'Hello,\n\n';
+    let text = `${greeting}Here are the details for our *${pkg.name}*:\n\n`;
+    text += `💰 *Starting Price*: ${formatCurrency(Number(pkg.basePrice))}\n`;
+    if (pkg.duration) text += `⏱ *Duration*: ${pkg.duration}\n`;
+    if (pkg.description) text += `📝 *Overview*: ${pkg.description}\n`;
+    text += `\n✨ *Included In Package*:\n`;
+    if (pkg.services && pkg.services.length > 0) {
+      pkg.services.forEach((s: any) => {
+        text += `• *${s.serviceName}*${s.description ? ` (${s.description})` : ''}\n`;
+      });
+    } else {
+      text += `• Professional photo & video coverage with full resolution delivery\n`;
+    }
+    text += `\nLooking forward to creating memorable moments with you!\n— *Photo Fashion Studio*`;
+    return text;
+  };
+
+  const handleShareWhatsApp = (pkg: any) => {
+    const text = generateShareText(pkg, shareClientName);
+    const clean = shareClientPhone.replace(/\D/g, '');
+    let url = '';
+    if (clean.length >= 10) {
+      const full = clean.length === 10 ? `91${clean}` : clean;
+      url = `https://api.whatsapp.com/send?phone=${full}&text=${encodeURIComponent(text)}`;
+    } else {
+      url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+    }
+    window.open(url, '_blank');
+  };
+
+  const handleCopyDetails = (pkg: any) => {
+    const text = generateShareText(pkg, shareClientName);
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    toast.success('Package proposal copied to clipboard!');
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -298,10 +344,20 @@ export default function PackagesPage({ defaultDomain }: { defaultDomain?: 'WEDDI
 
               {/* Footer */}
               <div className="pt-4 border-t border-gray-100 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 text-gray-500">
-                  <FileText className="w-3.5 h-3.5 text-gray-400" />
-                  <span>{pkg._count?.contracts || 0} contracts linked</span>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSharingPackage(pkg);
+                    setShareClientName('');
+                    setShareClientPhone('');
+                    setCopied(false);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg border border-emerald-200/70 transition-all cursor-pointer shadow-xs"
+                  title="Share package with client"
+                >
+                  <Share2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Share Package</span>
+                </button>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => openEditModal(pkg)}
@@ -489,6 +545,102 @@ export default function PackagesPage({ defaultDomain }: { defaultDomain?: 'WEDDI
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Modal: Share Package with Client */}
+      <Modal
+        isOpen={Boolean(sharingPackage)}
+        onClose={() => setSharingPackage(null)}
+        title={sharingPackage ? `Share Package: ${sharingPackage.name}` : 'Share Package'}
+        size="md"
+      >
+        {sharingPackage && (
+          <div className="space-y-4">
+            <div className="bg-amber-50/70 border border-amber-200/70 rounded-xl p-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] text-amber-800 font-bold uppercase tracking-wider">{sharingPackage.domain} PACKAGE</p>
+                <h4 className="text-base font-bold text-gray-900 mt-0.5">{sharingPackage.name}</h4>
+                <p className="text-xl font-black text-[#9A7318] mt-1">{formatCurrency(Number(sharingPackage.basePrice))}</p>
+              </div>
+              {sharingPackage.duration && (
+                <span className="text-xs bg-white px-2.5 py-1 rounded-lg border border-amber-200 text-gray-700 font-semibold shadow-xs">
+                  {sharingPackage.duration}
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Client Name (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Aditi & Rahul"
+                  value={shareClientName}
+                  onChange={(e) => setShareClientName(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] focus:ring-1 focus:ring-[#C59B27]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">WhatsApp Number (Optional)</label>
+                <div className="flex">
+                  <span className="inline-flex items-center px-2.5 text-xs bg-gray-50 border border-r-0 border-gray-200 rounded-l-lg text-gray-500 font-medium">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    placeholder="10-digit phone"
+                    value={shareClientPhone}
+                    onChange={(e) => setShareClientPhone(e.target.value)}
+                    className="flex-1 px-3 py-2 text-xs bg-white border border-gray-200 rounded-r-lg outline-none focus:border-[#C59B27] focus:ring-1 focus:ring-[#C59B27]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-gray-700">Proposal Preview</label>
+                <button
+                  type="button"
+                  onClick={() => handleCopyDetails(sharingPackage)}
+                  className="text-xs text-[#9A7318] hover:text-[#7A5B12] font-semibold inline-flex items-center gap-1 cursor-pointer"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? 'Copied!' : 'Copy Preview'}</span>
+                </button>
+              </div>
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-700 whitespace-pre-line font-mono max-h-48 overflow-y-auto leading-relaxed custom-scrollbar">
+                {generateShareText(sharingPackage, shareClientName)}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setSharingPackage(null)}
+                className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCopyDetails(sharingPackage)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl transition-all cursor-pointer"
+              >
+                {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copied ? 'Copied Details' : 'Copy Proposal'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleShareWhatsApp(sharingPackage)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold bg-[#25D366] hover:bg-[#20ba59] text-white rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4 fill-white text-transparent" />
+                <span>Send via WhatsApp</span>
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

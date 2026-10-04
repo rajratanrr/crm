@@ -173,9 +173,9 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center gap-2 pt-2 text-xs text-gray-600 border-t border-amber-100">
-            <Link to="/wedding/clients" className="hover:text-amber-700 underline">Wedding Clients</Link> &bull;
+            <Link to="/wedding/projects" className="hover:text-amber-700 underline">Projects</Link> &bull;
+            <Link to="/wedding/deliverables" className="hover:text-amber-700 underline">Deliverables</Link> &bull;
             <Link to="/wedding/packages" className="hover:text-amber-700 underline">Packages</Link> &bull;
-            <Link to="/wedding/contracts" className="hover:text-amber-700 underline">Contracts</Link> &bull;
             <Link to="/wedding/payments" className="hover:text-amber-700 underline">Payments</Link>
           </div>
         </div>

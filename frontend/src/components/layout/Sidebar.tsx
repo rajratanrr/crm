@@ -47,13 +47,11 @@ const navigationSections = [
     badge: 'WEDDING',
     items: [
       { label: 'Wedding Projects', route: '/wedding/projects', icon: Heart },
-      { label: 'Wedding Clients', route: '/wedding/clients', icon: Users },
       { label: 'Deliverables', route: '/wedding/deliverables', icon: Image },
       { label: 'Financials & Payments', route: '/wedding/payments', icon: CreditCard },
       { label: 'Calendar', route: '/wedding/calendar', icon: Calendar },
       { label: 'Leads', route: '/wedding/leads', icon: UserPlus },
       { label: 'Packages', route: '/wedding/packages', icon: Package },
-      { label: 'Contracts', route: '/wedding/contracts', icon: FileText },
     ],
   },
   {

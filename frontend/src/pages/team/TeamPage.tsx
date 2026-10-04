@@ -6,13 +6,33 @@ import Modal from '../../components/ui/Modal';
 import { getInitials } from '../../lib/utils';
 import toast from 'react-hot-toast';
 
-const roles = ['PHOTOGRAPHER','VIDEOGRAPHER','DRONE_OPERATOR','EDITOR','ALBUM_DESIGNER','MANAGER','SALES_EXECUTIVE','ACCOUNTANT','OTHER'];
+const roles = [
+  { value: 'TRADITIONAL_PHOTOGRAPHER', label: 'Traditional Photographer' },
+  { value: 'TRADITIONAL_VIDEOGRAPHER', label: 'Traditional Videographer' },
+  { value: 'CANDID_PHOTOGRAPHER', label: 'Candid Photographer' },
+  { value: 'CINEMATIC_VIDEOGRAPHER', label: 'Cinematic Videographer' },
+  { value: 'DRONE', label: 'Drone' },
+  { value: 'MOBILE_CONTENT_CREATOR', label: 'Mobile Content Creator' },
+  { value: 'TRADITIONAL_PHOTO_EDITOR', label: 'Traditional Photo Editor' },
+  { value: 'TRADITIONAL_VIDEO_EDITOR', label: 'Traditional Video Editor' },
+  { value: 'CANDID_PHOTO_EDITOR', label: 'Candid Photo Editor' },
+  { value: 'CINEMATIC_VIDEO_EDITOR', label: 'Cinematic Video Editor' },
+  { value: 'DRONE_EDITOR', label: 'Drone Editor' },
+  { value: 'MOBILE_REEL_CONTENT_EDITOR', label: 'Mobile/Reel Content Editor' },
+];
+
+const formatRole = (role?: string) => {
+  if (!role) return '';
+  const match = roles.find(r => r.value === role || r.label.toLowerCase() === role.toLowerCase());
+  if (match) return match.label;
+  return role.replace(/_/g, ' ');
+};
 
 export default function TeamPage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ name: '', phone: '', email: '', role: 'PHOTOGRAPHER', specialization: '', availability: 'Full Time' });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', role: 'TRADITIONAL_PHOTOGRAPHER', specialization: '', availability: 'Full Time' });
 
   const load = async () => { try { const { data } = await employeeApi.getAll(); setEmployees(data.data); } catch {} finally { setLoading(false); } };
   useEffect(() => { load(); }, []);
@@ -33,7 +53,7 @@ export default function TeamPage() {
           <div key={e.id} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-lg font-bold">{getInitials(e.name)}</div>
-              <div><p className="font-semibold text-gray-900">{e.name}</p><p className="text-xs text-gray-500">{e.role?.replace(/_/g, ' ')}</p></div>
+              <div><p className="font-semibold text-gray-900">{e.name}</p><p className="text-xs text-gray-500">{formatRole(e.role)}</p></div>
               {e.isActive ? <span className="ml-auto w-2 h-2 rounded-full bg-green-400" /> : <span className="ml-auto w-2 h-2 rounded-full bg-gray-300" />}
             </div>
             <div className="text-sm text-gray-600 space-y-1">
@@ -57,7 +77,7 @@ export default function TeamPage() {
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Email</label><input type="email" value={form.email} onChange={(e) => setForm({...form, email: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" /></div>
             <div><label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
               <select value={form.role} onChange={(e) => setForm({...form, role: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                {roles.map(r => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}
+                {roles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select></div>
           </div>
           <div className="flex justify-end gap-3 pt-2">
