@@ -323,30 +323,62 @@ export const createPayment = asyncHandler(async (req: Request, res: Response) =>
     resolvedStatus = 'ADVANCE';
   }
 
-  // Validate against pending amount if customer has projects
-  const customerProjects = await prisma.project.findMany({
-    where: { customerId },
-    select: { id: true, budget: true, baseBudget: true, studioAmount: true },
-  });
-  if (customerProjects.length > 0) {
-    const totalShootAmount = customerProjects.reduce((sum, p) => {
-      const b = Number(p.budget) || 0;
-      if (b > 0) return sum + b;
-      return sum + (Number(p.baseBudget) || Number(p.studioAmount) || 0);
-    }, 0);
-    const existingPayments = await prisma.payment.findMany({
-      where: { customerId },
-      select: { amount: true, paymentStatus: true },
+  // Validate against pending amount
+  if (resolvedProjectId) {
+    const project = await prisma.project.findUnique({
+      where: { id: resolvedProjectId },
+      select: { id: true, budget: true, baseBudget: true, studioAmount: true },
     });
-    const totalPaid = existingPayments
-      .filter((p) => isReceived(p.paymentStatus))
-      .reduce((sum, p) => sum + Number(p.amount), 0);
-    const remainingPending = Math.max(0, totalShootAmount - totalPaid);
-    if (totalShootAmount > 0 && Number(amount) > remainingPending) {
-      throw new ApiError(
-        400,
-        `Cannot receive more than pending amount. Remaining balance is ₹${remainingPending}. You entered ₹${amount}.`
-      );
+    if (project) {
+      const projBudget = Number(project.budget) || Number(project.baseBudget) || Number(project.studioAmount) || 0;
+      if (projBudget > 0) {
+        const existingPayments = await prisma.payment.findMany({
+          where: { projectId: resolvedProjectId },
+          select: { amount: true, paymentStatus: true },
+        });
+        const totalPaid = existingPayments
+          .filter((p) => isReceived(p.paymentStatus))
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+        const remainingPending = Math.max(0, projBudget - totalPaid);
+        if (Number(amount) > remainingPending) {
+          throw new ApiError(
+            400,
+            `Cannot receive more than pending amount. Remaining balance is ₹${remainingPending}. You entered ₹${amount}.`
+          );
+        }
+      }
+    }
+  } else {
+    // If no specific project selected, check across customer's projects in that domain
+    const customerProjects = await prisma.project.findMany({
+      where: {
+        customerId,
+        ...(resolvedDomain !== 'GENERAL' && { projectType: resolvedDomain === 'FASHION' ? 'FASHION' : 'WEDDING' }),
+      },
+      select: { id: true, budget: true, baseBudget: true, studioAmount: true },
+    });
+    if (customerProjects.length > 0) {
+      const totalShootAmount = customerProjects.reduce((sum, p) => {
+        const b = Number(p.budget) || 0;
+        if (b > 0) return sum + b;
+        return sum + (Number(p.baseBudget) || Number(p.studioAmount) || 0);
+      }, 0);
+      if (totalShootAmount > 0) {
+        const existingPayments = await prisma.payment.findMany({
+          where: { customerId, domain: resolvedDomain },
+          select: { amount: true, paymentStatus: true },
+        });
+        const totalPaid = existingPayments
+          .filter((p) => isReceived(p.paymentStatus))
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+        const remainingPending = Math.max(0, totalShootAmount - totalPaid);
+        if (Number(amount) > remainingPending) {
+          throw new ApiError(
+            400,
+            `Cannot receive more than pending amount. Remaining balance is ₹${remainingPending}. You entered ₹${amount}.`
+          );
+        }
+      }
     }
   }
 
@@ -389,29 +421,63 @@ export const updatePayment = asyncHandler(async (req: Request, res: Response) =>
     data.amount = Number(data.amount);
 
     const targetCustId = data.customerId || existing.customerId;
-    const customerProjects = await prisma.project.findMany({
-      where: { customerId: targetCustId },
-      select: { id: true, budget: true, baseBudget: true, studioAmount: true },
-    });
-    if (customerProjects.length > 0) {
-      const totalShootAmount = customerProjects.reduce((sum, p) => {
-        const b = Number(p.budget) || 0;
-        if (b > 0) return sum + b;
-        return sum + (Number(p.baseBudget) || Number(p.studioAmount) || 0);
-      }, 0);
-      const existingPayments = await prisma.payment.findMany({
-        where: { customerId: targetCustId, id: { not: id } },
-        select: { amount: true, paymentStatus: true },
+    const targetPrjId = data.projectId !== undefined ? (data.projectId || null) : existing.projectId;
+    const targetDomain = (data.domain || existing.domain) as BusinessDomain;
+
+    if (targetPrjId) {
+      const project = await prisma.project.findUnique({
+        where: { id: targetPrjId },
+        select: { id: true, budget: true, baseBudget: true, studioAmount: true },
       });
-      const otherPaid = existingPayments
-        .filter((p) => isReceived(p.paymentStatus))
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-      const remainingPending = Math.max(0, totalShootAmount - otherPaid);
-      if (totalShootAmount > 0 && Number(data.amount) > remainingPending) {
-        throw new ApiError(
-          400,
-          `Cannot receive more than pending amount. Remaining balance is ₹${remainingPending}. You entered ₹${data.amount}.`
-        );
+      if (project) {
+        const projBudget = Number(project.budget) || Number(project.baseBudget) || Number(project.studioAmount) || 0;
+        if (projBudget > 0) {
+          const existingPayments = await prisma.payment.findMany({
+            where: { projectId: targetPrjId, id: { not: id } },
+            select: { amount: true, paymentStatus: true },
+          });
+          const otherPaid = existingPayments
+            .filter((p) => isReceived(p.paymentStatus))
+            .reduce((sum, p) => sum + Number(p.amount), 0);
+          const remainingPending = Math.max(0, projBudget - otherPaid);
+          if (Number(data.amount) > remainingPending) {
+            throw new ApiError(
+              400,
+              `Cannot receive more than pending amount. Remaining balance is ₹${remainingPending}. You entered ₹${data.amount}.`
+            );
+          }
+        }
+      }
+    } else {
+      const customerProjects = await prisma.project.findMany({
+        where: {
+          customerId: targetCustId,
+          ...(targetDomain !== 'GENERAL' && { projectType: targetDomain === 'FASHION' ? 'FASHION' : 'WEDDING' }),
+        },
+        select: { id: true, budget: true, baseBudget: true, studioAmount: true },
+      });
+      if (customerProjects.length > 0) {
+        const totalShootAmount = customerProjects.reduce((sum, p) => {
+          const b = Number(p.budget) || 0;
+          if (b > 0) return sum + b;
+          return sum + (Number(p.baseBudget) || Number(p.studioAmount) || 0);
+        }, 0);
+        if (totalShootAmount > 0) {
+          const existingPayments = await prisma.payment.findMany({
+            where: { customerId: targetCustId, domain: targetDomain, id: { not: id } },
+            select: { amount: true, paymentStatus: true },
+          });
+          const otherPaid = existingPayments
+            .filter((p) => isReceived(p.paymentStatus))
+            .reduce((sum, p) => sum + Number(p.amount), 0);
+          const remainingPending = Math.max(0, totalShootAmount - otherPaid);
+          if (Number(data.amount) > remainingPending) {
+            throw new ApiError(
+              400,
+              `Cannot receive more than pending amount. Remaining balance is ₹${remainingPending}. You entered ₹${data.amount}.`
+            );
+          }
+        }
       }
     }
   }

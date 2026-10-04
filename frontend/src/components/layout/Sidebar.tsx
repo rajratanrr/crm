@@ -50,6 +50,7 @@ const navigationSections = [
       { label: 'Deliverables', route: '/wedding/deliverables', icon: Image },
       { label: 'Financials & Payments', route: '/wedding/payments', icon: CreditCard },
       { label: 'Calendar', route: '/wedding/calendar', icon: Calendar },
+      { label: 'Team Booking', route: '/team-booking', icon: CalendarDays },
       { label: 'Leads', route: '/wedding/leads', icon: UserPlus },
       { label: 'Packages', route: '/wedding/packages', icon: Package },
       { label: 'Employees', route: '/employees', icon: UsersRound },
@@ -74,7 +75,6 @@ const navigationSections = [
       { label: 'Tasks', route: '/tasks', icon: ListChecks },
       { label: 'Calendar', route: '/calendar', icon: Calendar },
       { label: 'Attendance', route: '/attendance', icon: ClipboardList },
-      { label: 'Team Booking', route: '/team-booking', icon: CalendarDays },
     ],
   },
   {
@@ -105,6 +105,7 @@ export default function Sidebar() {
     if (route === '/wedding/packages') return location.pathname === '/wedding/packages' || location.pathname === '/packages';
     if (route === '/wedding/deliverables') return location.pathname === '/wedding/deliverables' || location.pathname === '/deliverables';
     if (route === '/finance/payments') return location.pathname === '/finance/payments' || location.pathname === '/payments';
+    if (route === '/team-booking' || route === '/wedding/team-booking') return location.pathname === '/team-booking' || location.pathname === '/wedding/team-booking';
     if (route === '/employees') return location.pathname === '/employees' || location.pathname === '/team' || location.pathname === '/wedding/employees' || location.pathname === '/wedding/team';
     if (route === '/fashion/employees') return location.pathname === '/fashion/employees';
     return location.pathname === route || location.pathname.startsWith(route + '/');

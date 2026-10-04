@@ -231,7 +231,26 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
   const selectedClientSummary = clientPayments.find(
     (c) => c.customerId === form.customerId
   );
-  const clientPending = selectedClientSummary?.totalPending ?? 0;
+
+  let targetPending = selectedClientSummary?.totalPending ?? 0;
+  if (form.projectId && selectedClientSummary?.projects) {
+    const prj = selectedClientSummary.projects.find((p: any) => p.id === form.projectId);
+    if (prj) {
+      const prjBudget = Number(prj.budget) || Number(prj.baseBudget) || Number(prj.studioAmount) || 0;
+      if (prjBudget > 0) {
+        const prjPaid = (selectedClientSummary.payments || [])
+          .filter(
+            (p: any) =>
+              p.projectId === form.projectId &&
+              (p.paymentStatus === 'ADVANCE' || p.paymentStatus === 'DONE' || !p.paymentStatus)
+          )
+          .reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+        targetPending = Math.max(0, prjBudget - prjPaid);
+      }
+    }
+  }
+
+  const clientPending = targetPending;
   const maxAllowedAmount = editingPayment
     ? clientPending + Number(editingPayment.amount || 0)
     : clientPending;
@@ -251,7 +270,7 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
       amt > maxAllowedAmount
     ) {
       toast.error(
-        `Cannot receive more than pending amount. Remaining balance for this client is ₹${formatCurrency(
+        `Cannot receive more than pending amount. Remaining balance is ₹${formatCurrency(
           maxAllowedAmount
         )}. You entered ₹${formatCurrency(amt)}.`
       );
