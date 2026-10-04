@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, UsersRound, Search, Edit2, Trash2, Phone, Mail, Sparkles, Filter } from 'lucide-react';
-import { employeeApi } from '../../services/api';
+import { Plus, UsersRound, Search, Edit2, Trash2, Phone, Mail, Sparkles, Filter, CalendarDays, Check, Briefcase } from 'lucide-react';
+import { employeeApi, eventApi, projectApi } from '../../services/api';
 import Modal from '../../components/ui/Modal';
 import { getInitials } from '../../lib/utils';
 import toast from 'react-hot-toast';
@@ -49,15 +49,29 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<any>(null);
 
+  // Multiple roles state in form
   const [form, setForm] = useState({
     name: '',
     phone: '',
     email: '',
-    role: activeRoles[0]?.value || 'PHOTOGRAPHER',
+    roles: [activeRoles[0]?.value || 'PHOTOGRAPHER'] as string[],
     specialization: '',
     availability: 'Full Time',
     domain: domain,
   });
+
+  // Assign Work Modal State
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assigningEmployee, setAssigningEmployee] = useState<any>(null);
+  const [availableProjects, setAvailableProjects] = useState<any[]>([]);
+  const [availableEvents, setAvailableEvents] = useState<any[]>([]);
+  const [assignForm, setAssignForm] = useState({
+    projectId: '',
+    eventId: '',
+    role: '',
+    notes: '',
+  });
+  const [assigning, setAssigning] = useState(false);
 
   const formatRole = (role?: string) => {
     if (!role) return '';
@@ -90,7 +104,7 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
       name: '',
       phone: '',
       email: '',
-      role: activeRoles[0]?.value || 'PHOTOGRAPHER',
+      roles: [activeRoles[0]?.value || 'PHOTOGRAPHER'],
       specialization: '',
       availability: 'Full Time',
       domain: domain,
@@ -100,16 +114,33 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
 
   const openEdit = (emp: any) => {
     setEditingEmployee(emp);
+    const existingRoles = emp.specialization
+      ? emp.specialization.split(',').map((s: string) => s.trim()).filter(Boolean)
+      : [emp.role || activeRoles[0]?.value];
+
     setForm({
       name: emp.name || '',
       phone: emp.phone || '',
       email: emp.email || '',
-      role: emp.role || activeRoles[0]?.value,
+      roles: existingRoles.length > 0 ? existingRoles : [activeRoles[0]?.value],
       specialization: emp.specialization || '',
       availability: emp.availability || 'Full Time',
       domain: emp.domain || domain,
     });
     setShowModal(true);
+  };
+
+  const toggleRoleSelection = (roleVal: string) => {
+    setForm((prev) => {
+      const has = prev.roles.includes(roleVal);
+      const updated = has
+        ? prev.roles.filter((r) => r !== roleVal)
+        : [...prev.roles, roleVal];
+      return {
+        ...prev,
+        roles: updated.length === 0 ? [roleVal] : updated,
+      };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -118,25 +149,77 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
       toast.error('Please enter employee name');
       return;
     }
+    if (form.roles.length === 0) {
+      toast.error('Please select at least one role');
+      return;
+    }
+
+    const payload = {
+      name: form.name.trim(),
+      phone: form.phone,
+      email: form.email,
+      role: form.roles[0],
+      specialization: form.roles.join(', '),
+      availability: form.availability,
+      domain,
+    };
 
     try {
       if (editingEmployee) {
-        await employeeApi.update(editingEmployee.id, {
-          ...form,
-          domain,
-        });
+        await employeeApi.update(editingEmployee.id, payload);
         toast.success('Employee updated successfully!');
       } else {
-        await employeeApi.create({
-          ...form,
-          domain,
-        });
+        await employeeApi.create(payload);
         toast.success('Employee added successfully!');
       }
       setShowModal(false);
       load();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to save employee');
+    }
+  };
+
+  const openAssignModal = async (emp: any) => {
+    setAssigningEmployee(emp);
+    setAssignForm({
+      projectId: '',
+      eventId: '',
+      role: emp.role || 'PHOTOGRAPHER',
+      notes: '',
+    });
+    setAssignModalOpen(true);
+    try {
+      const [projRes, evtRes] = await Promise.all([
+        projectApi.getAll({ type: domain }),
+        eventApi.getAll(),
+      ]);
+      setAvailableProjects(projRes.data?.data || []);
+      setAvailableEvents(evtRes.data?.data || []);
+    } catch (err) {
+      console.error('Failed to load projects/events', err);
+    }
+  };
+
+  const handleAssignSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignForm.eventId) {
+      toast.error('Please select an event / shoot');
+      return;
+    }
+    setAssigning(true);
+    try {
+      await eventApi.addAssignment(assignForm.eventId, {
+        employeeId: assigningEmployee.id,
+        role: assignForm.role,
+        notes: assignForm.notes,
+      });
+      toast.success(`Assigned ${assigningEmployee.name} successfully!`);
+      setAssignModalOpen(false);
+      load();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to assign work');
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -258,15 +341,25 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
                     </div>
                     <div>
                       <h4 className="font-bold text-gray-900 leading-tight">{e.name}</h4>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider inline-block mt-1 ${
-                          isFashion
-                            ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                        }`}
-                      >
-                        {formatRole(e.role)}
-                      </span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {(() => {
+                          const roleList = e.specialization
+                            ? e.specialization.split(',').map((s: string) => s.trim()).filter(Boolean)
+                            : [e.role];
+                          return roleList.map((r: string, idx: number) => (
+                            <span
+                              key={idx}
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider inline-block ${
+                                isFashion
+                                  ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200'
+                              }`}
+                            >
+                              {formatRole(r)}
+                            </span>
+                          ));
+                        })()}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
@@ -300,10 +393,56 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
                       <span>{e.email}</span>
                     </div>
                   )}
-                  {e.specialization && (
-                    <div className="text-[11px] text-gray-500 italic mt-1">
-                      Specialization: {e.specialization}
+                </div>
+
+                {/* Assigned Work & Shoots */}
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-gray-700 flex items-center gap-1.5 uppercase tracking-wider">
+                      <Briefcase className="w-3.5 h-3.5 text-[#C59B27]" />
+                      Assigned Work ({e.assignments?.length || 0})
+                    </span>
+                    <button
+                      onClick={() => openAssignModal(e)}
+                      className="text-[11px] text-[#C59B27] font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" /> Assign Work
+                    </button>
+                  </div>
+
+                  {e.assignments && e.assignments.length > 0 ? (
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                      {e.assignments.map((asg: any) => {
+                        const evt = asg.event;
+                        const projName = evt?.project?.name || evt?.customer?.fullName || 'Project';
+                        const shootName = evt?.eventName || 'Shoot';
+                        return (
+                          <div
+                            key={asg.id}
+                            className="p-2 rounded-xl bg-amber-50/60 border border-amber-200/60 text-xs text-gray-800"
+                          >
+                            <div className="font-semibold text-gray-900 flex items-center justify-between">
+                              <span>
+                                {shootName} <span className="text-gray-400">→</span>{' '}
+                                <span className="text-[#9A7318]">{projName}</span>
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] text-gray-500 mt-1">
+                              <span className="bg-white/80 border border-amber-200 px-1.5 py-0.5 rounded text-[#8C6910] font-medium">
+                                {asg.role ? asg.role.replace(/_/g, ' ') : 'Crew'}
+                              </span>
+                              {evt?.startDate && (
+                                <span>📅 {new Date(evt.startDate).toLocaleDateString('en-IN')}</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
+                  ) : (
+                    <p className="text-[11px] text-gray-400 italic bg-gray-50/70 p-2 rounded-lg border border-dashed border-gray-200">
+                      No shoots assigned currently. Click "+ Assign Work" to assign him to a shoot.
+                    </p>
                   )}
                 </div>
               </div>
@@ -345,7 +484,7 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
         isOpen={showModal}
         onClose={() => setShowModal(false)}
         title={editingEmployee ? `Edit Member: ${editingEmployee.name}` : `Add ${isFashion ? 'Fashion' : 'Wedding'} Member`}
-        size="md"
+        size="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -384,32 +523,6 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Role *</label>
-              <select
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-              >
-                {activeRoles.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Specialization (Optional)</label>
-              <input
-                type="text"
-                placeholder="e.g. Editorial, Catalog, Steaming"
-                value={form.specialization}
-                onChange={(e) => setForm({ ...form, specialization: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-              />
-            </div>
-
-            <div>
               <label className="block text-xs font-semibold text-gray-700 mb-1">Availability</label>
               <select
                 value={form.availability}
@@ -420,6 +533,58 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
                 <option value="Freelance">Freelance / On-Call</option>
                 <option value="Part Time">Part Time</option>
               </select>
+            </div>
+
+            {/* Multiple Role Selection */}
+            <div className="sm:col-span-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-gray-700">
+                  Select Roles (Multiple Selection Allowed) *
+                </label>
+                <span className="text-[11px] text-gray-500">
+                  {form.roles.length} selected
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200 max-h-48 overflow-y-auto">
+                {activeRoles.map((r) => {
+                  const isChecked = form.roles.includes(r.value);
+                  return (
+                    <label
+                      key={r.value}
+                      className={`flex items-center gap-2 p-2 rounded-lg text-xs cursor-pointer border transition-all ${
+                        isChecked
+                          ? isFashion
+                            ? 'bg-purple-50 border-purple-300 text-purple-900 font-semibold'
+                            : 'bg-amber-50 border-amber-300 text-amber-900 font-semibold'
+                          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleRoleSelection(r.value)}
+                        className={isFashion ? 'accent-purple-600' : 'accent-[#C59B27]'}
+                      />
+                      <span className="truncate">{r.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap gap-1 mt-2">
+                <span className="text-[11px] text-gray-500 mr-1 self-center">Selected:</span>
+                {form.roles.map((rv) => (
+                  <span
+                    key={rv}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      isFashion
+                        ? 'bg-purple-100 text-purple-800 border-purple-200'
+                        : 'bg-amber-100 text-amber-800 border-amber-200'
+                    }`}
+                  >
+                    {formatRole(rv)}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -444,6 +609,109 @@ export default function TeamPage({ domain = 'WEDDING' }: { domain?: 'WEDDING' | 
           </div>
         </form>
       </Modal>
+
+      {/* Assign Work Modal */}
+      {assignModalOpen && assigningEmployee && (
+        <Modal
+          isOpen={assignModalOpen}
+          onClose={() => setAssignModalOpen(false)}
+          title={`Assign Work — ${assigningEmployee.name}`}
+          size="md"
+        >
+          <form onSubmit={handleAssignSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Select Project / Wedding *
+              </label>
+              <select
+                required
+                value={assignForm.projectId}
+                onChange={(e) => {
+                  const pId = e.target.value;
+                  setAssignForm({ ...assignForm, projectId: pId, eventId: '' });
+                }}
+                className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              >
+                <option value="">— Select Project —</option>
+                {availableProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Select Shoot / Event *
+              </label>
+              <select
+                required
+                value={assignForm.eventId}
+                onChange={(e) => setAssignForm({ ...assignForm, eventId: e.target.value })}
+                className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              >
+                <option value="">— Select Shoot / Event —</option>
+                {availableEvents
+                  .filter((ev) => !assignForm.projectId || ev.projectId === assignForm.projectId)
+                  .map((ev) => (
+                    <option key={ev.id} value={ev.id}>
+                      {ev.eventName || 'Shoot'} ({ev.startDate ? new Date(ev.startDate).toLocaleDateString('en-IN') : 'Date TBD'})
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Role for this Shoot *
+              </label>
+              <select
+                required
+                value={assignForm.role}
+                onChange={(e) => setAssignForm({ ...assignForm, role: e.target.value })}
+                className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              >
+                {activeRoles.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                Instructions / Call Time (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Call time 8:00 AM at venue"
+                value={assignForm.notes}
+                onChange={(e) => setAssignForm({ ...assignForm, notes: e.target.value })}
+                className="w-full px-3 py-2 text-xs bg-white border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                onClick={() => setAssignModalOpen(false)}
+                className="px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={assigning}
+                className="px-5 py-2 text-xs font-semibold bg-[#C59B27] hover:bg-[#b58c1e] text-white rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-60"
+              >
+                {assigning ? 'Assigning...' : 'Confirm Assignment'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

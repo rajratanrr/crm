@@ -25,6 +25,24 @@ import Modal from '../../components/ui/Modal';
 import EmptyState from '../../components/ui/EmptyState';
 import toast from 'react-hot-toast';
 
+export const CREW_BOOKING_ROLES = [
+  { value: 'TRADITIONAL_PHOTOGRAPHER', label: 'Traditional Photographer' },
+  { value: 'TRADITIONAL_VIDEOGRAPHER', label: 'Traditional Videographer' },
+  { value: 'CANDID_PHOTOGRAPHER', label: 'Candid Photographer' },
+  { value: 'CINEMATIC_VIDEOGRAPHER', label: 'Cinematic Videographer' },
+  { value: 'DRONE', label: 'Drone' },
+  { value: 'MOBILE_CONTENT_CREATOR', label: 'Mobile Content Creator' },
+  { value: 'TRADITIONAL_PHOTO_EDITOR', label: 'Traditional Photo Editor' },
+  { value: 'TRADITIONAL_VIDEO_EDITOR', label: 'Traditional Video Editor' },
+  { value: 'CANDID_PHOTO_EDITOR', label: 'Candid Photo Editor' },
+  { value: 'CINEMATIC_VIDEO_EDITOR', label: 'Cinematic Video Editor' },
+  { value: 'DRONE_EDITOR', label: 'Drone Editor' },
+  { value: 'MOBILE_REEL_CONTENT_EDITOR', label: 'Mobile/Reel Content Editor' },
+  { value: 'ALBUM_DESIGNER', label: 'Album Designer' },
+  { value: 'MANAGER', label: 'Lead Manager' },
+  { value: 'OTHER', label: 'Crew Assistant / Other' },
+];
+
 export default function TeamBookingPage() {
   const [employees, setEmployees] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
@@ -41,7 +59,7 @@ export default function TeamBookingPage() {
     projectId: '',
     eventId: '',
     employeeIds: [] as string[],
-    role: 'PHOTOGRAPHER',
+    roles: ['TRADITIONAL_PHOTOGRAPHER'] as string[],
     notes: '',
   });
 
@@ -49,13 +67,28 @@ export default function TeamBookingPage() {
     try {
       setLoading(true);
       const [empRes, evtRes, projRes] = await Promise.all([
-        employeeApi.getAll(),
+        employeeApi.getAll({ domain: 'WEDDING' }),
         eventApi.getAll(),
-        projectApi.getAll(),
+        projectApi.getAll({ type: 'WEDDING' }),
       ]);
-      setEmployees(empRes.data.data || []);
-      setEvents(evtRes.data.data || []);
-      setProjects(projRes.data.data || []);
+
+      const allProjects = projRes.data?.data || [];
+      const weddingProjects = allProjects.filter(
+        (p: any) =>
+          p.projectType === 'WEDDING' ||
+          (!p.projectType &&
+            !p.name?.toLowerCase().includes('shoot') &&
+            !p.name?.toLowerCase().includes('garment'))
+      );
+      const weddingProjectIds = new Set(weddingProjects.map((p: any) => p.id));
+      const allEvents = evtRes.data?.data || [];
+      const weddingEvents = allEvents.filter(
+        (ev: any) => !ev.projectId || weddingProjectIds.has(ev.projectId)
+      );
+
+      setEmployees(empRes.data?.data || []);
+      setEvents(weddingEvents);
+      setProjects(weddingProjects);
     } catch (err) {
       console.error('Failed to load team booking data', err);
     } finally {
@@ -86,23 +119,34 @@ export default function TeamBookingPage() {
       toast.error('Please select an event and at least one crew member');
       return;
     }
+    if (form.roles.length === 0) {
+      toast.error('Please select at least one role');
+      return;
+    }
     setSubmitting(true);
     try {
+      const combinedRole = form.roles.join(', ');
       await Promise.all(
         form.employeeIds.map((empId) =>
           eventApi.addAssignment(form.eventId, {
             employeeId: empId,
-            role: form.role,
+            role: combinedRole,
             notes: form.notes,
           })
         )
       );
-      toast.success(`${form.employeeIds.length} crew member(s) assigned successfully!`);
+      toast.success(`${form.employeeIds.length} crew member(s) booked successfully!`);
       setShowModal(false);
-      setForm({ projectId: '', eventId: '', employeeIds: [], role: 'PHOTOGRAPHER', notes: '' });
+      setForm({
+        projectId: '',
+        eventId: '',
+        employeeIds: [],
+        roles: ['TRADITIONAL_PHOTOGRAPHER'],
+        notes: '',
+      });
       loadData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to assign team member');
+      toast.error(err?.response?.data?.message || 'Failed to assign team member');
     } finally {
       setSubmitting(false);
     }
@@ -477,22 +521,56 @@ export default function TeamBookingPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Assignment Role *
-            </label>
-            <select
-              value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#C59B27] outline-none"
-            >
-              <option value="PHOTOGRAPHER">Photographer</option>
-              <option value="VIDEOGRAPHER">Videographer</option>
-              <option value="DRONE_OPERATOR">Drone Operator</option>
-              <option value="EDITOR">Editor</option>
-              <option value="ALBUM_DESIGNER">Album Designer</option>
-              <option value="MANAGER">Lead Manager</option>
-              <option value="OTHER">Crew Assistant / Other</option>
-            </select>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-gray-700">
+                Assignment Roles (Multiple Selection Allowed) *
+              </label>
+              <span className="text-[11px] text-gray-500">{form.roles.length} selected</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 p-2.5 bg-gray-50 rounded-xl border border-gray-200 max-h-40 overflow-y-auto">
+              {CREW_BOOKING_ROLES.map((r) => {
+                const checked = form.roles.includes(r.value);
+                return (
+                  <label
+                    key={r.value}
+                    className={`flex items-center gap-2 p-2 rounded-lg text-xs cursor-pointer border transition-all ${
+                      checked
+                        ? 'bg-amber-50 border-amber-300 text-amber-900 font-semibold'
+                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        const newRoles = checked
+                          ? form.roles.filter((rv) => rv !== r.value)
+                          : [...form.roles, r.value];
+                        setForm({
+                          ...form,
+                          roles: newRoles.length === 0 ? [r.value] : newRoles,
+                        });
+                      }}
+                      className="accent-[#C59B27]"
+                    />
+                    <span className="truncate">{r.label}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {form.roles.map((rv) => {
+                const matched = CREW_BOOKING_ROLES.find((c) => c.value === rv);
+                return (
+                  <span
+                    key={rv}
+                    className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200"
+                  >
+                    {matched?.label || rv}
+                  </span>
+                );
+              })}
+            </div>
           </div>
 
           <div>

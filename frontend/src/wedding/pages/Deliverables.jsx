@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle2, Circle, Clock, AlertCircle, Plus, X, Pencil, Trash2, Upload, Layers, ChevronDown, ChevronRight, ChevronsUpDown } from 'lucide-react'
+import { CheckCircle2, Circle, Clock, AlertCircle, Plus, X, Pencil, Trash2, Upload, Layers, ChevronDown, ChevronRight, ChevronsUpDown, User } from 'lucide-react'
 import { useStore } from '../store'
 import { useToastStore } from '../components/Toast'
+import { employeeApi } from '../../services/api'
 
 const statusColors = {
   PENDING: 'bg-slate-100 text-slate-700',
@@ -26,7 +27,41 @@ const statusIcons = {
   DELIVERED: CheckCircle2,
 }
 
-const emptyForm = { projectId: '', name: '', dueDate: '', status: 'PENDING', type: 'Included', notes: '' }
+export const DELIVERABLE_ROLES = [
+  'Traditional Photo Editor',
+  'Traditional Video Editor',
+  'Candid Photo Editor',
+  'Cinematic Video Editor',
+  'Drone Editor',
+  'Mobile/Reel Content Editor',
+  'Album Designer',
+  'Lead Retoucher',
+  'Colorist',
+]
+
+export const parseAssigned = (notesStr) => {
+  if (!notesStr || typeof notesStr !== 'string') return null
+  const match = notesStr.match(/\[Assigned:\s*([^|]+)\s*\|\s*Role:\s*([^\]]+)\]/)
+  if (match) {
+    return {
+      name: match[1].trim(),
+      role: match[2].trim(),
+      cleanNotes: notesStr.replace(match[0], '').trim(),
+    }
+  }
+  return null
+}
+
+const emptyForm = {
+  projectId: '',
+  name: '',
+  dueDate: '',
+  status: 'PENDING',
+  type: 'Included',
+  notes: '',
+  assignedEmployee: '',
+  assignedRole: 'Traditional Photo Editor',
+}
 
 const formatStatus = (status) => (status || '').replaceAll('_', ' ')
 
@@ -42,7 +77,14 @@ export default function Deliverables() {
   const [bundleEditing, setBundleEditing] = useState(null)
   const [bundleProjectId, setBundleProjectId] = useState('')
   const [expandedProjects, setExpandedProjects] = useState({})
+  const [employees, setEmployees] = useState([])
   const fileRef = useRef(null)
+
+  useEffect(() => {
+    employeeApi.getAll().then((res) => {
+      setEmployees(res?.data?.data || [])
+    }).catch(() => {})
+  }, [])
 
   const weddingProjects = projects.filter((p) => p.projectType === 'WEDDING' || (!p.projectType && !p.name?.toLowerCase().includes('shoot')));
   const groupedByProject = weddingProjects.map((p) => ({ project: p, deliverables: p.deliverables || [] }))
@@ -90,13 +132,16 @@ export default function Deliverables() {
 
   const openEditModal = (project, deliverable) => {
     setEditingDeliverable({ projectId: project.id, id: deliverable.id })
+    const parsed = parseAssigned(deliverable.notes)
     setForm({
       projectId: project.id,
-      name: deliverable.name || deliverable.notes || '',
+      name: deliverable.name || (parsed ? parsed.cleanNotes : deliverable.notes) || '',
       dueDate: deliverable.dueDate || '',
       status: deliverable.status || 'PENDING',
       type: deliverable.type || 'Included',
-      notes: deliverable.notes || '',
+      notes: parsed ? parsed.cleanNotes : (deliverable.notes || ''),
+      assignedEmployee: parsed?.name || '',
+      assignedRole: parsed?.role || 'Traditional Photo Editor',
     })
     setError('')
     setOpen(true)
@@ -112,12 +157,18 @@ export default function Deliverables() {
     setSaving(true)
     setError('')
 
+    const assignedTag = form.assignedEmployee
+      ? `[Assigned: ${form.assignedEmployee} | Role: ${form.assignedRole}] `
+      : ''
+    const cleanNoteText = form.notes || form.name.trim()
+    const finalNotes = `${assignedTag}${cleanNoteText}`.trim()
+
     try {
       if (editingDeliverable) {
         // UPDATE existing deliverable via backend API
         await updateDeliverable(editingDeliverable.id, {
           name: form.name.trim(),
-          notes: form.name.trim(),
+          notes: finalNotes,
           dueDate: form.dueDate || null,
           status: form.status,
           projectId: form.projectId,
@@ -128,7 +179,7 @@ export default function Deliverables() {
         await addDeliverable({
           projectId: form.projectId,
           name: form.name.trim(),
-          notes: form.name.trim(),
+          notes: finalNotes,
           dueDate: form.dueDate || undefined,
           status: form.status || 'PENDING',
           dbType: 'EDITED_PHOTOS',
@@ -304,7 +355,25 @@ export default function Deliverables() {
                                     {d.type && <span className="whitespace-nowrap">{d.type}</span>}
                                     {d.dueDate && <span className="whitespace-nowrap">Due: {new Date(d.dueDate).toLocaleDateString('en-IN')}</span>}
                                   </div>
-                                  {d.notes && d.notes !== d.name && <p className="text-xs text-gray-500 mt-1 line-clamp-2 break-words">{d.notes}</p>}
+                                  {(() => {
+                                    const assignedInfo = parseAssigned(d.notes);
+                                    const noteClean = assignedInfo ? assignedInfo.cleanNotes : d.notes;
+                                    return (
+                                      <>
+                                        {assignedInfo && (
+                                          <div className="flex items-center gap-1.5 mt-2 bg-indigo-50 border border-indigo-200/80 text-indigo-800 px-2.5 py-1 rounded-lg w-fit text-xs font-medium">
+                                            <User className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                            <span className="font-semibold text-gray-900">{assignedInfo.name}</span>
+                                            <span className="text-indigo-400">·</span>
+                                            <span className="text-indigo-700 font-medium">{assignedInfo.role}</span>
+                                          </div>
+                                        )}
+                                        {noteClean && noteClean !== d.name && (
+                                          <p className="text-xs text-gray-500 mt-1 line-clamp-2 break-words">{noteClean}</p>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
@@ -412,6 +481,57 @@ export default function Deliverables() {
                       <option value="READY">Ready</option>
                       <option value="DELIVERED">Delivered</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* Assigned Employee & Role */}
+                <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3.5 space-y-2.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
+                    <User size={14} className="text-indigo-600" />
+                    <span>Assign Team Member to Deliverable</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-700 block mb-1">
+                        Employee Name
+                      </label>
+                      <select
+                        className="input text-xs"
+                        value={form.assignedEmployee}
+                        onChange={(e) => {
+                          const empName = e.target.value;
+                          const empObj = employees.find((em) => em.name === empName);
+                          setForm({
+                            ...form,
+                            assignedEmployee: empName,
+                            ...(empObj?.role && { assignedRole: empObj.role.replace(/_/g, ' ') }),
+                          });
+                        }}
+                      >
+                        <option value="">— Select Employee —</option>
+                        {employees.map((emp) => (
+                          <option key={emp.id} value={emp.name}>
+                            {emp.name} {emp.role ? `(${emp.role.replace(/_/g, ' ')})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-700 block mb-1">
+                        His Work / Role
+                      </label>
+                      <select
+                        className="input text-xs"
+                        value={form.assignedRole}
+                        onChange={(e) => setForm({ ...form, assignedRole: e.target.value })}
+                      >
+                        {DELIVERABLE_ROLES.map((r) => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
 

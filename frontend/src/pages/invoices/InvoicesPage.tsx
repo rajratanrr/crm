@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Search, Plus, FileText, Printer, Trash2, ExternalLink,
   CheckCircle2, Clock, AlertCircle, IndianRupee, Eye, Building2,
-  Calendar, ArrowUpRight
+  Calendar, ArrowUpRight, Edit2
 } from 'lucide-react';
 import { invoiceApi, contractApi, formatCurrency, formatDate } from '../../services/api';
 import Modal from '../../components/ui/Modal';
@@ -16,8 +16,9 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [domainFilter, setDomainFilter] = useState<'ALL' | 'FASHION' | 'WEDDING'>('ALL');
 
-  // Create Modal State
+  // Create / Edit Modal State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     contractId: '',
@@ -62,6 +63,36 @@ export default function InvoicesPage() {
     loadData();
   };
 
+  const openCreateModal = () => {
+    setEditingInvoice(null);
+    setForm({
+      contractId: '',
+      customerId: '',
+      issueDate: new Date().toISOString().split('T')[0],
+      dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      subtotal: 0,
+      discount: 0,
+      tax: 0,
+      status: 'DRAFT',
+    });
+    setIsCreateOpen(true);
+  };
+
+  const openEditModal = (inv: any) => {
+    setEditingInvoice(inv);
+    setForm({
+      contractId: inv.contractId || '',
+      customerId: inv.customerId || '',
+      issueDate: inv.issueDate ? inv.issueDate.split('T')[0] : new Date().toISOString().split('T')[0],
+      dueDate: inv.dueDate ? inv.dueDate.split('T')[0] : '',
+      subtotal: Number(inv.subtotal) || 0,
+      discount: Number(inv.discount) || 0,
+      tax: Number(inv.tax) || 0,
+      status: inv.status || 'DRAFT',
+    });
+    setIsCreateOpen(true);
+  };
+
   const handleContractSelect = (contractId: string) => {
     const c = contracts.find((item) => item.id === contractId);
     if (!c) {
@@ -81,27 +112,43 @@ export default function InvoicesPage() {
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.contractId) {
+    if (!form.contractId && !editingInvoice) {
       toast.error('Please select a contract');
       return;
     }
     setSaving(true);
     try {
-      await invoiceApi.create({
-        contractId: form.contractId,
-        customerId: form.customerId,
-        issueDate: form.issueDate,
-        dueDate: form.dueDate || null,
-        subtotal: Number(form.subtotal),
-        discount: Number(form.discount || 0),
-        tax: Number(form.tax || 0),
-        status: form.status,
-      });
-      toast.success('Invoice created successfully');
+      const netTotal = Number(form.subtotal) - Number(form.discount || 0) + Number(form.tax || 0);
+      if (editingInvoice) {
+        await invoiceApi.update(editingInvoice.id, {
+          contractId: form.contractId || editingInvoice.contractId,
+          customerId: form.customerId || editingInvoice.customerId,
+          issueDate: form.issueDate,
+          dueDate: form.dueDate || null,
+          subtotal: Number(form.subtotal),
+          discount: Number(form.discount || 0),
+          tax: Number(form.tax || 0),
+          total: netTotal,
+          status: form.status,
+        });
+        toast.success('Invoice updated successfully');
+      } else {
+        await invoiceApi.create({
+          contractId: form.contractId,
+          customerId: form.customerId,
+          issueDate: form.issueDate,
+          dueDate: form.dueDate || null,
+          subtotal: Number(form.subtotal),
+          discount: Number(form.discount || 0),
+          tax: Number(form.tax || 0),
+          status: form.status,
+        });
+        toast.success('Invoice created successfully');
+      }
       setIsCreateOpen(false);
       loadData();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to create invoice');
+      toast.error(err.response?.data?.message || 'Failed to save invoice');
     } finally {
       setSaving(false);
     }
@@ -334,6 +381,13 @@ export default function InvoicesPage() {
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => openEditModal(inv)}
+                            className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                            title="Edit Invoice"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handleDelete(inv.id)}
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete Invoice"
@@ -359,8 +413,12 @@ export default function InvoicesPage() {
         )}
       </div>
 
-      {/* Create Invoice Modal */}
-      <Modal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} title="Create New Invoice">
+      {/* Create / Edit Invoice Modal */}
+      <Modal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        title={editingInvoice ? `Edit Invoice — ${editingInvoice.invoiceNumber}` : "Create New Invoice"}
+      >
         <form onSubmit={handleCreateSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -472,7 +530,7 @@ export default function InvoicesPage() {
               disabled={saving}
               className="px-5 py-2 text-xs font-semibold bg-[#C59B27] hover:bg-[#b58c1e] text-white rounded-xl shadow-sm transition-all disabled:opacity-60"
             >
-              Save Invoice
+              {editingInvoice ? 'Update Invoice' : 'Save Invoice'}
             </button>
           </div>
         </form>
@@ -486,12 +544,33 @@ export default function InvoicesPage() {
           title={`Invoice Preview — ${previewInvoice.invoiceNumber}`}
         >
           <div className="space-y-6">
+            <style>{`
+              @media print {
+                body * {
+                  visibility: hidden !important;
+                }
+                #printable-invoice, #printable-invoice * {
+                  visibility: visible !important;
+                }
+                #printable-invoice {
+                  position: fixed !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  margin: 0 !important;
+                  padding: 20px !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                  background: white !important;
+                }
+              }
+            `}</style>
             {/* Printable Content Container */}
             <div id="printable-invoice" className="p-6 bg-white border border-gray-200 rounded-2xl space-y-6 text-xs text-gray-700">
               {/* Header */}
               <div className="flex justify-between items-start border-b border-gray-100 pb-5">
                 <div>
-                  <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">MERAKI STUDIO</h2>
+                  <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">PHOTO FASHION STUDIO</h2>
                   <p className="text-[11px] text-gray-500">Commercial Fashion &amp; Luxury Wedding Photography</p>
                   <p className="text-[10px] text-gray-400 mt-1">GSTIN: 27AABCM8921Z1ZP</p>
                 </div>
@@ -579,10 +658,10 @@ export default function InvoicesPage() {
                 <div>
                   <p className="font-bold text-gray-700">Bank Transfer Details:</p>
                   <p>Bank: HDFC Bank | A/C: 50200012345678</p>
-                  <p>IFSC: HDFC0001234 | UPI: meraki@hdfcbank</p>
+                  <p>IFSC: HDFC0001234 | UPI: photofashion@hdfcbank</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-gray-800">For Meraki Studio</p>
+                  <p className="font-bold text-gray-800">For Photo Fashion Studio</p>
                   <p className="text-[10px] mt-4 text-gray-400">Authorized Signatory</p>
                 </div>
               </div>

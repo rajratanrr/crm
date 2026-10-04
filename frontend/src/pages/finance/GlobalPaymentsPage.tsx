@@ -228,10 +228,33 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
     setIsModalOpen(true);
   };
 
+  const selectedClientSummary = clientPayments.find(
+    (c) => c.customerId === form.customerId
+  );
+  const clientPending = selectedClientSummary?.totalPending ?? 0;
+  const maxAllowedAmount = editingPayment
+    ? clientPending + Number(editingPayment.amount || 0)
+    : clientPending;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.customerId || !form.amount) {
       toast.error('Client and Amount are required');
+      return;
+    }
+
+    const amt = Number(form.amount);
+    if (
+      selectedClientSummary &&
+      selectedClientSummary.totalBudget > 0 &&
+      maxAllowedAmount >= 0 &&
+      amt > maxAllowedAmount
+    ) {
+      toast.error(
+        `Cannot receive more than pending amount. Remaining balance for this client is ₹${formatCurrency(
+          maxAllowedAmount
+        )}. You entered ₹${formatCurrency(amt)}.`
+      );
       return;
     }
 
@@ -840,7 +863,14 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Amount (₹) *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-medium text-gray-700">Amount (₹) *</label>
+                {selectedClientSummary && selectedClientSummary.totalBudget > 0 && (
+                  <span className="text-[11px] text-gray-500">
+                    Remaining: <strong className="text-[#C59B27]">₹{formatCurrency(maxAllowedAmount)}</strong>
+                  </span>
+                )}
+              </div>
               <input
                 type="number"
                 required
@@ -848,8 +878,21 @@ export default function GlobalPaymentsPage({ domainFilter }: { domainFilter?: 'W
                 value={form.amount}
                 onChange={(e) => setForm({ ...form, amount: e.target.value })}
                 placeholder="50000"
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
+                className={`w-full px-3 py-2 text-xs border rounded-lg outline-none transition-colors ${
+                  selectedClientSummary &&
+                  selectedClientSummary.totalBudget > 0 &&
+                  Number(form.amount) > maxAllowedAmount
+                    ? 'border-rose-400 focus:border-rose-500 bg-rose-50/20'
+                    : 'border-gray-200 focus:border-[#C59B27]'
+                }`}
               />
+              {selectedClientSummary &&
+                selectedClientSummary.totalBudget > 0 &&
+                Number(form.amount) > maxAllowedAmount && (
+                  <p className="text-[11px] text-rose-600 font-semibold mt-1">
+                    ⚠️ Cannot receive more than pending amount of ₹{formatCurrency(maxAllowedAmount)}
+                  </p>
+                )}
             </div>
 
             <div>

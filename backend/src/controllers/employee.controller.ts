@@ -16,7 +16,23 @@ export const getEmployees = asyncHandler(async (req: Request, res: Response) => 
   const employees = await prisma.employee.findMany({
     where,
     orderBy: { name: 'asc' },
-    include: { _count: { select: { assignments: true, tasks: true } } },
+    include: {
+      _count: { select: { assignments: true, tasks: true } },
+      assignments: {
+        include: {
+          event: {
+            select: {
+              id: true,
+              eventName: true,
+              startDate: true,
+              venue: true,
+              customer: { select: { id: true, fullName: true } },
+              project: { select: { id: true, name: true } },
+            },
+          },
+        },
+      },
+    },
   });
   res.json({ success: true, data: employees });
 });

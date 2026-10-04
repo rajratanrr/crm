@@ -349,14 +349,6 @@ export default function FashionBookingsPage() {
                 placeholder="06:00 PM" className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-900 mb-1">Project</label>
-              <select value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })}
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]">
-                <option value="">-- Standalone Rental --</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </div>
-            <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Client / Brand</label>
               <select value={form.customerId} onChange={(e) => setForm({ ...form, customerId: e.target.value })}
                 className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none bg-white focus:border-[#C59B27]">

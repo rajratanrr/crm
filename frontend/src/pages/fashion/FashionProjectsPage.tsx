@@ -422,15 +422,22 @@ export default function FashionProjectsPage() {
 
   const handleProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectForm.name || !projectForm.customerId) {
-      toast.error('Project name and client are required');
+    if (!projectForm.customerId) {
+      toast.error('Fashion Client is required');
       return;
     }
+
+    const client = customers.find((c) => c.id === projectForm.customerId);
+    const clientName = client?.companyName || client?.fullName || 'Client';
+    const shootLabel = projectForm.brand || projectForm.shootType || 'Fashion Shoot';
+    const finalName = projectForm.name?.trim() || `${clientName} - ${shootLabel}`;
+
     setFormSaving(true);
     try {
       const resolvedStudioAmount = Number(projectForm.studioAmount) || Number(projectForm.baseBudget) || 0;
       const payload = {
         ...projectForm,
+        name: finalName,
         projectType: 'FASHION',
         budget: Number(projectForm.budget) || 0,           // contractAmount
         baseBudget: Number(projectForm.baseBudget) || resolvedStudioAmount || 0,
@@ -1498,16 +1505,6 @@ export default function FashionProjectsPage() {
       >
         <form onSubmit={handleProjectSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Project Name *</label>
-              <input
-                type="text" required value={projectForm.name}
-                onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
-                placeholder="e.g. Banarasi Collection Lookbook 2026"
-                className="w-full px-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
-              />
-            </div>
-
             {/* Client and Brand */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Fashion Client *</label>
