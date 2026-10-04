@@ -53,8 +53,6 @@ const navigationSections = [
       { label: 'Leads', route: '/wedding/leads', icon: UserPlus },
       { label: 'Packages', route: '/wedding/packages', icon: Package },
       { label: 'Employees', route: '/employees', icon: UsersRound },
-      { label: 'Attendance', route: '/attendance', icon: ClipboardList },
-      { label: 'Team Booking', route: '/team-booking', icon: CalendarDays },
     ],
   },
   {
@@ -75,6 +73,8 @@ const navigationSections = [
       { label: 'All Projects', route: '/projects', icon: Camera },
       { label: 'Tasks', route: '/tasks', icon: ListChecks },
       { label: 'Calendar', route: '/calendar', icon: Calendar },
+      { label: 'Attendance', route: '/attendance', icon: ClipboardList },
+      { label: 'Team Booking', route: '/team-booking', icon: CalendarDays },
     ],
   },
   {
