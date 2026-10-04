@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   CalendarDays,
   Users,
@@ -34,6 +34,8 @@ export default function TeamBookingPage() {
   const [selectedRole, setSelectedRole] = useState<string>('ALL');
   const [showModal, setShowModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [crewDropdownOpen, setCrewDropdownOpen] = useState(false);
+  const crewDropdownRef = useRef<HTMLDivElement>(null);
 
   const [form, setForm] = useState({
     projectId: '',
@@ -408,33 +410,67 @@ export default function TeamBookingPage() {
                 .filter((evt) => !form.projectId || evt.projectId === form.projectId)
                 .map((evt) => (
                   <option key={evt.id} value={evt.id}>
-                    {evt.eventName} ({formatDate(evt.startDate)}) - {evt.eventType}
+                    {evt.eventName}{evt.customer?.fullName ? ` — ${evt.customer.fullName}` : ''} | {formatDate(evt.startDate)}
                   </option>
                 ))}
             </select>
           </div>
 
-          {/* Select Crew Members (multi-select) */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Select Crew Member * <span className="font-normal text-gray-400">(hold Ctrl/Cmd to select multiple)</span>
-            </label>
-            <select
-              multiple
-              required
-              value={form.employeeIds}
-              onChange={(e) => {
-                const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-                setForm({ ...form, employeeIds: selected });
-              }}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#C59B27] outline-none min-h-[100px]"
+          {/* Select Crew Members — custom checkbox dropdown */}
+          <div ref={crewDropdownRef} className="relative">
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Select Crew Member *</label>
+            <button
+              type="button"
+              onClick={() => setCrewDropdownOpen((o) => !o)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs text-left focus:ring-2 focus:ring-[#C59B27] outline-none bg-white flex justify-between items-center"
             >
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name} ({emp.role?.replace(/_/g, ' ')})
-                </option>
-              ))}
-            </select>
+              <span className={form.employeeIds.length === 0 ? 'text-gray-400' : 'text-gray-800'}>
+                {form.employeeIds.length === 0
+                  ? 'Select crew members...'
+                  : employees
+                      .filter((e) => form.employeeIds.includes(e.id))
+                      .map((e) => e.name)
+                      .join(', ')}
+              </span>
+              <span className="text-gray-400">▾</span>
+            </button>
+            {crewDropdownOpen && (
+              <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                {employees.map((emp) => {
+                  const checked = form.employeeIds.includes(emp.id);
+                  return (
+                    <label
+                      key={emp.id}
+                      className={`flex items-center gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-amber-50 ${
+                        checked ? 'bg-amber-50 font-semibold text-[#C59B27]' : 'text-gray-700'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const newIds = checked
+                            ? form.employeeIds.filter((id) => id !== emp.id)
+                            : [...form.employeeIds, emp.id];
+                          setForm({ ...form, employeeIds: newIds });
+                        }}
+                        className="accent-[#C59B27]"
+                      />
+                      {emp.name} <span className="text-gray-400 font-normal">({emp.role?.replace(/_/g, ' ')})</span>
+                    </label>
+                  );
+                })}
+                <div className="border-t border-gray-100 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setCrewDropdownOpen(false)}
+                    className="text-xs text-[#C59B27] font-semibold hover:underline"
+                  >
+                    Done ({form.employeeIds.length} selected)
+                  </button>
+                </div>
+              </div>
+            )}
             {form.employeeIds.length > 0 && (
               <p className="text-[10px] text-[#C59B27] mt-1 font-medium">{form.employeeIds.length} crew selected</p>
             )}
