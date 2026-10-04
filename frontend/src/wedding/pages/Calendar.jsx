@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Check, X, Trash2 } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import toast from 'react-hot-toast'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { useStore } from '../store'
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -17,7 +15,7 @@ const eventColor = (n) => {
 }
 
 export default function Calendar() {
-  const { projects, team, attendance, setAttendance, assignTeamMember, removeTeamAssignment } = useStore()
+  const { projects } = useStore()
   const [cursor, setCursor] = useState(new Date())
   const [selectedEvent, setSelectedEvent] = useState(null)
 
@@ -42,8 +40,6 @@ export default function Calendar() {
 
   const fmt = (d) => `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
   const isToday = (d) => fmt(d) === new Date().toISOString().slice(0,10)
-  const scheduledEvents = projects.flatMap((project) => (project.events || []).map((event) => ({ ...event, projectName: project.name, projectId: project.id })))
-  const attendanceStatus = (eventId, memberId) => attendance.find((record) => record.eventId === eventId && record.memberId === memberId)?.status || 'UNMARKED'
 
   return (
     <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
@@ -126,162 +122,6 @@ export default function Calendar() {
           </div>
         </div>
       )}
-
-      <div className="mt-6 card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div>
-            <h3 className="text-sm font-bold text-gray-900">Attendance & Crew Assignments</h3>
-            <p className="text-xs text-gray-500 mt-1">Assign crew members to each scheduled shoot and track attendance.</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-500">{scheduledEvents.length} scheduled shoots</span>
-            <Link
-              to="/wedding/team-booking"
-              className="text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 px-2.5 py-1.5 rounded-lg border border-brand-200 transition-colors"
-            >
-              Open Team Booking Schedule &rarr;
-            </Link>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {scheduledEvents.map((event) => {
-            const assignedList = event.assignments || []
-            const unassignedTeam = team.filter((m) => !event.team?.includes(m.name))
-
-            return (
-              <div key={event.id} className="p-3.5 rounded-xl bg-gray-50/80 border border-gray-100">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{event.name}</p>
-                    <p className="text-xs text-gray-500">{event.projectName} · {event.date}</p>
-                  </div>
-                  <span className="text-xs text-gray-500">
-                    {event.startTime || 'Time TBD'}{event.venue ? ` · ${event.venue}` : ''}
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  {event.team?.length ? (
-                    event.team.map((memberName) => {
-                      const member = team.find((item) => item.name === memberName)
-                      const assignment = assignedList.find((a) => a.employeeName === memberName || a.employeeId === member?.id)
-                      const status = attendanceStatus(event.id, member?.id || memberName)
-
-                      return (
-                        <div
-                          key={memberName}
-                          className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg pl-2.5 pr-1 py-1 shadow-2xs"
-                        >
-                          <span className="text-xs font-medium text-gray-800">{memberName}</span>
-                          {member?.role && (
-                            <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                              {member.role}
-                            </span>
-                          )}
-
-                          <button
-                            onClick={() =>
-                              setAttendance({
-                                eventId: event.id,
-                                date: event.date,
-                                memberId: member?.id || memberName,
-                                memberName,
-                                status: 'PRESENT',
-                              })
-                            }
-                            className={`p-1 rounded transition-colors ${
-                              status === 'PRESENT'
-                                ? 'bg-emerald-100 text-emerald-700 font-bold'
-                                : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50'
-                            }`}
-                            title="Mark present"
-                            aria-label={`Mark ${memberName} present`}
-                          >
-                            <Check size={13} />
-                          </button>
-
-                          <button
-                            onClick={() =>
-                              setAttendance({
-                                eventId: event.id,
-                                date: event.date,
-                                memberId: member?.id || memberName,
-                                memberName,
-                                status: 'ABSENT',
-                              })
-                            }
-                            className={`p-1 rounded transition-colors ${
-                              status === 'ABSENT'
-                                ? 'bg-rose-100 text-rose-700 font-bold'
-                                : 'text-gray-400 hover:text-rose-600 hover:bg-rose-50'
-                            }`}
-                            title="Mark absent"
-                            aria-label={`Mark ${memberName} absent`}
-                          >
-                            <X size={13} />
-                          </button>
-
-                          {assignment?.id && (
-                            <button
-                              onClick={async () => {
-                                if (window.confirm(`Unassign ${memberName} from this shoot?`)) {
-                                  try {
-                                    await removeTeamAssignment(event.id, assignment.id)
-                                    toast.success(`${memberName} unassigned`)
-                                  } catch {
-                                    toast.error('Failed to unassign crew member')
-                                  }
-                                }
-                              }}
-                              className="p-1 rounded text-gray-300 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-0.5"
-                              title="Remove assignment"
-                              aria-label={`Remove ${memberName}`}
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          )}
-                        </div>
-                      )
-                    })
-                  ) : (
-                    <span className="text-xs text-gray-400 italic">No crew assigned to this shoot yet &mdash;</span>
-                  )}
-
-                  {/* Inline Quick Crew Assign Dropdown */}
-                  {unassignedTeam.length > 0 && (
-                    <select
-                      value=""
-                      onChange={async (e) => {
-                        const empId = e.target.value
-                        if (!empId) return
-                        const emp = team.find((t) => t.id === empId)
-                        try {
-                          await assignTeamMember(event.id, empId, emp?.role || 'PHOTOGRAPHER')
-                          toast.success(`${emp?.name || 'Crew member'} assigned to ${event.name}`)
-                        } catch {
-                          toast.error('Failed to assign crew member')
-                        }
-                      }}
-                      className="text-xs border border-dashed border-gray-300 hover:border-brand-500 rounded-lg px-2 py-1 bg-white text-gray-600 hover:text-brand-700 focus:outline-none cursor-pointer transition-colors shadow-2xs"
-                    >
-                      <option value="">+ Assign Crew</option>
-                      {unassignedTeam.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.name} ({member.role || 'Crew'})
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-          {scheduledEvents.length === 0 && (
-            <p className="text-sm text-gray-400">Add a shoot schedule from a project to start tracking attendance.</p>
-          )}
-        </div>
-      </div>
     </div>
   )
 }
