@@ -3,7 +3,7 @@ import {
   Plus, Search, Shirt, ChevronRight, X, Trash2, Edit2,
   IndianRupee, Calendar, Link2, MapPin, Film, PackagePlus,
   UserCircle, CheckCircle2, AlertCircle, Loader2, Tag, Clock,
-  Building2, ExternalLink, Image as ImageIcon,
+  Building2, ExternalLink, Image as ImageIcon, Users, Settings,
 } from 'lucide-react';
 import {
   projectApi, customerApi, paymentApi, modelApi,
@@ -63,6 +63,22 @@ const STATUS_COLORS: Record<string, string> = {
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface GarmentRow { id?: string; clothType: string; dressName: string; quantity: number; }
 interface ModelAssignment { id?: string; modelId: string; modelRate: number; notes: string; model?: any; }
+interface TeamRequirement { role: string; count: number; }
+
+const CREW_ROLES = [
+  'Traditional Photographer',
+  'Traditional Videographer',
+  'Candid Photographer',
+  'Cinematic Videographer',
+  'Drone',
+  'Mobile Content Creator',
+  'Traditional Photo Editor',
+  'Traditional Video Editor',
+  'Candid Photo Editor',
+  'Cinematic Video Editor',
+  'Drone Editor',
+  'Mobile/Reel Content Editor',
+];
 
 function emptyProject() {
   return {
@@ -112,6 +128,11 @@ export default function FashionProjectsPage() {
   const [modelAssignments, setModelAssignments] = useState<ModelAssignment[]>([]);
   const [allModels, setAllModels] = useState<any[]>([]);
   const [modelSaving, setModelSaving] = useState(false);
+
+  // Team requirements (role + count, stored as JSON in creativeTeam)
+  const [teamRequirements, setTeamRequirements] = useState<TeamRequirement[]>([]);
+  const [teamReqSaving, setTeamReqSaving] = useState(false);
+  const [teamReqModalOpen, setTeamReqModalOpen] = useState(false);
 
   // Quick payment modal & inline advance entry
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
@@ -179,6 +200,17 @@ export default function FashionProjectsPage() {
       } catch (subErr) {
         console.warn('Sub-resource fetch warning:', subErr);
       }
+      // Parse team requirements from creativeTeam JSON
+      try {
+        const ct = projRes.data.data?.creativeTeam;
+        if (ct) {
+          const parsed = JSON.parse(ct);
+          if (Array.isArray(parsed)) setTeamRequirements(parsed);
+          else setTeamRequirements([]);
+        } else {
+          setTeamRequirements([]);
+        }
+      } catch { setTeamRequirements([]); }
     } catch (err: any) {
       console.error('Failed to load project details:', err);
       toast.error(err.response?.data?.message || 'Failed to load project details');
@@ -516,6 +548,33 @@ export default function FashionProjectsPage() {
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to save model assignments');
     } finally { setModelSaving(false); }
+  };
+
+  // ─── Team Requirements ───────────────────────────────────────────────────────
+  const toggleTeamRole = (role: string) => {
+    setTeamRequirements(prev => {
+      const exists = prev.find(r => r.role === role);
+      if (exists) return prev.filter(r => r.role !== role);
+      return [...prev, { role, count: 1 }];
+    });
+  };
+
+  const updateTeamRoleCount = (role: string, count: number) => {
+    setTeamRequirements(prev => prev.map(r => r.role === role ? { ...r, count: Math.max(1, count) } : r));
+  };
+
+  const saveTeamRequirements = async () => {
+    if (!selectedProject) return;
+    setTeamReqSaving(true);
+    try {
+      await projectApi.update(selectedProject.id, {
+        creativeTeam: JSON.stringify(teamRequirements),
+      });
+      toast.success('Team requirements saved');
+      loadDetail(selectedProject.id);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to save team requirements');
+    } finally { setTeamReqSaving(false); }
   };
 
   // ─── Quick Payment ────────────────────────────────────────────────────────────
@@ -1136,6 +1195,116 @@ export default function FashionProjectsPage() {
                   </div>
                 )}
               </div>
+
+              {/* Team Requirements */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-indigo-600" /> Team Requirements
+                    {teamRequirements.length > 0 && (
+                      <span className="text-xs text-gray-500 font-normal">· {teamRequirements.reduce((s, r) => s + r.count, 0)} crew</span>
+                    )}
+                  </h3>
+                  <button
+                    onClick={() => setTeamReqModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-all"
+                  >
+                    <Settings className="w-3.5 h-3.5" /> Manage Requirements
+                  </button>
+                </div>
+
+                {teamRequirements.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-4 text-center">No team requirements set. Click "Manage Requirements" to add roles.</p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      {teamRequirements.map((r) => (
+                        <div key={r.role} className="flex items-center justify-between px-3 py-2 bg-indigo-50/60 border border-indigo-100 rounded-lg">
+                          <span className="text-xs font-semibold text-indigo-800">{r.role}</span>
+                          <span className="text-xs font-bold text-indigo-600 bg-white px-2 py-0.5 rounded-md border border-indigo-200">×{r.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        onClick={saveTeamRequirements}
+                        disabled={teamReqSaving}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-all disabled:opacity-60"
+                      >
+                        {teamReqSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                        Save Team
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Team Requirements Modal */}
+              <Modal isOpen={teamReqModalOpen} onClose={() => setTeamReqModalOpen(false)} title="Manage Requirements" size="md">
+                <div className="space-y-4">
+                  <p className="text-xs text-gray-500">Select roles and set the count of persons needed for each.</p>
+
+                  <div className="space-y-2 max-h-[320px] overflow-y-auto">
+                    {CREW_ROLES.map((role) => {
+                      const active = teamRequirements.find(r => r.role === role);
+                      return (
+                        <div key={role} className={`flex items-center justify-between px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${
+                          active ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-gray-200 hover:bg-gray-50'
+                        }`}>
+                          <label className="flex items-center gap-2.5 cursor-pointer flex-1">
+                            <input
+                              type="checkbox"
+                              checked={!!active}
+                              onChange={() => toggleTeamRole(role)}
+                              className="accent-indigo-600 w-4 h-4"
+                            />
+                            <span className={`text-xs font-medium ${active ? 'text-indigo-800' : 'text-gray-700'}`}>{role}</span>
+                          </label>
+                          {active && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-gray-500 font-medium">Count:</span>
+                              <input
+                                type="number"
+                                min={1}
+                                max={20}
+                                value={active.count}
+                                onChange={(e) => updateTeamRoleCount(role, parseInt(e.target.value) || 1)}
+                                className="w-14 px-2 py-1 text-xs border border-indigo-200 rounded-md text-center font-bold text-indigo-700 outline-none focus:ring-1 focus:ring-indigo-400"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Selected tags */}
+                  {teamRequirements.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-100">
+                      {teamRequirements.map(r => (
+                        <span
+                          key={r.role}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 bg-indigo-100 text-indigo-700 rounded-md border border-indigo-200"
+                        >
+                          {r.role} ×{r.count}
+                          <button onClick={() => toggleTeamRole(r.role)} className="ml-0.5 hover:text-red-600">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-2 border-t border-gray-100">
+                    <button
+                      onClick={() => { saveTeamRequirements(); setTeamReqModalOpen(false); }}
+                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition-all"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              </Modal>
 
               {/* Model Assignments */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
