@@ -70,24 +70,52 @@ export const getPaymentsByClient = asyncHandler(async (req: Request, res: Respon
     projectWhere.projectType = domain as any;
   }
 
-  // Find all payments matching domain filter
-  const allPayments = await prisma.payment.findMany({
-    where: paymentWhere,
-    orderBy: { paymentDate: 'desc' },
-    include: {
-      customer: { select: { id: true, fullName: true, phone: true, email: true } },
-      project: { select: { id: true, name: true, projectNumber: true, projectType: true, budget: true } },
-      contract: { select: { id: true, contractNumber: true, finalAmount: true } },
-    },
-  });
+  // Find all payments and projects matching domain filter
+  const [allPayments, allProjects] = await Promise.all([
+    prisma.payment.findMany({
+      where: paymentWhere,
+      orderBy: { paymentDate: 'desc' },
+      include: {
+        customer: { select: { id: true, fullName: true, phone: true, email: true } },
+        project: { select: { id: true, name: true, projectNumber: true, projectType: true, budget: true } },
+        contract: { select: { id: true, contractNumber: true, finalAmount: true } },
+      },
+    }),
+    prisma.project.findMany({
+      where: projectWhere,
+      select: {
+        id: true,
+        name: true,
+        projectNumber: true,
+        projectType: true,
+        budget: true,
+        customerId: true,
+        customer: { select: { id: true, fullName: true, phone: true, email: true } },
+      },
+    }),
+  ]);
 
-  // Group payments by customerId
+  // Group payments and projects by customerId
   const customerMap = new Map<string, {
     customer: any;
     projects: Map<string, any>;
     payments: any[];
   }>();
 
+  // First, add all projects
+  for (const prj of allProjects) {
+    const custId = prj.customerId || 'unassigned';
+    if (!customerMap.has(custId)) {
+      customerMap.set(custId, {
+        customer: prj.customer || { id: custId, fullName: 'Direct Client', phone: '' },
+        projects: new Map(),
+        payments: [],
+      });
+    }
+    customerMap.get(custId)!.projects.set(prj.id, prj);
+  }
+
+  // Then add all payments
   for (const p of allPayments) {
     const custId = p.customerId || 'unassigned';
     if (!customerMap.has(custId)) {
@@ -101,24 +129,6 @@ export const getPaymentsByClient = asyncHandler(async (req: Request, res: Respon
     entry.payments.push(p);
     if (p.project) {
       entry.projects.set(p.project.id, p.project);
-    }
-  }
-
-  // Also query projects for these customers to ensure all project budgets are included
-  const customerIds = Array.from(customerMap.keys()).filter(id => id !== 'unassigned');
-  if (customerIds.length > 0) {
-    const customerProjects = await prisma.project.findMany({
-      where: {
-        ...projectWhere,
-        customerId: { in: customerIds },
-      },
-      select: { id: true, name: true, projectNumber: true, projectType: true, budget: true, customerId: true },
-    });
-
-    for (const prj of customerProjects) {
-      if (prj.customerId && customerMap.has(prj.customerId)) {
-        customerMap.get(prj.customerId)!.projects.set(prj.id, prj);
-      }
     }
   }
 
