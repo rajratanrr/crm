@@ -36,8 +36,9 @@ export default function TeamBookingPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
+    projectId: '',
     eventId: '',
-    employeeId: '',
+    employeeIds: [] as string[],
     role: 'PHOTOGRAPHER',
     notes: '',
   });
@@ -79,20 +80,24 @@ export default function TeamBookingPage() {
 
   const handleAssign = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.eventId || !form.employeeId) {
-      toast.error('Please select both an event and a crew member');
+    if (!form.eventId || form.employeeIds.length === 0) {
+      toast.error('Please select an event and at least one crew member');
       return;
     }
     setSubmitting(true);
     try {
-      await eventApi.addAssignment(form.eventId, {
-        employeeId: form.employeeId,
-        role: form.role,
-        notes: form.notes,
-      });
-      toast.success('Crew assigned successfully!');
+      await Promise.all(
+        form.employeeIds.map((empId) =>
+          eventApi.addAssignment(form.eventId, {
+            employeeId: empId,
+            role: form.role,
+            notes: form.notes,
+          })
+        )
+      );
+      toast.success(`${form.employeeIds.length} crew member(s) assigned successfully!`);
       setShowModal(false);
-      setForm({ eventId: '', employeeId: '', role: 'PHOTOGRAPHER', notes: '' });
+      setForm({ projectId: '', eventId: '', employeeIds: [], role: 'PHOTOGRAPHER', notes: '' });
       loadData();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to assign team member');
@@ -371,10 +376,27 @@ export default function TeamBookingPage() {
       {/* Book Crew Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Book Crew to Shoot" size="md">
         <form onSubmit={handleAssign} className="space-y-4">
+
+          {/* Select Project */}
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Select Shoot / Event *
-            </label>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Select Project</label>
+            <select
+              value={form.projectId}
+              onChange={(e) => setForm({ ...form, projectId: e.target.value, eventId: '' })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#C59B27] outline-none"
+            >
+              <option value="">All Projects</option>
+              {projects.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.name || p.title || `Project #${p.id.slice(-6)}`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Select Event */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Event *</label>
             <select
               required
               value={form.eventId}
@@ -382,38 +404,40 @@ export default function TeamBookingPage() {
               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#C59B27] outline-none"
             >
               <option value="">Select an Event</option>
-              {events.map((evt) => (
-                <option key={evt.id} value={evt.id}>
-                  {evt.eventName} ({formatDate(evt.startDate)}) - {evt.eventType}
-                </option>
-              ))}
+              {events
+                .filter((evt) => !form.projectId || evt.projectId === form.projectId)
+                .map((evt) => (
+                  <option key={evt.id} value={evt.id}>
+                    {evt.eventName} ({formatDate(evt.startDate)}) - {evt.eventType}
+                  </option>
+                ))}
             </select>
           </div>
 
+          {/* Select Crew Members (multi-select) */}
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">
-              Select Crew Member *
+              Select Crew Member * <span className="font-normal text-gray-400">(hold Ctrl/Cmd to select multiple)</span>
             </label>
             <select
+              multiple
               required
-              value={form.employeeId}
+              value={form.employeeIds}
               onChange={(e) => {
-                const emp = employees.find((x) => x.id === e.target.value);
-                setForm({
-                  ...form,
-                  employeeId: e.target.value,
-                  role: emp?.role || form.role,
-                });
+                const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
+                setForm({ ...form, employeeIds: selected });
               }}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#C59B27] outline-none"
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-[#C59B27] outline-none min-h-[100px]"
             >
-              <option value="">Select Crew Member</option>
               {employees.map((emp) => (
                 <option key={emp.id} value={emp.id}>
                   {emp.name} ({emp.role?.replace(/_/g, ' ')})
                 </option>
               ))}
             </select>
+            {form.employeeIds.length > 0 && (
+              <p className="text-[10px] text-[#C59B27] mt-1 font-medium">{form.employeeIds.length} crew selected</p>
+            )}
           </div>
 
           <div>

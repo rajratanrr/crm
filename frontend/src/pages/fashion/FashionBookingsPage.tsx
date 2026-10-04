@@ -243,6 +243,8 @@ export default function FashionBookingsPage() {
                 <option value="Studio Bay B - Daylight Loft">Studio Bay B - Daylight Loft</option>
                 <option value="Studio Bay C - Black Box Theater">Studio Bay C - Black Box Theater</option>
                 <option value="Outdoor Fashion Set">Outdoor Fashion Set</option>
+                <option value="2nd Floor">2nd Floor</option>
+                <option value="Meraki">Meraki</option>
               </select>
             </div>
             <div>
