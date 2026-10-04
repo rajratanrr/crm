@@ -1415,11 +1415,8 @@ export default function FashionProjectsPage() {
                 <div>
                   <label className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
                     <UserCircle className="w-4 h-4 text-[#C59B27]" />
-                    Model Selection &amp; Agreed Client Rates
+                    Select Model
                   </label>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
-                    Choose from the dropdown below to assign models to this shoot.
-                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   <select
@@ -1685,22 +1682,55 @@ export default function FashionProjectsPage() {
               />
             </div>
 
-            {/* Shoot / Contract Amount (client-facing billable amount) */}
+            {/* Shoot / Contract Amount — BILLED TO CLIENT */}
             <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Shoot / Contract Amount (₹) <span className="text-gray-400 font-normal">— client-facing billable amount</span>
+              <label className="block text-xs font-bold text-gray-900 mb-1 flex items-center gap-1.5">
+                <IndianRupee className="w-4 h-4 text-emerald-600" />
+                Shoot / Contract Amount (₹)
+                <span className="text-[11px] font-normal text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                  Billed to Client
+                </span>
               </label>
               <div className="relative">
-                <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                <IndianRupee className="w-4 h-4 text-emerald-500 absolute left-3 top-2.5" />
                 <input
                   type="number" min={0}
                   value={projectForm.budget}
                   onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
-                  placeholder="e.g. 50000 (leave empty to auto-use Studio Amount + Model Cost)"
-                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold text-gray-900"
+                  placeholder="e.g. 75000"
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-emerald-300 bg-emerald-50/30 rounded-lg outline-none focus:border-emerald-500 font-bold text-gray-900"
                 />
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">Total amount charged to client (determines pending balance / left money).</p>
+              <p className="text-[10px] text-gray-400 mt-1">This is the amount charged to the client for the full photoshoot project.</p>
+
+              {/* ─── 18% GST Toggle (without Set Contract button) ─── */}
+              <div className="mt-2">
+                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={(projectForm as any).applyGst || false}
+                    onChange={(e) => setProjectForm({ ...projectForm, applyGst: e.target.checked } as any)}
+                    className="w-4 h-4 rounded border-gray-300 text-[#C59B27] focus:ring-[#C59B27] accent-[#C59B27]"
+                  />
+                  <span className="text-xs font-semibold text-gray-700">Apply 18% GST</span>
+                </label>
+                {(projectForm as any).applyGst && budgetBaseForGst > 0 && (
+                  <div className="mt-2 bg-blue-50/60 border border-blue-200/50 rounded-lg p-2.5 space-y-1">
+                    <div className="flex justify-between text-xs text-gray-600">
+                      <span>Base Amount:</span>
+                      <strong>{formatCurrency(budgetBaseForGst)}</strong>
+                    </div>
+                    <div className="flex justify-between text-xs text-blue-700">
+                      <span>GST (18%):</span>
+                      <strong>{formatCurrency(gstAmount)}</strong>
+                    </div>
+                    <div className="flex justify-between text-xs font-bold text-gray-900 pt-1 border-t border-blue-200/40">
+                      <span>Total with GST:</span>
+                      <span>{formatCurrency(budgetWithGst)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Studio Amount (internal production cost) */}
