@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Trash2, ArrowLeft, Save, ChevronDown, Check, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, ArrowLeft, Save, ChevronDown, Check, AlertCircle, X, Users } from 'lucide-react'
 import { useStore } from '../store'
 
 const emptyDeliverable = () => ({ id: Math.random().toString(36).slice(2), name: '', status: 'PENDING', dueDate: '' })
@@ -35,8 +35,24 @@ export default function CreateProject({ onDone, project }) {
   const [deliverables, setDeliverables] = useState(() => project?.deliverables || [emptyDeliverable()])
   const [schedules, setSchedules] = useState(() => (project?.events || []).map((event) => ({ ...event, team: event.team || [] })))
   const [openTeamSchedule, setOpenTeamSchedule] = useState(null)
+  const dropdownRef = useRef(null)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Close crew assignment dropdown when clicking outside
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpenTeamSchedule(null)
+      }
+    }
+    if (openTeamSchedule) {
+      document.addEventListener('mousedown', handleOutsideClick)
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+    }
+  }, [openTeamSchedule])
 
   const handleBrideChange = (val) => {
     const prevBride = brideName
@@ -232,33 +248,105 @@ export default function CreateProject({ onDone, project }) {
 
                 <div className="relative">
                   <label className="label">Assign Team Members</label>
-                  <button type="button" onClick={() => setOpenTeamSchedule(openTeamSchedule === schedule.id ? null : schedule.id)} className="input flex items-center justify-between text-left">
-                    <span className={schedule.team.length ? 'text-gray-700' : 'text-gray-400'}>
-                      {schedule.team.length ? `${schedule.team.length} member${schedule.team.length === 1 ? '' : 's'} assigned` : 'Select team members'}
+                  <button
+                    type="button"
+                    onClick={() => setOpenTeamSchedule(openTeamSchedule === schedule.id ? null : schedule.id)}
+                    className="input flex items-center justify-between text-left hover:border-brand-500 transition-colors cursor-pointer"
+                  >
+                    <span className={schedule.team.length ? 'text-gray-900 font-medium' : 'text-gray-400'}>
+                      {schedule.team.length ? `${schedule.team.length} crew member${schedule.team.length === 1 ? '' : 's'} assigned` : 'Select team members'}
                     </span>
-                    <ChevronDown size={16} className="text-gray-400" />
+                    <ChevronDown size={16} className={`text-gray-400 transition-transform ${openTeamSchedule === schedule.id ? 'rotate-180' : ''}`} />
                   </button>
+
                   {openTeamSchedule === schedule.id && (
-                    <div className="absolute left-0 right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-pop p-2 max-h-48 overflow-y-auto">
-                      {teamMembers.map((member) => {
-                        const selected = schedule.team.includes(member.name)
-                        return (
-                          <label key={member.id} className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-brand-50 cursor-pointer text-sm text-gray-700">
-                            <input type="checkbox" checked={selected} onChange={() => toggleScheduleMember(schedule, member.name)} className="sr-only" />
-                            <span className={`w-4 h-4 rounded border flex items-center justify-center ${selected ? 'bg-brand-600 border-brand-600 text-white' : 'border-gray-300'}`}>
-                              {selected && <Check size={12} />}
-                            </span>
-                            <span>{member.name} ({member.role || member.type})</span>
-                          </label>
-                        )
-                      })}
+                    <div
+                      ref={dropdownRef}
+                      className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-white border border-gray-200 rounded-xl shadow-xl p-2.5 max-h-60 overflow-y-auto"
+                    >
+                      <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100">
+                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                          Assign Crew Members
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setOpenTeamSchedule(null)}
+                          className="text-xs font-semibold text-brand-700 hover:text-brand-900 px-2 py-0.5 rounded hover:bg-brand-50 transition-colors"
+                        >
+                          ✕ Close
+                        </button>
+                      </div>
+
+                      <div className="space-y-1">
+                        {teamMembers.map((member) => {
+                          const selected = schedule.team.includes(member.name)
+                          return (
+                            <label
+                              key={member.id}
+                              className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg cursor-pointer text-xs transition-colors ${
+                                selected ? 'bg-brand-50 text-brand-900 font-medium' : 'hover:bg-gray-50 text-gray-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => toggleScheduleMember(schedule, member.name)}
+                                  className="sr-only"
+                                />
+                                <span
+                                  className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                                    selected
+                                      ? 'bg-brand-600 border-brand-600 text-white'
+                                      : 'border-gray-300 bg-white'
+                                  }`}
+                                >
+                                  {selected && <Check size={12} />}
+                                </span>
+                                <span>{member.name}</span>
+                              </div>
+                              <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                                {member.role || member.type || 'Crew'}
+                              </span>
+                            </label>
+                          )
+                        })}
+                        {teamMembers.length === 0 && (
+                          <p className="text-xs text-gray-400 py-2 text-center">No employees found. Add employees in the Employees section first.</p>
+                        )}
+                      </div>
+
+                      <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between">
+                        <span className="text-[11px] text-gray-500 font-medium">
+                          {schedule.team.length} selected
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setOpenTeamSchedule(null)}
+                          className="px-3.5 py-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-2xs transition-colors"
+                        >
+                          Done
+                        </button>
+                      </div>
                     </div>
                   )}
+
                   {schedule.team.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2">
                       {schedule.team.map((memberName) => (
-                        <span key={memberName} className="badge bg-brand-50 text-brand-700">
-                          {memberName}
+                        <span
+                          key={memberName}
+                          className="badge bg-brand-50 text-brand-700 flex items-center gap-1.5 pl-2.5 pr-1.5 py-0.5 text-xs font-medium"
+                        >
+                          <span>{memberName}</span>
+                          <button
+                            type="button"
+                            onClick={() => toggleScheduleMember(schedule, memberName)}
+                            className="p-0.5 rounded-full hover:bg-brand-200/60 text-brand-500 hover:text-brand-900 transition-colors"
+                            title={`Remove ${memberName}`}
+                          >
+                            <X size={12} />
+                          </button>
                         </span>
                       ))}
                     </div>

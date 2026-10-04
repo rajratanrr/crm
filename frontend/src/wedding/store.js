@@ -396,12 +396,12 @@ export const useStore = create((set, get) => ({
           }
         }
 
-        // Create events in the database for the new project
+        // Create events in the database for the new project and persist crew assignments
         if (p.events && p.events.length > 0) {
           for (const e of p.events) {
             if (!e.name?.trim() || !e.date) continue;
             try {
-              await eventApi.create({
+              const evtRes = await eventApi.create({
                 eventName: e.name.trim(),
                 eventType: 'WEDDING',
                 customerId: customerId,
@@ -409,6 +409,18 @@ export const useStore = create((set, get) => ({
                 startDate: e.date,
                 venue: e.venue || undefined,
               });
+              const eventId = evtRes.data?.data?.id;
+              if (eventId && Array.isArray(e.team) && e.team.length > 0) {
+                for (const memberName of e.team) {
+                  const emp = get().team.find((t) => t.name === memberName);
+                  if (emp) {
+                    await eventApi.addAssignment(eventId, {
+                      employeeId: emp.id,
+                      role: emp.type || emp.role || 'PHOTOGRAPHER',
+                    }).catch((err) => console.warn('Failed to add assignment:', err));
+                  }
+                }
+              }
             } catch (evtErr) {
               console.error('Failed to create event:', evtErr?.response?.data || evtErr);
             }
@@ -460,6 +472,70 @@ export const useStore = create((set, get) => ({
           }
         }
         await projectApi.update(id, payload);
+      }
+
+      // Sync shoot events and crew assignments if provided
+      if (patch.events && patch.events.length > 0) {
+        const existingProject = get().projects.find((p) => p.id === id);
+        const existingEvents = existingProject?.events || [];
+
+        for (const e of patch.events) {
+          if (!e.name?.trim() || !e.date) continue;
+          try {
+            let eventId = e.id;
+            const matchedExisting = existingEvents.find(
+              (ex) => ex.id === e.id || (ex.name?.toLowerCase() === e.name?.trim()?.toLowerCase() && ex.date === e.date)
+            );
+
+            if (matchedExisting) {
+              eventId = matchedExisting.id;
+              await eventApi.update(eventId, {
+                eventName: e.name.trim(),
+                startDate: e.date,
+                venue: e.venue || undefined,
+              }).catch(() => {});
+            } else {
+              const newEvtRes = await eventApi.create({
+                eventName: e.name.trim(),
+                eventType: 'WEDDING',
+                customerId: existingProject?.clientId,
+                projectId: id,
+                startDate: e.date,
+                venue: e.venue || undefined,
+              });
+              eventId = newEvtRes.data?.data?.id;
+            }
+
+            // Sync team assignments for this event
+            if (eventId && Array.isArray(e.team)) {
+              const currentAssignedNames = matchedExisting?.team || [];
+
+              // 1. Add newly selected members
+              for (const memberName of e.team) {
+                if (!currentAssignedNames.includes(memberName)) {
+                  const emp = get().team.find((t) => t.name === memberName);
+                  if (emp) {
+                    await eventApi.addAssignment(eventId, {
+                      employeeId: emp.id,
+                      role: emp.type || emp.role || 'PHOTOGRAPHER',
+                    }).catch(() => {});
+                  }
+                }
+              }
+
+              // 2. Remove unselected members
+              if (matchedExisting?.assignments) {
+                for (const asg of matchedExisting.assignments) {
+                  if (!e.team.includes(asg.employeeName)) {
+                    await eventApi.removeAssignment(eventId, asg.id).catch(() => {});
+                  }
+                }
+              }
+            }
+          } catch (evtErr) {
+            console.error('Failed to sync event & crew assignments:', evtErr);
+          }
+        }
       }
 
       // Re-fetch to ensure consistency across all employees
