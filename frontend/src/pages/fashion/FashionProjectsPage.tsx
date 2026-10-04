@@ -650,6 +650,16 @@ export default function FashionProjectsPage() {
   const gstAmount = Math.round(budgetBaseForGst * gstRate);
   const budgetWithGst = budgetBaseForGst + gstAmount;
 
+  const effectiveTarget = selectedProject
+    ? Number(selectedProject.budget) > 0
+      ? Number(selectedProject.budget)
+      : ((Number(selectedProject.baseBudget) || Number(selectedProject.studioAmount) || 0) + (Number(selectedProject.totalModelCost) || 0))
+    : 0;
+
+  const effectivePending = selectedProject
+    ? Math.max(0, effectiveTarget - (Number(selectedProject.totalPaid) || 0))
+    : 0;
+
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-[calc(100vh-48px)] overflow-hidden">
@@ -700,8 +710,11 @@ export default function FashionProjectsPage() {
             <div className="divide-y divide-gray-50">
               {projects.map((p) => {
                 const paid = Number(p.totalPaid) || 0;
-                const budget = Number(p.budget) || 0;
-                const pct = budget > 0 ? Math.min(100, Math.round((paid / budget) * 100)) : 0;
+                const effectiveBgt = Number(p.budget) > 0 
+                  ? Number(p.budget) 
+                  : (Number(p.totalBudget) || ((Number(p.baseBudget) || Number(p.studioAmount) || 0) + (Number(p.totalModelCost) || 0)));
+                const pending = Math.max(0, effectiveBgt - paid);
+                const pct = effectiveBgt > 0 ? Math.min(100, Math.round((paid / effectiveBgt) * 100)) : 0;
                 const isSelected = selectedProject?.id === p.id;
                 return (
                   <div
@@ -758,11 +771,11 @@ export default function FashionProjectsPage() {
                           )}
                         </div>
 
-                        {budget > 0 && (
+                        {effectiveBgt > 0 && (
                           <div className="mt-2">
-                            <div className="flex justify-between text-[10px] text-gray-400 mb-0.5">
-                              <span>{formatCurrency(paid)} paid</span>
-                              <span>{pct}%</span>
+                            <div className="flex justify-between text-[10px] text-gray-500 mb-0.5 font-medium">
+                              <span>{formatCurrency(paid)} paid {pending > 0 && <span className="text-amber-700 font-semibold">· {formatCurrency(pending)} left</span>}</span>
+                              <span className="text-gray-400">{pct}%</span>
                             </div>
                             <div className="h-1 bg-gray-100 rounded-full">
                               <div className="h-1 bg-purple-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
@@ -916,7 +929,7 @@ export default function FashionProjectsPage() {
                     <div className="h-6 w-px bg-gray-200 hidden sm:block" />
                     <div>
                       <span className="text-gray-400 text-[10px] uppercase font-bold block">Shoot / Contract Amount</span>
-                      <span className="font-bold text-[#C59B27]">{formatCurrency(selectedProject.budget || 0)}</span>
+                      <span className="font-bold text-[#C59B27]">{formatCurrency(effectiveTarget)}</span>
                     </div>
                   </div>
 
@@ -950,7 +963,7 @@ export default function FashionProjectsPage() {
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="text-center p-3 rounded-xl" style={{ background: 'var(--color-bg-secondary)' }}>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Base Budget</p>
-                    <p className="text-base font-bold text-gray-700 mt-1">{formatCurrency(selectedProject.baseBudget || 0)}</p>
+                    <p className="text-base font-bold text-gray-700 mt-1">{formatCurrency(selectedProject.baseBudget || selectedProject.studioAmount || 0)}</p>
                     <p className="text-[10px] text-gray-400">Internal production</p>
                   </div>
                   <div className="text-center p-3 rounded-xl" style={{ background: 'var(--color-bg-secondary)' }}>
@@ -960,38 +973,38 @@ export default function FashionProjectsPage() {
                   </div>
                   <div className="text-center p-3 rounded-xl bg-indigo-50 border border-indigo-100">
                     <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Total Budget</p>
-                    <p className="text-base font-bold text-indigo-700 mt-1">{formatCurrency((selectedProject.baseBudget || 0) + (selectedProject.totalModelCost || 0))}</p>
+                    <p className="text-base font-bold text-indigo-700 mt-1">{formatCurrency(((Number(selectedProject.baseBudget) || Number(selectedProject.studioAmount) || 0) + (selectedProject.totalModelCost || 0)))}</p>
                     <p className="text-[10px] text-indigo-400">Base + Models</p>
                   </div>
                   <div className="text-center p-3 rounded-xl" style={{ background: 'var(--color-bg-secondary)' }}>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Contract Amount</p>
-                    <p className="text-base font-bold text-gray-900 mt-1">{formatCurrency(selectedProject.budget)}</p>
-                    <p className="text-[10px] text-gray-400">Client-facing</p>
+                    <p className="text-base font-bold text-gray-900 mt-1">{formatCurrency(effectiveTarget)}</p>
+                    <p className="text-[10px] text-gray-400">{Number(selectedProject.budget) > 0 ? 'Client-facing' : 'Using Total Budget'}</p>
                   </div>
                   <div className="text-center p-3 rounded-xl bg-emerald-50 border border-emerald-100">
                     <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Total Received</p>
                     <p className="text-base font-bold text-emerald-600 mt-1">{formatCurrency(selectedProject.totalPaid || 0)}</p>
                     <p className="text-[10px] text-emerald-400">ADVANCE + DONE</p>
                   </div>
-                  <div className={`text-center p-3 rounded-xl ${(selectedProject.remainingAmount || 0) > 0 ? 'bg-amber-50 border border-amber-100' : 'bg-emerald-50 border border-emerald-100'}`}>
+                  <div className={`text-center p-3 rounded-xl ${effectivePending > 0 ? 'bg-amber-50 border border-amber-100' : 'bg-emerald-50 border border-emerald-100'}`}>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Pending Balance</p>
-                    <p className={`text-base font-bold mt-1 ${(selectedProject.remainingAmount || 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                      {formatCurrency(selectedProject.remainingAmount || 0)}
+                    <p className={`text-base font-bold mt-1 ${effectivePending > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                      {formatCurrency(effectivePending)}
                     </p>
                     <p className="text-[10px] text-gray-400">Not yet received</p>
                   </div>
                 </div>
                 {/* Progress bar */}
-                {Number(selectedProject.budget) > 0 && (
+                {effectiveTarget > 0 && (
                   <div className="mb-4">
                     <div className="h-2 bg-gray-100 rounded-full">
                       <div
                         className="h-2 bg-emerald-500 rounded-full transition-all"
-                        style={{ width: `${Math.min(100, Math.round((Number(selectedProject.totalPaid) / Number(selectedProject.budget)) * 100))}%` }}
+                        style={{ width: `${Math.min(100, Math.round((Number(selectedProject.totalPaid || 0) / effectiveTarget) * 100))}%` }}
                       />
                     </div>
                     <p className="text-[10px] text-gray-400 mt-1 text-right">
-                      {Math.min(100, Math.round((Number(selectedProject.totalPaid) / Number(selectedProject.budget)) * 100))}% of contract collected
+                      {Math.min(100, Math.round((Number(selectedProject.totalPaid || 0) / effectiveTarget) * 100))}% of contract collected {effectivePending > 0 && `(${formatCurrency(effectivePending)} left)`}
                     </p>
                   </div>
                 )}
@@ -1004,7 +1017,7 @@ export default function FashionProjectsPage() {
                       Record Advance Received
                     </span>
                     <span className="text-[11px] font-semibold text-amber-800">
-                      Pending Balance: <strong>{formatCurrency(selectedProject.remainingAmount || 0)}</strong>
+                      Pending Balance: <strong>{formatCurrency(effectivePending)}</strong>
                     </span>
                   </div>
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -1671,6 +1684,24 @@ export default function FashionProjectsPage() {
               </div>
             </div>
 
+            {/* Shoot / Contract Amount (client-facing billable amount) */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Shoot / Contract Amount (₹) <span className="text-gray-400 font-normal">— client-facing billable amount</span>
+              </label>
+              <div className="relative">
+                <IndianRupee className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                <input
+                  type="number" min={0}
+                  value={projectForm.budget}
+                  onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
+                  placeholder="e.g. 50000 (leave empty to auto-use Studio Amount + Model Cost)"
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27] font-semibold text-gray-900"
+                />
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">Total amount charged to client (determines pending balance / left money).</p>
+            </div>
+
             {/* Studio Amount (internal production cost) */}
             <div className="md:col-span-2">
               <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -1709,14 +1740,21 @@ export default function FashionProjectsPage() {
                   className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#C59B27]"
                 />
               </div>
-              {Number(projectForm.budget) > 0 && (
-                <p className="text-[10px] text-gray-500 mt-1 flex justify-between">
-                  <span>Pending Balance:</span>
-                  <strong className="text-amber-700 font-bold">
-                    {formatCurrency(Math.max(0, Number(projectForm.budget || 0) - Number((projectForm as any).advanceAmount || 0)))}
-                  </strong>
-                </p>
-              )}
+              {(() => {
+                const effectiveTarget = Number(projectForm.budget) > 0 
+                  ? Number(projectForm.budget) 
+                  : ((Number(projectForm.studioAmount) || Number(projectForm.baseBudget) || 0) + modalTotalModelCost);
+                if (effectiveTarget <= 0) return null;
+                const modalPending = Math.max(0, effectiveTarget - Number((projectForm as any).advanceAmount || 0));
+                return (
+                  <p className="text-[10px] text-gray-500 mt-1 flex justify-between">
+                    <span>Pending Balance (Left Money):</span>
+                    <strong className="text-amber-700 font-bold">
+                      {formatCurrency(modalPending)}
+                    </strong>
+                  </p>
+                );
+              })()}
             </div>
 
             {/* ─── Internal Cost Info (Model Fees — NOT added to client bill) ─── */}

@@ -89,6 +89,8 @@ export const getPaymentsByClient = asyncHandler(async (req: Request, res: Respon
         projectNumber: true,
         projectType: true,
         budget: true,
+        baseBudget: true,
+        studioAmount: true,
         customerId: true,
         customer: { select: { id: true, fullName: true, phone: true, email: true } },
       },
@@ -135,7 +137,11 @@ export const getPaymentsByClient = asyncHandler(async (req: Request, res: Respon
   // Compute aggregations per customer
   const clientRows = Array.from(customerMap.values()).map(entry => {
     const projectList = Array.from(entry.projects.values());
-    const projectTotalBudget = projectList.reduce((sum, prj) => sum + (Number(prj.budget) || 0), 0);
+    const projectTotalBudget = projectList.reduce((sum, prj) => {
+      const b = Number(prj.budget) || 0;
+      if (b > 0) return sum + b;
+      return sum + (Number(prj.baseBudget) || Number(prj.studioAmount) || 0);
+    }, 0);
     
     // Total received = payments with ADVANCE or DONE (or legacy without status)
     const receivedPayments = entry.payments.filter(p => isReceived(p.paymentStatus));
@@ -203,7 +209,7 @@ export const getFinanceSummary = asyncHandler(async (req: Request, res: Response
     }),
     prisma.project.findMany({
       where: whereProject,
-      select: { budget: true, projectType: true },
+      select: { budget: true, baseBudget: true, studioAmount: true, projectType: true },
     }),
   ]);
 
@@ -221,7 +227,11 @@ export const getFinanceSummary = asyncHandler(async (req: Request, res: Response
 
   const totalPendingAmt = pendingPayments.reduce((s, p) => s + Number(p.amount), 0);
 
-  const totalRevenue = allProjects.reduce((s, p) => s + Number(p.budget), 0);
+  const totalRevenue = allProjects.reduce((s, p) => {
+    const b = Number(p.budget) || 0;
+    if (b > 0) return s + b;
+    return s + (Number(p.baseBudget) || Number(p.studioAmount) || 0);
+  }, 0);
 
   // Outstanding = total project budgets minus what has been received
   const outstanding = Math.max(0, totalRevenue - totalReceived);

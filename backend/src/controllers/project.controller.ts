@@ -57,13 +57,16 @@ export const getProjects = asyncHandler(async (req: Request, res: Response) => {
     const receivedPayments = p.payments.filter((pay) => isReceived(pay.paymentStatus));
     const totalReceived = receivedPayments.reduce((acc, pay) => acc + Number(pay.amount), 0);
     const contractAmount = Number(p.budget); // budget column = contractAmount
-    const baseBudgetNum = Number(p.baseBudget);
+    const baseBudgetNum = Number(p.baseBudget) || Number(p.studioAmount) || 0;
     const totalModelCost = p.modelAssignments.reduce((s, ma) => s + Number(ma.modelRate), 0);
     const totalBudget = baseBudgetNum + totalModelCost;
-    const pendingAmount = Math.max(0, contractAmount - totalReceived);
+    // Effective billable/contract amount: if contractAmount > 0 use it, otherwise fall back to totalBudget (Base + Models)
+    const effectiveAmount = contractAmount > 0 ? contractAmount : totalBudget;
+    const pendingAmount = Math.max(0, effectiveAmount - totalReceived);
     return {
       ...p,
-      contractAmount,
+      contractAmount: effectiveAmount,
+      rawContractAmount: contractAmount,
       baseBudget: baseBudgetNum,
       totalModelCost,
       totalBudget,
@@ -104,16 +107,18 @@ export const getProject = asyncHandler(async (req: Request, res: Response) => {
   const receivedPayments = project.payments.filter((pay: any) => isReceived(pay.paymentStatus));
   const totalReceived = receivedPayments.reduce((acc: number, pay: any) => acc + Number(pay.amount), 0);
   const contractAmount = Number(project.budget);
-  const baseBudgetNum = Number(project.baseBudget);
+  const baseBudgetNum = Number(project.baseBudget) || Number(project.studioAmount) || 0;
   const totalModelCost = (project.modelAssignments as any[]).reduce((s, ma) => s + Number(ma.modelRate), 0);
   const totalBudget = baseBudgetNum + totalModelCost;
-  const pendingAmount = Math.max(0, contractAmount - totalReceived);
+  const effectiveAmount = contractAmount > 0 ? contractAmount : totalBudget;
+  const pendingAmount = Math.max(0, effectiveAmount - totalReceived);
 
   res.json({
     success: true,
     data: {
       ...project,
-      contractAmount,
+      contractAmount: effectiveAmount,
+      rawContractAmount: contractAmount,
       baseBudget: baseBudgetNum,
       totalModelCost,
       totalBudget,
@@ -142,10 +147,11 @@ export const getProjectFinancialSummary = asyncHandler(async (req: Request, res:
     .reduce((s, p) => s + Number(p.amount), 0);
 
   const contractAmount = Number(project.budget);
-  const baseBudgetNum = Number(project.baseBudget);
+  const baseBudgetNum = Number(project.baseBudget) || Number(project.studioAmount) || 0;
   const totalModelCost = project.modelAssignments.reduce((s, ma) => s + Number(ma.modelRate), 0);
   const totalBudget = baseBudgetNum + totalModelCost;
-  const pendingAmount = Math.max(0, contractAmount - totalReceived);
+  const effectiveAmount = contractAmount > 0 ? contractAmount : totalBudget;
+  const pendingAmount = Math.max(0, effectiveAmount - totalReceived);
 
   res.json({
     success: true,
@@ -154,7 +160,8 @@ export const getProjectFinancialSummary = asyncHandler(async (req: Request, res:
       baseBudget: baseBudgetNum,
       totalModelCost,
       totalBudget,
-      contractAmount,
+      contractAmount: effectiveAmount,
+      rawContractAmount: contractAmount,
       totalReceived,
       pendingAmount,
     },
@@ -225,7 +232,7 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
       projectType: isFashion ? 'FASHION' : 'WEDDING',
       status: resolvedStatus,
       customerId,
-      budget: Number(budget) || 0,
+      budget: Number(budget) > 0 ? Number(budget) : (resolvedBaseBudget || resolvedStudioAmount || 0),
       baseBudget: resolvedBaseBudget,
       startDate: resolvedStartDate,
       endDate: endDate ? new Date(endDate) : null,
