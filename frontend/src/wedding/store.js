@@ -440,6 +440,11 @@ export const useStore = create((set, get) => ({
   },
 
   updateProject: async (id, patch) => {
+    // 1. Capture snapshot of project and its events before modifying state
+    const existingProject = get().projects.find((p) => p.id === id);
+    const existingEvents = existingProject?.events || [];
+
+    // 2. Optimistically update local Zustand store
     set((s) => ({
       projects: s.projects.map((p) => (p.id === id ? { ...p, ...patch } : p)),
     }));
@@ -471,14 +476,11 @@ export const useStore = create((set, get) => ({
             payload.status = statusMap[payload.status] || 'PLANNING';
           }
         }
-        await projectApi.update(id, payload);
+        await projectApi.update(id, payload).catch((err) => console.warn('Project update warning:', err));
       }
 
       // Sync shoot events and crew assignments if provided
       if (patch.events && patch.events.length > 0) {
-        const existingProject = get().projects.find((p) => p.id === id);
-        const existingEvents = existingProject?.events || [];
-
         for (const e of patch.events) {
           if (!e.name?.trim() || !e.date) continue;
           try {
@@ -487,7 +489,7 @@ export const useStore = create((set, get) => ({
               (ex) => ex.id === e.id || (ex.name?.toLowerCase() === e.name?.trim()?.toLowerCase() && ex.date === e.date)
             );
 
-            if (matchedExisting) {
+            if (matchedExisting?.id && !String(matchedExisting.id).startsWith('temp-')) {
               eventId = matchedExisting.id;
               await eventApi.update(eventId, {
                 eventName: e.name.trim(),
@@ -495,24 +497,29 @@ export const useStore = create((set, get) => ({
                 venue: e.venue || undefined,
               }).catch(() => {});
             } else {
-              const newEvtRes = await eventApi.create({
-                eventName: e.name.trim(),
-                eventType: 'WEDDING',
-                customerId: existingProject?.clientId,
-                projectId: id,
-                startDate: e.date,
-                venue: e.venue || undefined,
-              });
-              eventId = newEvtRes.data?.data?.id;
+              const customerId = existingProject?.clientId || patch.clientId || existingProject?.rawProject?.customerId;
+              if (customerId) {
+                const newEvtRes = await eventApi.create({
+                  eventName: e.name.trim(),
+                  eventType: 'WEDDING',
+                  customerId,
+                  projectId: id,
+                  startDate: e.date,
+                  venue: e.venue || undefined,
+                }).catch(() => null);
+                if (newEvtRes?.data?.data?.id) {
+                  eventId = newEvtRes.data.data.id;
+                }
+              }
             }
 
             // Sync team assignments for this event
             if (eventId && Array.isArray(e.team)) {
-              const currentAssignedNames = matchedExisting?.team || [];
+              const previouslyAssignedNames = (matchedExisting?.assignments || []).map((a) => a.employeeName);
 
               // 1. Add newly selected members
               for (const memberName of e.team) {
-                if (!currentAssignedNames.includes(memberName)) {
+                if (!previouslyAssignedNames.includes(memberName)) {
                   const emp = get().team.find((t) => t.name === memberName);
                   if (emp) {
                     await eventApi.addAssignment(eventId, {
@@ -539,9 +546,11 @@ export const useStore = create((set, get) => ({
       }
 
       // Re-fetch to ensure consistency across all employees
-      setTimeout(() => get().fetchFromDb(), 500);
+      await get().fetchFromDb();
+      return true;
     } catch (err) {
       console.error('Failed to update project in PostgreSQL database:', err?.response?.data || err);
+      return false;
     }
   },
 

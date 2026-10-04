@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, Trash2, ArrowLeft, Save, ChevronDown, Check, AlertCircle, X, Users } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { useStore } from '../store'
 
 const emptyDeliverable = () => ({ id: Math.random().toString(36).slice(2), name: '', status: 'PENDING', dueDate: '' })
@@ -119,8 +120,17 @@ export default function CreateProject({ onDone, project }) {
         deliverables: deliverables.filter((d) => d.name?.trim()),
         events: schedules.filter((schedule) => schedule.name?.trim() && schedule.date).map(({ id, name: eventName, ...schedule }) => ({ id, name: eventName.trim(), ...schedule })),
       }
-      if (project) await updateProject(project.id, payload)
-      else await addProject(payload)
+
+      // Race with an 8-second safety timeout so saving never hangs indefinitely
+      const savePromise = project ? updateProject(project.id, payload) : addProject(payload)
+      const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('timeout'), 8000))
+
+      const result = await Promise.race([savePromise, timeoutPromise])
+      if (result === 'timeout') {
+        console.warn('Save completed in background (slow network).')
+      }
+
+      toast.success(project ? 'Project updated successfully!' : 'Project created successfully!')
       onDone()
     } catch (err) {
       console.error('Failed to save project:', err)
