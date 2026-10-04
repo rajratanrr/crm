@@ -32,6 +32,7 @@ export const createEmployeeSchema = z.object({
   specialization: z.string().max(150).optional().nullable(),
   availability: z.string().max(100).optional().nullable(),
   joiningDate: z.string().optional().nullable(),
+  domain: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
 });
 

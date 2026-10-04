@@ -52,6 +52,9 @@ const navigationSections = [
       { label: 'Calendar', route: '/wedding/calendar', icon: Calendar },
       { label: 'Leads', route: '/wedding/leads', icon: UserPlus },
       { label: 'Packages', route: '/wedding/packages', icon: Package },
+      { label: 'Employees', route: '/employees', icon: UsersRound },
+      { label: 'Attendance', route: '/attendance', icon: ClipboardList },
+      { label: 'Team Booking', route: '/team-booking', icon: CalendarDays },
     ],
   },
   {
@@ -62,6 +65,7 @@ const navigationSections = [
       { label: 'Fashion Clients', route: '/fashion/clients', icon: Users },
       { label: 'Models', route: '/fashion/models', icon: UserCircle },
       { label: 'Studio Calendar (For Rent)', route: '/fashion/bookings', icon: CalendarDays },
+      { label: 'Employees', route: '/fashion/employees', icon: UsersRound },
       { label: 'Payments', route: '/fashion/payments', icon: CreditCard },
     ],
   },
@@ -71,14 +75,6 @@ const navigationSections = [
       { label: 'All Projects', route: '/projects', icon: Camera },
       { label: 'Tasks', route: '/tasks', icon: ListChecks },
       { label: 'Calendar', route: '/calendar', icon: Calendar },
-    ],
-  },
-  {
-    section: 'TEAM',
-    items: [
-      { label: 'Employees', route: '/employees', icon: UsersRound },
-      { label: 'Attendance', route: '/attendance', icon: ClipboardList },
-      { label: 'Team Booking', route: '/team-booking', icon: CalendarDays },
     ],
   },
   {
@@ -107,9 +103,10 @@ export default function Sidebar() {
     if (route === '/clients') return location.pathname === '/clients' || location.pathname === '/customers';
     if (route === '/projects') return location.pathname === '/projects';
     if (route === '/wedding/packages') return location.pathname === '/wedding/packages' || location.pathname === '/packages';
-    if (route === '/wedding/contracts') return location.pathname === '/wedding/contracts' || location.pathname === '/contracts';
     if (route === '/wedding/deliverables') return location.pathname === '/wedding/deliverables' || location.pathname === '/deliverables';
     if (route === '/finance/payments') return location.pathname === '/finance/payments' || location.pathname === '/payments';
+    if (route === '/employees') return location.pathname === '/employees' || location.pathname === '/team' || location.pathname === '/wedding/employees' || location.pathname === '/wedding/team';
+    if (route === '/fashion/employees') return location.pathname === '/fashion/employees';
     return location.pathname === route || location.pathname.startsWith(route + '/');
   };
 

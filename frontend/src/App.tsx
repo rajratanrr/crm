@@ -101,7 +101,7 @@ export default function App() {
               <Route path="/wedding/calendar" element={<WeddingCalendarPage />} />
               <Route path="/wedding/leads" element={<WeddingLeadsPage />} />
               <Route path="/wedding/attendance" element={<WeddingAttendancePage />} />
-              <Route path="/wedding/team" element={<WeddingTeamPage />} />
+              <Route path="/wedding/team" element={<TeamPage domain="WEDDING" />} />
               <Route path="/wedding/chat" element={<WeddingChatPage />} />
               <Route path="/wedding/workspace" element={<Navigate to="/dashboard" replace />} />
 
@@ -111,12 +111,15 @@ export default function App() {
               <Route path="/fashion/models" element={<FashionModelsPage />} />
               <Route path="/fashion/garments" element={<FashionGarmentsPage />} />
               <Route path="/fashion/bookings" element={<FashionBookingsPage />} />
+              <Route path="/fashion/employees" element={<TeamPage domain="FASHION" />} />
               <Route path="/fashion/payments" element={<FashionPaymentsPage />} />
               <Route path="/fashion/deliverables" element={<Navigate to="/fashion/projects" replace />} />
 
-              {/* Team & Operations */}
-              <Route path="/team" element={<TeamPage />} />
-              <Route path="/employees" element={<TeamPage />} />
+              {/* Team & Operations (Wedding & Studio) */}
+              <Route path="/team" element={<TeamPage domain="WEDDING" />} />
+              <Route path="/employees" element={<TeamPage domain="WEDDING" />} />
+              <Route path="/wedding/employees" element={<TeamPage domain="WEDDING" />} />
+              <Route path="/wedding/team-booking" element={<TeamBookingPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/team-booking" element={<TeamBookingPage />} />
 

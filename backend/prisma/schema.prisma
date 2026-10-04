@@ -127,6 +127,15 @@ enum EmployeeRole {
   ACCOUNTANT
   STYLIST
   MAKEUP_ARTIST
+  PHOTO_EDITOR
+  VIDEO_EDITOR
+  SALES_PERSON
+  ACCOUNTS
+  PRODUCT_MANAGER
+  STEEM_BOY
+  HELPING_HAND
+  ROTE_BOY
+  SHOOT_MANAGER
   TRADITIONAL_PHOTOGRAPHER
   TRADITIONAL_VIDEOGRAPHER
   CANDID_PHOTOGRAPHER
@@ -553,6 +562,7 @@ model Employee {
   phone          String?      @db.VarChar(20)
   email          String?      @db.VarChar(180)
   role           EmployeeRole
+  domain         String?      @default("WEDDING") @db.VarChar(20)
   specialization String?      @db.VarChar(150)
   availability   String?      @db.VarChar(100)
   joiningDate    DateTime?    @db.Date

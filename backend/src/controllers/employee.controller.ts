@@ -7,7 +7,14 @@ import { ApiError } from '../utils/ApiError';
 
 
 export const getEmployees = asyncHandler(async (req: Request, res: Response) => {
+  const { domain } = req.query as Record<string, string>;
+  const where: any = {};
+  if (domain) {
+    where.domain = domain.toUpperCase();
+  }
+
   const employees = await prisma.employee.findMany({
+    where,
     orderBy: { name: 'asc' },
     include: { _count: { select: { assignments: true, tasks: true } } },
   });
@@ -32,6 +39,8 @@ const normalizeRole = (role?: string) => {
   const valid = [
     'PHOTOGRAPHER', 'VIDEOGRAPHER', 'DRONE_OPERATOR', 'EDITOR', 'ALBUM_DESIGNER',
     'MANAGER', 'SALES_EXECUTIVE', 'ACCOUNTANT', 'STYLIST', 'MAKEUP_ARTIST',
+    'PHOTO_EDITOR', 'VIDEO_EDITOR', 'SALES_PERSON', 'ACCOUNTS', 'PRODUCT_MANAGER',
+    'STEEM_BOY', 'HELPING_HAND', 'ROTE_BOY', 'SHOOT_MANAGER',
     'TRADITIONAL_PHOTOGRAPHER', 'TRADITIONAL_VIDEOGRAPHER', 'CANDID_PHOTOGRAPHER',
     'CINEMATIC_VIDEOGRAPHER', 'DRONE', 'MOBILE_CONTENT_CREATOR',
     'TRADITIONAL_PHOTO_EDITOR', 'TRADITIONAL_VIDEO_EDITOR', 'CANDID_PHOTO_EDITOR',
