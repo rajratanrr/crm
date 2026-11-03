@@ -12,6 +12,8 @@ import {
   Filter,
   Users,
   Camera,
+  Search,
+  X,
 } from 'lucide-react';
 import { eventApi, fashionBookingApi, projectApi } from '../../services/api';
 import { formatDate } from '../../lib/utils';
@@ -28,6 +30,7 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDayEvents, setSelectedDayEvents] = useState<any[]>([]);
   const [selectedDateStr, setSelectedDateStr] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadAll = async () => {
     try {
@@ -58,9 +61,13 @@ export default function CalendarPage() {
     events.forEach((evt) => {
       const date = evt.startDate ? new Date(evt.startDate) : null;
       if (date && !isNaN(date.getTime())) {
+        // Find the project name for this event
+        const linkedProject = projects.find((p: any) => p.id === evt.projectId);
+        const projectName = linkedProject?.name || evt.customer?.fullName || evt.eventName;
         calendarItems.push({
           id: `evt-${evt.id}`,
-          title: evt.eventName,
+          title: projectName,
+          eventName: evt.eventName,
           date: date,
           dateKey: date.toISOString().slice(0, 10),
           type: 'WEDDING',
@@ -98,6 +105,20 @@ export default function CalendarPage() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth(); // 0-indexed
 
+  // Apply search filter
+  const filteredCalendarItems = searchQuery.trim()
+    ? calendarItems.filter((item) => {
+        const q = searchQuery.toLowerCase();
+        return (
+          item.title?.toLowerCase().includes(q) ||
+          item.eventName?.toLowerCase().includes(q) ||
+          item.client?.toLowerCase().includes(q) ||
+          item.subType?.toLowerCase().includes(q) ||
+          item.location?.toLowerCase().includes(q)
+        );
+      })
+    : calendarItems;
+
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
@@ -129,7 +150,7 @@ export default function CalendarPage() {
   // Actual month days
   for (let d = 1; d <= daysInMonth; d++) {
     const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const dayItems = calendarItems.filter((item) => item.dateKey === dStr);
+    const dayItems = filteredCalendarItems.filter((item) => item.dateKey === dStr);
     calendarCells.push({
       day: d,
       dateKey: dStr,
@@ -171,7 +192,7 @@ export default function CalendarPage() {
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
-            All Shoots ({calendarItems.length})
+            All Shoots ({filteredCalendarItems.length})
           </button>
           <button
             onClick={() => setFilter('WEDDING')}
@@ -223,6 +244,28 @@ export default function CalendarPage() {
             >
               <ChevronRight className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-gray-50 rounded-xl px-3 py-2 border border-gray-200 w-64 focus-within:border-[#C59B27] transition-all">
+            <Search className="w-4 h-4 text-gray-400 mr-2 shrink-0" />
+            <input
+              type="text"
+              placeholder="Search events, clients, venues..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent text-sm outline-none w-full"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="p-0.5 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -300,9 +343,15 @@ export default function CalendarPage() {
                         </div>
                       ))}
                       {cell.items.length > 3 && (
-                        <span className="text-[9px] text-gray-500 font-semibold px-1">
-                          +{cell.items.length - 3} more
-                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCellClick(cell);
+                          }}
+                          className="text-[9px] text-[#C59B27] font-bold px-1 hover:underline cursor-pointer"
+                        >
+                          +{cell.items.length - 3} more — view all
+                        </button>
                       )}
                     </div>
                   </>
@@ -358,7 +407,7 @@ export default function CalendarPage() {
                         <span className="text-xs font-bold text-gray-900">{item.title}</span>
                       </div>
                       <p className="text-[11px] text-gray-500 mt-0.5">
-                        Client: {item.client || 'N/A'} &bull; {item.subType}
+                        {item.eventName && item.eventName !== item.title ? `${item.eventName} • ` : ''}Client: {item.client || 'N/A'} &bull; {item.subType}
                       </p>
                     </div>
                     <StatusBadge status={item.status} />

@@ -81,10 +81,10 @@ export default function Calendar() {
                     <div className="space-y-1">
                       {evs.slice(0, 2).map((e) => (
                         <button key={e.id} onClick={() => setSelectedEvent(e)} className={`block w-full text-left text-[10px] font-medium px-1.5 py-0.5 rounded truncate ${eventColor(e.name)}`}>
-                          {e.name}
+                          {e.project || e.name}
                         </button>
                       ))}
-                      {evs.length > 2 && <div className="text-[10px] text-gray-400">+{evs.length - 2} more</div>}
+                      {evs.length > 2 && <button onClick={() => setSelectedEvent(evs[0])} className="text-[10px] text-brand-600 font-bold hover:underline cursor-pointer">+{evs.length - 2} more — view all</button>}
                     </div>
                   </>
                 )}

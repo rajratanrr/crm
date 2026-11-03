@@ -4,41 +4,74 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Initializing Studio CRM database...');
+  console.log('🌱 Seeding Studio CRM database (safe — no data deletion)...');
 
-  // Clear existing records
-  await prisma.notification.deleteMany();
-  await prisma.interaction.deleteMany();
-  await prisma.deliverable.deleteMany();
-  await prisma.task.deleteMany();
-  await prisma.eventAssignment.deleteMany();
-  await prisma.payment.deleteMany();
-  await prisma.invoice.deleteMany();
-  await prisma.contractItem.deleteMany();
-  await prisma.contract.deleteMany();
-  await prisma.eventSubEvent.deleteMany();
-  await prisma.event.deleteMany();
-  await prisma.packageService.deleteMany();
-  await prisma.package.deleteMany();
-  await prisma.lead.deleteMany();
-  await prisma.customer.deleteMany();
-  await prisma.employee.deleteMany();
-  await prisma.user.deleteMany();
+  // ─── UPSERT Admin user (creates if missing, skips if already exists) ───
+  const adminEmail = 'admin@studio.com';
+  const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
 
-  // Create clean initial Admin user
-  const passwordHash = await bcrypt.hash('Admin@123', 12);
-  const admin = await prisma.user.create({
-    data: {
-      name: 'Studio Owner',
-      email: 'admin@studio.com',
-      passwordHash,
-      role: 'OWNER',
-      phone: '9876543210',
-    },
-  });
+  if (!existingAdmin) {
+    const passwordHash = await bcrypt.hash('Admin@123', 12);
+    const admin = await prisma.user.create({
+      data: {
+        name: 'Studio Owner',
+        email: adminEmail,
+        passwordHash,
+        role: 'OWNER',
+        phone: '9876543210',
+      },
+    });
+    console.log(`✅ Admin account created: ${admin.email} (Password: Admin@123)`);
+  } else {
+    console.log(`✅ Admin account already exists: ${existingAdmin.email} — skipped.`);
+  }
 
-  console.log(`✅ Clean database initialized successfully!`);
-  console.log(`📧 Admin account: ${admin.email} (Password: Admin@123)`);
+  // ─── UPSERT Manager user ───
+  const managerEmail = 'manager@studio.com';
+  const existingManager = await prisma.user.findUnique({ where: { email: managerEmail } });
+
+  if (!existingManager) {
+    const passwordHash = await bcrypt.hash('Manager@123', 12);
+    const manager = await prisma.user.create({
+      data: {
+        name: 'Studio Manager',
+        email: managerEmail,
+        passwordHash,
+        role: 'MANAGER',
+        phone: '9876543211',
+      },
+    });
+    console.log(`✅ Manager account created: ${manager.email} (Password: Manager@123)`);
+  } else {
+    console.log(`✅ Manager account already exists: ${existingManager.email} — skipped.`);
+  }
+
+  // ─── UPSERT Sales user ───
+  const salesEmail = 'sales@studio.com';
+  const existingSales = await prisma.user.findUnique({ where: { email: salesEmail } });
+
+  if (!existingSales) {
+    const passwordHash = await bcrypt.hash('Sales@123', 12);
+    const sales = await prisma.user.create({
+      data: {
+        name: 'Sales Executive',
+        email: salesEmail,
+        passwordHash,
+        role: 'SALES',
+        phone: '9876543212',
+      },
+    });
+    console.log(`✅ Sales account created: ${sales.email} (Password: Sales@123)`);
+  } else {
+    console.log(`✅ Sales account already exists: ${existingSales.email} — skipped.`);
+  }
+
+  console.log(`\n🎉 Database seeding complete! No existing data was deleted.`);
+  console.log(`\n📋 Available login credentials:`);
+  console.log(`   Owner:   admin@studio.com   / Admin@123`);
+  console.log(`   Manager: manager@studio.com / Manager@123`);
+  console.log(`   Sales:   sales@studio.com   / Sales@123`);
+  console.log(`\n💡 Owners & Managers can create more user accounts from the Team page.`);
 }
 
 main()
